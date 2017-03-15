@@ -44,9 +44,9 @@ do
 done
 ##EOF
 cat > tambourine_9_hnd.inc <<-\#EOF
-//Steal cy_ride_20_top and cy_splash_12_top keys as not used for hnd
-#define $pn_tamborine_hit 27
-#define $pn_tamborine_jng 030
+//Steal cy_splash_8_top and cy_splash_12_top keys as not used for hnd
+#define $pn_tamborine_hit 30
+#define $pn_tamborine_jng 031
 
 // Fix up for normalised samples
 <curve> curve_index=99 v1=0.03125 v127=1
