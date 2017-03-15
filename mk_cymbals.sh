@@ -4,29 +4,31 @@ for x in *.sfz
 do
 	[[ $x =~ ^(.+_)cy(.+)_.+\.sfz$ ]] && echo "#include \"cymbals/$x\"" >> ${BASH_REMATCH[1]}${BASH_REMATCH[2]}.inc
 done
+
 #cat >/dev/null <<-\#EOF
 for fn in *inc
 do {
 	# Some bel articulations are straight triggers:
-	[[ $fn =~ ^ride_(19_(brs|mlt|stx)|20_(brs|stx))\.inc$ ]]
+	[[ $fn =~ ^((ride|sizzle)_19|ride_20)_.+$ ]]
 	has_bel=$?
 
 	#crs - only ride_19_stx
 
-	#ride_20_elv is a trigger
-	[[ $fn =~ ^(ride_19|sizzle_19)_stx.inc$ ]]
-	has_elv=$?
+	#elv - trigger for ride_20_stx, else articulation
 
-	#grb/grc/grt - everything (ride_19_stx is complicated)
+	#grb/grt - everything (grt for ride_19_stx)
+
+	#grc - only ride_19_stx
 
 	#ord - everything
 
-	#rim/rol/sws - only ever one; the following DO NOT have one
-	[[ $fn =~ ^(.+_hnd|sizzle_19.+|(china_19|splash_[89])_stx).inc$ ]]
-	no_rim=$?
+	#rim - stx not china_19, splash_8 or splash_9
 
-	[[ $fn =~ ^(china_19|crash_1[58]|splash_12)_stx.inc$ ]]
-	has_top=$?
+	#rol - mlt but splash_9_mlt is different
+
+	#sws - brs but splash_9_brs is different
+
+	#top - stx (faked for bel/rol/sws - except for splash_9, which uses ord)
 
 	while read x
 	do
@@ -38,91 +40,78 @@ do {
 
 		# Working out what key
 		key="${cy}_${sz}"
-		if [[ $art == ord || $art == top || ( $art == bel && "$cy$sz" =~ ^(ride(19|20)|sizzle19)$ ) ]]
+		if [[ $art == ord || $art == top || ( $art == bel && $has_bel == 0 ) ]]
 		then
 			key="${key}_${art}"
-		elif [[ "$cy$sz" == "splash8" && $art =~ ^bel|rol$ ]]
+		elif [[ $art == rim && "${cy}${sz}" == ride19 ]]
+		then
+			key="${key}_bel"
+		elif [[ $art == gr[bt] || "${cy}${sz}" == splash9 ]]
 		then
 			key="${key}_ord"
-		elif [[ $art == gr[bt] ]]
-		then
-			key="${key}_ord"
-		elif [[ $art == grc ]]
-		then
-			key="${key}_top"
-		elif [[ $art =~ ^bel|crs|elv|rim|rol|sws$ ]]
-		then
+		else
 			key="${key}_top"
 		fi
 
 		echo '<group>'
 		echo " key=\$cy_${key}"
-		[[ $art == gr[bct] ]] && {
+
+		if [[ $art == gr[bct] ]]
+		then
 			echo " group=500\$cy_${cy}_${sz}_ord000"
-		} || {
-			echo " group=600\$cy_${cy}_${sz}_ord000 off_by=500\$cy_${cy}_${sz}_ord000"
-		}
+		else
+			[[ $art != rol ]] && echo " group=600\$cy_${cy}_${sz}_ord000 off_by=500\$cy_${cy}_${sz}_ord000"
+		fi
+
+		# Sometimes we need to fake a trigger
+		if [[ ( "${cy}${sz}" == splash8 && $art == bel ) || ( "${cy}${sz}" != splash9 && ( $art == rol || $art == sws ) ) ]]
+		then
+			[[ $art == rol ]] && echo " group=600\$cy_${cy}_${sz}_ord000 off_by=500\$cy_${cy}_${sz}_ord000"
+			echo ' locc$MOD=000 hicc$MOD=045'
+			echo ${x/${art}/ord}
+			echo '<group>'
+			echo " key=\$cy_${key}"
+			[[ $art != rol ]] && echo " group=600\$cy_${cy}_${sz}_ord000 off_by=500\$cy_${cy}_${sz}_ord000"
+		fi
 
 		case $art in
-			ord)
-				echo ' locc$MOD=000 hicc$MOD=126'
-				[[ $fn == *_hnd.inc ]] && {
-                                    echo $x
-                                    echo '<group>'
-                                    echo " key=\$cy_${key/ord/top}"
-                                    echo " group=600\$cy_${cy}_${sz}_ord000 off_by=500\$cy_${cy}_${sz}_ord000"
-				}
-			;;
-			top)
-				[[ $has_bel == 0 || $has_elv == 0 ]] && {
-					echo ' locc$MOD=000 hicc$MOD=045'
-				} || {
-					[[ $no_rim != 0 ]] && echo ' locc$MOD=000 hicc$MOD=085'
-				}
-			;;
 			bel)
+				# Sometimes trigger; splash 8 articulation needs fake trigger
 				if [[ $has_bel == 0 ]]
 				then
-					[[ $no_rim != 0 ]] && { echo ' locc$MOD=046 hicc$MOD=127'; } || { echo ' locc$MOD=046 hicc$MOD=085'; }
+					[[ "${cy}${sz}" == ride19 ]] && { echo ' locc$MOD=000 hicc$MOD=085'; }
+				else
+					[[ "${cy}${sz}" == splash8 ]] && { echo ' locc$MOD=046 hicc$MOD=127'; } || { echo ' locc$MOD=046 hicc$MOD=085'; }
 				fi
 			;;
 			crs)
-				echo ' locc$MOD=000 hicc$MOD=045'
+				# Always trigger
+				echo ' locc$MOD=000 hicc$MOD=085'
 			;;
 			elv)
-				[[ $has_elv == 0 ]] && {
-					[[ $no_rim != 0 ]] && { echo ' locc$MOD=046 hicc$MOD=085'; } || { echo ' locc$MOD=046 hicc$MOD=126'; }
-				}
+				# Ride 19, crs articulation; ride 20 trigger
+				[[ $sz == 19 ]] && { echo ' locc$MOD=086 hicc$MOD=126'; } || { echo ' locc$MOD=000 hicc$MOD=085'; }
 			;;
 			gr[bct])
+				# Never trigger
 				echo ' locc$MOD=127 hicc$MOD=127'
 			;;
-			sws)
-				echo ' locc$MOD=000 hicc$MOD=085'
-				echo ${x/sws/ord}
-				echo '<group>'
-				echo " key=\$cy_${key}"
-				echo " group=600\$cy_${cy}_${sz}_ord000 off_by=500\$cy_${cy}_${sz}_ord000"
-				echo ' locc$MOD=086 hicc$MOD=127'
+			ord)
+				# Always trigger - splash9 allow for rol/sws
+				[[ $fn =~ ^splash_9_(brs|mlt)\.inc$ ]] && { echo ' locc$MOD=000 hicc$MOD=045'; } || { echo ' locc$MOD=000 hicc$MOD=126'; }
 			;;
 			rim)
-				[[ $fn == ride_19_stx.inc ]] && {
-				 	echo ' locc$MOD=086 hicc$MOD=126'
-				} || {
-					[[ $has_bel == 0 ]] && {
-						[[ $has_elv == 0 ]] && { echo ' locc$MOD=086 hicc$MOD=127'; } || { echo ' locc$MOD=046 hicc$MOD=127'; }
-					} || {
-						[[ $has_elv == 0 ]] && { echo ' locc$MOD=086 hicc$MOD=127'; }
-					}
-				}
+				# Never trigger
+				echo ' locc$MOD=086 hicc$MOD=127'
 			;;
-			rol)
-				[[ $has_bel == 0 ]] && {
-					[[ $has_elv == 0 ]] && { echo ' locc$MOD=086 hicc$MOD=127'; } || { echo ' locc$MOD=046 hicc$MOD=127'; }
-				} || {
-					[[ $has_elv == 0 ]] && { echo ' locc$MOD=086 hicc$MOD=127'; }
-				}
-				echo " group=601\$cy_${cy}_${sz}_ord000 off_by=100000000"
+			rol|sws)
+				# Never trigger
+				[[ "${cy}${sz}" == splash9 ]] && { echo ' locc$MOD=046 hicc$MOD=126'; } || { echo ' locc$MOD=046 hicc$MOD=127'; }
+				[[ $art == rol ]] && echo " group=601\$cy_${cy}_${sz}_ord000 off_by=100000000"
+			;;
+			top)
+				# Always trigger
+				[[ $cy == china ]] && { echo ' locc$MOD=000 hicc$MOD=085'; } || { echo ' locc$MOD=000 hicc$MOD=045'; }
 			;;
 		esac
 		echo $x
@@ -151,41 +140,35 @@ done
 #cat >/dev/null <<-\#EOF
 for x in {brs,hnd,mlt,stx}_{ride19,sizzle19}.sfz
 do
-	cat > x <<-\@EOF
-		#define $cy_china_19_ord 052
-		#define $cy_crash_15_ord 057
-		#define $cy_crash_18_ord 049
-		#define $cy_ride_20_ord 051
-		#define $cy_splash_8_ord 055
-		#define $cy_splash_9_ord 058
-		#define $cy_splash_12_ord 054
-
-		#define $cy_china_19_top 28
-		#define $cy_splash_9_top 32
-		#define $cy_crash_15_top 33
+	cy=$(basename -s 19.sfz ${x:4})
+	{
+	echo "//cy_${cy} kit"
+	cat <<-\@EOF
 		#define $cy_crash_18_top 25
 		#define $cy_ride_20_top 27
+		#define $cy_china_19_top 28
 		#define $cy_splash_12_top 30
 		#define $cy_splash_8_top 31
-		//Does not appear to be mapped (for /rol):
-
-		#define $cy_ride_20_bel 53
-
+		#define $cy_crash_15_top 33
+		// no cy_splash_9_top
 @EOF
-	[[ $x == *ride19.sfz ]] && cat >> x <<-\@EOF
-		//cy_ride_19 kit
-		#define $cy_ride_19_ord 059
-		#define $cy_ride_19_top 34
-		#define $cy_ride_19_bel 60
-
+	echo   "#define \$cy_${cy}_19_top 34"
+	echo   ""
+	cat <<-\@EOF
+		#define $cy_crash_18_ord 049
+		#define $cy_ride_20_ord 051
+		#define $cy_china_19_ord 052
+		#define $cy_splash_12_ord 054
+		#define $cy_splash_8_ord 055
+		#define $cy_crash_15_ord 057
+		#define $cy_splash_9_ord 058
 @EOF
-	[[ $x == *sizzle19.sfz ]] && cat >> x <<-\@EOF
-		//cy_sizzle_19 kit
-		#define $cy_sizzle_19_ord 059
-		#define $cy_sizzle_19_top 34
-		#define $cy_sizzle_19_bel 60
-
-@EOF
+	echo   "#define \$cy_${cy}_19_ord 059"
+	echo   ""
+	echo   "#define \$cy_ride_20_bel 53"
+	echo   "#define \$cy_${cy}_19_bel 60"
+	echo   ""
+	} > x
 	cat $x >> x
 	mv x $x
 done
