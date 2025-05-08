@@ -1,0 +1,5 @@
+lo_cc$FC=0 hi_cc$FC=24 
+lo_cc$FC=25 hi_cc$FC=49 
+lo_cc$FC=50 hi_cc$FC=75 
+lo_cc$FC=76 hi_cc$FC=101 
+lo_cc$FC=102 hi_cc$FC=127 

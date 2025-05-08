@@ -1,0 +1,13 @@
+lo_cc$FC=0 hi_cc$FC=8 
+lo_cc$FC=9 hi_cc$FC=17 
+lo_cc$FC=18 hi_cc$FC=27 
+lo_cc$FC=28 hi_cc$FC=37 
+lo_cc$FC=38 hi_cc$FC=47 
+lo_cc$FC=48 hi_cc$FC=57 
+lo_cc$FC=58 hi_cc$FC=67 
+lo_cc$FC=68 hi_cc$FC=77 
+lo_cc$FC=78 hi_cc$FC=87 
+lo_cc$FC=88 hi_cc$FC=97 
+lo_cc$FC=98 hi_cc$FC=107 
+lo_cc$FC=108 hi_cc$FC=117 
+lo_cc$FC=118 hi_cc$FC=127 
