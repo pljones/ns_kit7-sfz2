@@ -1,0 +1,194 @@
+Skip to content
+You said:
+I've a question about SFZ2.0 with ARIA extensions around use of ampeg_release (see https://sfzformat.com/opcodes/ampeg_releaseccN/).
+
+I have a 15 second sample that will be triggered normally.  However, when CC130 (polyphonic aftertouch) is received, I want to choke the sample, with the speed of reduction depending on the level of the CC130 value - i.e. a higher level should produced a shorter choke time.
+
+I've come up with this:
+
+<global> loop_mode=oneshot
+// ride.wav lasts about 15 seconds and choking should take no less than 0.2 seconds
+<region> group=1 off_by=2
+ ampeg_release=15 ampeg_releasecc130=14.8 ampeg_release_curvecc130=6
+ sample=ride.wav
+<region>
+ on_locc130=1 on_hicc130=127
+ sample=*silence
+
+ChatGPT said:
+
+You're definitely on the right track, and you're creatively using SFZ2.0 and ARIA's CC modulation system. Let's walk through what you're trying to do and how the SFZ engine (particularly with ARIA extensions) would interpret it.
+✅ What You're Trying to Do:
+
+    You want a long sample (ride.wav, 15s) to be cut short ("choked") when CC130 (poly aftertouch) is received.
+
+    The higher the CC130 value, the shorter the release time (faster fade out).
+
+    You want minimum release time to be about 0.2s, not an immediate stop.
+
+    You're using ampeg_releasecc130 and a curve to modulate the release time.
+
+🔍 Review of Your Current Code:
+
+<global> loop_mode=oneshot
+
+<region> group=1 off_by=2
+ ampeg_release=15
+ ampeg_releasecc130=14.8
+ ampeg_release_curvecc130=6
+ sample=ride.wav
+
+<region>
+ on_locc130=1 on_hicc130=127
+ sample=*silence
+
+Let’s break it down:
+
+    ampeg_release=15 + ampeg_releasecc130=14.8
+
+        This makes the release time range from 15s (CC130=0) to 0.2s (CC130=127).
+
+        With curve 6, it’s an exponential falloff (more sensitive at higher CC values), which is appropriate for your intent.
+
+    sample=*silence region triggered when CC130 is received
+
+        This region plays silence and is meant to trigger the off_by group, effectively "choking" the original note.
+
+        Clever trick—but it has a caveat:
+
+            It might trigger a new note rather than just affecting the previous one.
+
+            Depending on the SFZ engine implementation, the new silent region might not properly trigger the off_by on its own if it’s not tied to a key or note.
+
+🔧 Suggested Fixes & Improvements:
+
+    Make sure the silence-triggering region actually triggers the off_by:
+
+        Either explicitly give it a key or use trigger=release if your engine supports it, or find a way to ensure it fires a note.
+
+    Alternative method (Recommended): Use a dedicated MIDI controller region to send off_by without triggering audio:
+
+You could do this instead:
+
+<global> loop_mode=one_shot
+
+<region> group=1 off_by=2
+ ampeg_release=15
+ ampeg_releasecc130=14.8
+ ampeg_release_curvecc130=6
+ sample=ride.wav
+
+<region> 
+ sw_locc130=1
+ sw_hicc130=127
+ off_by=1
+ key=0  // use an unreachable key or your designated "trigger"
+ sample=*silence
+ lokey=0 hikey=0
+
+Explanation:
+
+    When CC130 is moved above 0, this region is eligible.
+
+    When it is "played" (e.g., through a hidden MIDI note or automated switch), it triggers off_by=1, killing the other region in group=1.
+
+    Because sample=*silence, it plays nothing.
+
+    key=0 with lokey=0 hikey=0 makes sure it only fires when you want (like via a specific hidden MIDI trigger or automation).
+
+💡 Bonus Tip – Debugging
+
+To debug whether the modulation is working:
+
+    Temporarily set ampeg_release=2 and ampeg_releasecc130=-1.9 so that the range is narrower and easier to observe.
+
+    Use a MIDI tool to manually send CC130 values (e.g., 0, 64, 127) and listen to the release times.
+
+✅ Summary
+
+    Your modulation logic with ampeg_releasecc130 is solid.
+
+    You may need to rethink how the choke is triggered—your current silence region may not fire properly.
+
+    Using off_by via a hidden region with a known key or automation could be more reliable than relying solely on on_locc130.
+
+Let me know what sampler or host you're using (ARIA Player, Sforzando, etc.)—I can tailor the approach more specifically.
+You said:
+It's the latest Sforzando version, so I'm pretty sure on_lo/hicc will work.
+ChatGPT said:
+
+Perfect — since you're using the latest Sforzando, you're in great shape. Sforzando does fully support on_locc/on_hicc and responds well to off_by and group mechanics, so your approach should work with just a couple of tweaks to make it rock-solid.
+✅ Here's a refined version of your SFZ:
+
+<global>
+loop_mode=one_shot
+
+<region> group=1 off_by=2
+sample=ride.wav
+ampeg_release=15
+ampeg_releasecc130=14.8
+ampeg_release_curvecc130=6
+
+<region> group=2
+off_by=1
+on_locc130=1 on_hicc130=127
+sample=*silence
+
+🔍 Explanation of Tweaks:
+
+    group=1 off_by=2 on the main ride sample:
+
+        Puts it in its own group.
+
+        It will be turned off by anything in group=2 (see below).
+
+    group=2 off_by=1 on the silent region:
+
+        Triggers when any value from 1–127 is received on CC130.
+
+        It doesn’t play sound (because sample=*silence) but acts as a choke trigger.
+
+        By assigning it group=2 and off_by=1, it can also clear itself or similar triggers if needed, preventing buildup.
+
+🎯 How It Works
+
+When CC130 is sent:
+
+    The silent region gets triggered via on_locc130/on_hicc130.
+
+    That region is in group=2, and because it has off_by=1, it will cut off the ride sample in group=1.
+
+    The ride.wav sample responds to ampeg_releasecc130, so the release time dynamically adapts to CC130.
+
+For example:
+
+    CC130 = 1 → Release ≈ 15s (barely any choke)
+
+    CC130 = 127 → Release ≈ 0.2s (fast choke)
+
+✅ Optional Nice Touch:
+
+If you want the choke to be smoother or less abrupt at low velocities, you can refine the curve using different values in ampeg_release_curvecc130:
+Curve	Description
+0	Linear
+4	Convex (faster decay at high CC)
+6	Exponential (strong response at high CC)
+
+You're already using curve 6, which is great — but try 4 or even 0 if you want a different taper.
+
+Let me know if you'd like to make this velocity-dependent too, or if you want to support aftertouch per-key via MPE (that’s a fun rabbit hole 😄).
+You said:
+Good spot on the group=2 on the sample=*silence, thank.
+ChatGPT said:
+
+You're very welcome — happy to help tighten things up! That group=2 bit is sneaky but crucial for clean off_by behavior, especially when you're using silent regions as control triggers like that.
+
+Let me know if you end up adding more layers (like velocity-sensitive chokes, round-robin rides, or per-key control with poly AT). There's a lot of cool stuff SFZ + ARIA can pull off with a bit of modular thinking.
+
+And if anything ever sounds weird in playback, just drop me a snippet of the SFZ or a MIDI test case — happy to troubleshoot.
+
+Rock on with your sample set! 🥁✨
+Do you like this personality
+
+
+ChatGPT can make mistakes. Check important info.
