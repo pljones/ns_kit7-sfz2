@@ -69,19 +69,18 @@ cat <<-\@EOF
 #define $PAN 010
 
 <control>
-  set_cc$MOD=000  label_cc$MOD=Mod Whl    (cc$MOD)
-  set_cc$FC=127   label_cc$FC=Foot Ctrler (cc$FC)
-  set_cc$VOL=127  label_cc$VOL=Kit VOL    (cc$VOL)
-  set_cc$PAN=64   label_cc$PAN=Kit PAN    (cc$PAN)
+ hint_ram_based=1
+ octave_offset=0
+ set_cc$MOD=000  label_cc$MOD=Mod Whl    (cc$MOD)
+ set_cc$FC=127   label_cc$FC=Foot Ctrler (cc$FC)
+ set_cc$VOL=127  label_cc$VOL=Kit VOL    (cc$VOL)
+ set_cc$PAN=64   label_cc$PAN=Kit PAN    (cc$PAN)
 
   
 <global>
  loop_mode=one_shot off_mode=normal
  volume_cc$VOL=0 pan_cc$PAN=0
  ampeg_release=.2
-
-<control>
- octave_offset=0
 
 // "Any other hand strike" to mute rolls
 <group> sample=*silence
