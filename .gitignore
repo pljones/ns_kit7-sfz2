@@ -1,0 +1,15 @@
+_kits/
+cymbals/
+hihats/
+kicks/
+_misc/
+_nsmr/
+percussion/
+snares/
+toms/
+_td-27kv2_scripts/kit_pieces
+_td-27kv2_scripts/triggers
+_td-27kv2_scripts/_sfzs
+_td-27kv2_scripts/tmp
+ns_kits7-all_samples-db_ranges.txt
+ns_kits7-all_samples-velocities.txt
