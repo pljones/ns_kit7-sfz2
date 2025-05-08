@@ -1,0 +1,126 @@
+//***
+// Aria Player sfz Mapping for Natural Studio ns_kit7
+// Mapping Copyright (C) 2025 Peter L Jones
+//***
+
+
+// Work in progress:
+//
+// head <<== 0 tomAuxCC 127 ==>> rim
+//
+// #define $tomAuxCC   081
+// #define $tomAuxLoCC 120
+// 
+// key=head
+//  xfout_locc$tomAuxCC=$tomAuxLoCC xfout_hicc$tomAuxCC=127
+//  include->head
+// key=head
+//  locc$tomAuxCC=$tomAuxLoCC hicc$tomAuxCC=127
+//  xfin_locc$tomAuxCC=$tomAuxLoCC xfin_hicc$tomAuxCC=127
+//  include->rim
+// 
+// key=rim
+//  include->rim
+
+
+// Done but undocumented:
+//
+// // TD-27 default trigger note assignments
+// kick           = 36;
+// 
+// crash1Bow      = 49;
+// crash1Edge     = 55;
+// crash2Bow      = 57;
+// crash2Edge     = 52;
+// 
+// rideBow        = 51;
+// rideEdge       = 59;
+// rideBell       = 53;
+// rideBowAlt     =  9;
+// 
+// // 23 is snare head in brush mode
+// // no idea where 24 and 25 are but I choose to keep clear
+// 
+// aux1Head       = 27; // module built-in
+// aux1Rim        = 28; // module built-in
+// aux2Head       = 29; // module built-in
+// aux2Rim        = 30; // module built-in
+// aux3Head       = 31; // module built-in
+// aux3Rim        = 32; // module built-in
+// 
+
+
+//
+// Done:
+//
+
+// hiHatOpenBow     = 46; // hihatCC > 15 & hihatLRCC in (48..79)      A#2  -> top_l D-1 (L) / top_r D#-1 (R)
+// hiHatCloseBow    = 42; // hihatCC > 15 & hihatLRCC in (48..79)      F#2  -> top_l D-1 (L) / top_r D#-1 (R)
+
+// hiHatOpenEdge    = 26; // hihatLRCC in (48..79)                     D1   -> rim_l E-1 (L) / rim_r F-1  (R)
+// hiHatCloseEdge   = 22; // hihatLRCC in (48..79)                     G#0  -> rim_l E-1 (L) / rim_r F-1  (R)
+
+// hiHatOpenBowL    = 18; // hihatCC > 15 & hihatLRCC < 48             F#0  -> top_l D-1
+// hiHatCloseBowL   = 15; // hihatCC > 15 & hihatLRCC < 48             D#0  -> top_l D-1
+
+// hiHatOpenEdgeL   = 13; // hihatLRCC < 48                            C#0  -> rim_l E-1
+// hiHatCloseEdgeL  = 11; // hihatLRCC < 48                            B-1  -> rim_l E-1
+
+// hiHatOpenBowR    = 17; // hihatCC > 15 & hihatLRCC > 79             F0   -> top_r D#-1
+// hiHatCloseBowR   = 14; // hihatCC > 15 & hihatLRCC > 79             D0   -> top_r D#-1
+
+// hiHatOpenEdgeR   = 12; // hihatLRCC > 79                            C0   -> rim_r F-1
+// hiHatCloseEdgeR  = 10; // hihatLRCC > 79                            A#-1 -> rim_r F-1
+
+// hiHatOpenBowAlt  = 19; // hihatCC < 16                              G0   -> bel   C#-1
+// hiHatCloseBowAlt = 16; // hihatCC < 16                              E0   -> bel   C#-1
+
+// hiHatPedal       = 44;                                              G#2  -> ped   F#-1
+
+
+// tom1Head    = 48; // tomAuxCC < 96    C3   -> C#-1 ord_l / D-1 ord_r
+// tom1HeadAlt =  8; // tomAuxCC > 95    G#-1 -> E-1  rms_l / F-1 rms_r
+// tom1Rim     = 50; // tomAuxCC < 96    D3   -> D#-1 rim
+// tom1RimAlt  =  7; // tomAuxCC > 95    G-1  -> D#-1 rim
+
+// tom2Head    = 45; // tomAuxCC < 96    A2   -> C#-1 ord_l / D-1 ord_r
+// tom2HeadAlt =  6; // tomAuxCC > 95    F#-1 -> E-1  rms_l / F-1 rms_r
+// tom2Rim     = 47; // tomAuxCC < 96    B2   -> D#-1 rim
+// tom2RimAlt  =  5; // tomAuxCC > 95    F-1  -> D#-1 rim
+
+// tom3Head    = 43; // tomAuxCC < 96    G2   -> C#-1 ord_l / D-1 ord_r
+// tom3HeadAlt =  4; // tomAuxCC < 96    E-1  -> E-1  rms_l / F-1 rms_r
+// tom3Rim     = 58; // tomAuxCC > 95    A#3  -> D#-1 rim
+// tom3RimAlt  =  3; // tomAuxCC > 95    D#-1 -> D#-1 rim
+
+
+// snareHead      = 38; // D2  -> ord_l D#-1 / ord_r E-1
+// snareHeadAlt   = 21; // A0  -> rmh_l G#-1 / rmh_r A-1
+// snareRim       = 40; // E2  -> rms_l A#-1 / rms_r B-1
+// snareRimAlt    = 20; // G#0 -> rim   G-1
+// snareXstick    = 37; // C#2 -> xtk   C#0
+// snareBrush     = 23; // but this is just head with brush mode on
+
+
+// ------------------------------------------------------------------
+// Standard CCs
+#define $FC 004
+#define $VOL 007
+#define $PAN 010
+#define $PLY 130
+#define $NNO 133
+
+<control>
+ default_path=G:/naturalstudios/ns_kit7/samples/
+ hint_ram_based=1
+ octave_offset=0
+ set_cc$FC=000   label_cc$FC=Foot Ctrl (cc$FC)
+ set_cc$VOL=127  label_cc$VOL=Kit VOL (cc$VOL)
+ set_cc$PAN=64   label_cc$PAN=Kit PAN (cc$PAN)
+ set_cc$PYL=000  label_cc$PLY=Polyphonic Aftertouch (cc$PLY)
+ set_cc$NNO=000  label_cc$NNO=Last Note Number (cc$NNO)
+
+<global>
+ loop_mode=one_shot off_mode=normal
+ volume_cc$VOL=0 pan_cc$PAN=0
+ ampeg_release=.2
