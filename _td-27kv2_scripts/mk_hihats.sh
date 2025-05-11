@@ -36,6 +36,27 @@ cat > triggers/hihat-mutes.inc <<-'@EOF'
 <region> key=$hh_top_r locc4=$LOCC4 hicc4=$HICC4
 @EOF
 
+declare -A sample_durations
+while read sample duration
+do
+	sample_durations[$sample]=$duration
+done < ../ns_kits7-all_samples-duration.txt
+
+function get_durations () {
+	local current_max=$1; shift || { echo "Missing current_max" >&2; exit 1; }
+	local sfz_file=$1   ; shift || { echo "Missing sfz_file"    >&2; exit 1; }
+
+	local line sample duration
+
+	while read line
+	do
+		sample=${line##*sample=../samples/}
+		duration=${sample_durations[$sample]}
+		(( $(awk 'BEGIN { print ('$duration' > '$current_max') }') )) && current_max=$duration || true
+	done < <(grep 'sample=' "$sfz_file")
+	echo $current_max
+}
+
 # Map hihat/beater/position/grab/hand to an "articulation" and return the available opennesses for that articulation.
 # (This is all the messy logic.)
 function make_articulation () {
@@ -119,24 +140,6 @@ function make_articulation () {
 		esac
 	;;
 	esac
-}
-
-function get_durations () {
-	local current_max=$1; shift || { echo "Missing current_max" >&2; exit 1; }
-	local sfz_file=$1   ; shift || { echo "Missing sfz_file"    >&2; exit 1; }
-
-	local line x duration
-	while read line
-	do
-		read x duration <<<$(echo $line)
-		current_max=$(awk '{ print ( ( 0.0 + $1 ) > ( 0.0 + $2 ) ? $1 : $2 ) }' <<<"$duration $current_max")
-	done < <(
-		grep 'sample=' $sfz_file | sed -e 's!^.*sample=\.\./samples/!!' | while read sample
-		do
-			grep "^$sample " ../ns_kits7-all_samples-duration.txt
-		done
-	)
-	echo $current_max
 }
 
 function do_group () {
