@@ -176,7 +176,6 @@ function do_off_by () {
 	echo "#define \$LOCC4 $lo"
 	echo "#define \$HICC4 $hi"
 	echo "#include \"triggers/hihat-mutes.inc\""
-	echo ''
 }
 
 function do_hihat () {
@@ -218,18 +217,26 @@ function do_hihat () {
 	opennesses=(${opennesses[@]:1})
 	local lo=000
 	local hi=127
+	local lo_x hi_x
+	local off_lo=000 off_hi=127
 
 	{
 		if [[ $movement == lo_to_hi ]]
 		then
 			while [[ ${#opennesses[@]} -gt 0 && $r_n -lt ${#keys[@]} ]]
 			do
-				local lo_x
 				[[ $a_o == $r_o ]] && {
-					$is_grab || { [[ $lo == 000 ]] || do_off_by $(printf '%03d\n' $o) $lo 127; }
-					(( o += 1 ))
 					read lo_x hi <<<"${hh_cc4_lohi[$r_o]}"
-					do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration
+					if $is_grab || [[ $lo == 000 ]]
+					then
+						do_group $f $a_o $trigger $lo $hi $grab true $group 000 max_duration
+					else
+						do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration
+						do_off_by $(printf '%03d\n' $o) 000 $off_hi
+					fi
+					echo ''
+					off_hi=$hi
+					(( o += 1 ))
 					r_o=${keys[$r_n]}
 					(( r_n+=1 ))
 					hi=127
@@ -247,17 +254,22 @@ function do_hihat () {
 				}
 			done
 			do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration
-			$is_grab || { [[ $lo == 000 ]] || do_off_by $(printf '%03d\n' $o) $lo 127; }
-			echo ''
+			$is_grab || [[ $lo == 000 ]] || do_off_by $(printf '%03d\n' $o) 000 $off_hi
 		else
 			while [[ ${#opennesses[@]} -gt 0 && $r_n -lt ${#keys[@]} ]]
 			do
-				local hi_x
 				[[ $a_o == $r_o ]] && {
-					$is_grab || { [[ $hi == 127 ]] || do_off_by $(printf '%03d\n' $o) 000 $hi; }
-					(( o += 1 ))
 					read lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
-					do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration_invcc
+					if $is_grab || [[ $hi == 127 ]]
+					then
+						do_group $f $a_o $trigger $lo $hi $grab true $group 000 max_duration_invcc
+					else
+						do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration_invcc
+						do_off_by $(printf '%03d\n' $o) $off_lo 127
+					fi
+					echo ''
+					off_lo=$lo
+					(( o += 1 ))
 					r_o=${keys[$r_n]}
 					(( r_n+=1 ))
 					lo=000
@@ -275,9 +287,9 @@ function do_hihat () {
 				}
 			done
 			do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration_invcc
-			$is_grab || { [[ $hi == 127 ]] || do_off_by $(printf '%03d\n' $o) 000 $hi; }
-			echo ''
+			$is_grab || [[ $hi == 127 ]] || do_off_by $(printf '%03d\n' $o) $off_lo 127
 		fi
+		echo ''
 
 	} >> $inc_file
 }
