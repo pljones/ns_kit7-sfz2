@@ -170,6 +170,16 @@ function do_group () {
 	durations=$(get_durations $durations kit_pieces/hihats/${f}_${a_o}.sfz)
 }
 
+# args as do_group except lo hi are in pos 11 and 12, rather than 4 and 5
+function do_group_lo_to_hi () {
+	do_group "${@:1:3}" "${@:11:12}" "${@:6:10}"
+}
+
+# args as do_group except lo hi are in pos 13 and 14, rather than 4 and 5
+function do_group_hi_to_lo () {
+	do_group "${@:1:3}" "${@:13:14}" "${@:6:10}"
+}
+
 function do_off_by () {
 	local off_by=$1; shift || { echo "Missing off_by" >&2; exit 1; }
 	local lo=$1;     shift || { echo "Missing lo"     >&2; exit 1; }
@@ -179,6 +189,28 @@ function do_off_by () {
 	echo "#define \$LOCC4 $lo"
 	echo "#define \$HICC4 $hi"
 	echo "#include \"triggers/hihat-mutes.inc\""
+}
+
+# args as do_off_by (ignore trailing)
+function do_off_by_lo_to_hi () {
+	local off_by=$1;  shift || { echo "Missing off_by"  >&2; exit 1; }
+	local lo_lohi=$1; shift || { echo "Missing lo_hilo" >&2; exit 1; }
+	local hi_lohi=$1; shift || { echo "Missing hi_hilo" >&2; exit 1; }
+	local lo_hilo=$1; shift || { echo "Missing lo_lohi" >&2; exit 1; }
+	local hi_hilo=$1; shift || { echo "Missing hi_lohi" >&2; exit 1; }
+
+	[[ $lo_lohi == 000 ]] || do_off_by $off_by $lo_lohi $hi_lohi
+}
+
+# args as do_off_by (skip lo_to_hi)
+function do_off_by_hi_to_lo () {
+	local off_by=$1;  shift || { echo "Missing off_by"  >&2; exit 1; }
+	local lo_lohi=$1; shift || { echo "Missing lo_hilo" >&2; exit 1; }
+	local hi_lohi=$1; shift || { echo "Missing hi_hilo" >&2; exit 1; }
+	local lo_hilo=$1; shift || { echo "Missing lo_lohi" >&2; exit 1; }
+	local hi_hilo=$1; shift || { echo "Missing hi_lohi" >&2; exit 1; }
+
+	[[ $hi_hilo == 127 ]] || do_off_by $off_by $lo_hilo $hi_hilo
 }
 
 function do_hihat () {
@@ -191,6 +223,10 @@ function do_hihat () {
 	local is_grab=$1;      shift || { echo "Missing is_grab"   >&2; exit 1; }
 	local group=$1;        shift || { echo "Missing group"     >&2; exit 1; }
 #echo >&2 "do_hihat: movement {$movement}; beater {$beater}; hihat {$hihat}; f {$f}; trigger {$trigger}; grab {$grab}; is_grab {$is_grab}; group {$group}"
+
+	local do_group=do_group_${movement} do_off_by=do_off_by_${movement}
+	local -n max_duration_ref
+	[[ $movement == lo_to_hi ]] && max_duration_ref=max_duration || max_duration_ref=max_duration_invcc
 
 	# So we have two "piles":
 	# - a list of all required opennesses ("keys")
