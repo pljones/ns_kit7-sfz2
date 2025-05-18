@@ -6,7 +6,7 @@
 # <group>
 #   ..trigger definition..
 #   group=(trigger group or trigger grab group)
-#   offby=(if not trigger grab, trigger grab group)
+#   off_by=(if not trigger grab, trigger grab group)
 # #include (from the tables)
 
 # beater will be brs|hnd|mlt|stx
@@ -176,7 +176,7 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 						echo " group=600${group}000"
 					else
 						echo " lopolyaft=000 hipolyaft=063"
-						echo " group=500${group}$(printf "%03d\n" $i) offby=600${group}000"
+						echo " group=500${group}$(printf "%03d\n" $i) off_by=600${group}000"
 					fi
 					echo "#include \"kit_pieces/cymbals/${f}.sfz\""
 					if ! $is_grab
@@ -185,7 +185,7 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 						echo " on_locc130=001 on_hicc130=127"
 						echo " locc133=$key hicc133=$key"
 						echo " group=600${group}000"
-						echo " end=-1 sample=*silence"
+						echo " end=1 sample=../samples/_misc/silence/silence_2ms.wav"
 					fi
 				done
 			done

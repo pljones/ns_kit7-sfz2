@@ -11,8 +11,8 @@ Regions go from tight closed to wide open (the expected openness list for a hiha
 A region triggering hi-hat openness x
 will be off_by a group that contains all opennesses less open / more closed than x.
 
-So each triggered region has its unique group value (601-art-opn_x)
-but a shared off_by group (501-opn_x-000).
+So each triggered region has its unique group value (501-art-opn_x)
+but a shared off_by group (601-opn_x-000).
 
 Of course, two senses of FC mean two separate sets of group definitions:
     sense=0 - low  CC4 means less open   ( i.e.   0 -> a; 127 -> p )
@@ -156,6 +156,7 @@ function do_group () {
 
 	[[ -f "kit_pieces/hihats/${f}_${a_o}.sfz" ]] || { echo "new $f not found" >&2; exit 1; }
 	[[ -f "../hihats/${f}_${a_o}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
+
 	echo "<group>"
 	echo " key=$trigger"
 	echo " locc4=$lo hicc4=$hi"
@@ -164,20 +165,25 @@ function do_group () {
 	$is_grab && {
 		echo " group=${group}${trigger}000"
 	} || {
-		echo " group=${group}${trigger}${off_by} offby=601${off_by}000"
+		echo " group=${group}${trigger}${off_by} off_by=601${off_by}000"
 	}
 	echo "#include \"kit_pieces/hihats/${f}_${a_o}.sfz\""
 	durations=$(get_durations $durations kit_pieces/hihats/${f}_${a_o}.sfz)
 }
 
-# args as do_group except lo hi are in pos 11 and 12, rather than 4 and 5
+# args as do_group except lo hi duplicated for each direction
+# do_group_lo_to_hi           hh14_spl a $hh_spl 000 127 000 127 - true 502 000 max_duration
+# do_group_lo_to_hi: do_group hh14_spl a $hh_spl 000 max_duration 000 127 - true 502 000 max_duration
+# do_group_hi_to_lo           hh14_spl a $hh_spl 000 127 000 127 - true 502 000 max_duration_invcc
+# do_group_hi_to_lo: do_group hh14_spl a $hh_spl 000 127 - true 502 000 max_duration_invcc
+
 function do_group_lo_to_hi () {
-	do_group "${@:1:3}" "${@:11:12}" "${@:6:10}"
+	do_group "${@:1:3}" "${@:4:2}" "${@:8:5}"
 }
 
 # args as do_group except lo hi are in pos 13 and 14, rather than 4 and 5
 function do_group_hi_to_lo () {
-	do_group "${@:1:3}" "${@:13:14}" "${@:6:10}"
+	do_group "${@:1:3}" "${@:6:2}" "${@:8:5}"
 }
 
 function do_off_by () {
@@ -185,7 +191,7 @@ function do_off_by () {
 	local lo=$1;     shift || { echo "Missing lo"     >&2; exit 1; }
 	local hi=$1;     shift || { echo "Missing hi"     >&2; exit 1; }
 
-	echo "<group> group=601${off_by}000 end=-1 sample=*silence"
+	echo "<group> group=601${off_by}000 end=1 sample=../samples/_misc/silence/silence_2ms.wav"
 	echo "#define \$LOCC4 $lo"
 	echo "#define \$HICC4 $hi"
 	echo "#include \"triggers/hihat-mutes.inc\""
@@ -193,24 +199,12 @@ function do_off_by () {
 
 # args as do_off_by (ignore trailing)
 function do_off_by_lo_to_hi () {
-	local off_by=$1;  shift || { echo "Missing off_by"  >&2; exit 1; }
-	local lo_lohi=$1; shift || { echo "Missing lo_hilo" >&2; exit 1; }
-	local hi_lohi=$1; shift || { echo "Missing hi_hilo" >&2; exit 1; }
-	local lo_hilo=$1; shift || { echo "Missing lo_lohi" >&2; exit 1; }
-	local hi_hilo=$1; shift || { echo "Missing hi_lohi" >&2; exit 1; }
-
-	[[ $lo_lohi == 000 ]] || do_off_by $off_by $lo_lohi $hi_lohi
+	[[ $1 == 000 ]] || do_off_by "${@:1:3}"
 }
 
 # args as do_off_by (skip lo_to_hi)
 function do_off_by_hi_to_lo () {
-	local off_by=$1;  shift || { echo "Missing off_by"  >&2; exit 1; }
-	local lo_lohi=$1; shift || { echo "Missing lo_hilo" >&2; exit 1; }
-	local hi_lohi=$1; shift || { echo "Missing hi_hilo" >&2; exit 1; }
-	local lo_hilo=$1; shift || { echo "Missing lo_lohi" >&2; exit 1; }
-	local hi_hilo=$1; shift || { echo "Missing hi_lohi" >&2; exit 1; }
-
-	[[ $hi_hilo == 127 ]] || do_off_by $off_by $lo_hilo $hi_hilo
+	[[ $1 == 000 ]] || do_off_by "${@:1:1}" "${@:4:2}"
 }
 
 function do_hihat () {
@@ -225,8 +219,12 @@ function do_hihat () {
 #echo >&2 "do_hihat: movement {$movement}; beater {$beater}; hihat {$hihat}; f {$f}; trigger {$trigger}; grab {$grab}; is_grab {$is_grab}; group {$group}"
 
 	local do_group=do_group_${movement} do_off_by=do_off_by_${movement}
-	local -n max_duration_ref
-	[[ $movement == lo_to_hi ]] && max_duration_ref=max_duration || max_duration_ref=max_duration_invcc
+	local max_duration_ref
+	case $movement in
+		lo_to_hi) max_duration_ref=max_duration ;;
+		hi_to_lo) max_duration_ref=max_duration_invcc ;;
+		*) echo "do_hihat: movement {$movement} is invalid" >&2; exit 1 ;;
+	esac
 
 	# So we have two "piles":
 	# - a list of all required opennesses ("keys")
@@ -254,83 +252,57 @@ function do_hihat () {
 	opennesses=($available_opennesses)
 	local a_o=${opennesses[0]}
 	opennesses=(${opennesses[@]:1})
-	local lo=000
-	local hi=127
+	local lohi_lo=000 lohi_hi=127 lohi_off_hi=127
+	local hilo_lo=000 hilo_hi=127 hilo_off_lo=000
 	local lo_x hi_x
-	local off_lo=000 off_hi=127
 
 	{
-		if [[ $movement == lo_to_hi ]]
+		while [[ ${#opennesses[@]} -gt 0 && $r_n -lt ${#keys[@]} ]]
+		do
+			if [[ $a_o == $r_o ]]
+			then
+				read lo_x lohi_hi <<<"${hh_cc4_lohi[$r_o]}"
+				read hilo_lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
+				if $is_grab || [[ $movement == lo_to_hi && $lohi_lo == 000 ]] || [[ $movement == hi_to_lo && $hilo_hi == 127 ]]
+				then
+					$do_group $f $a_o $trigger $lohi_lo $lohi_hi $hilo_lo $hilo_hi $grab true $group 000 $max_duration_ref
+				else
+					$do_group $f $a_o $trigger $lohi_lo $lohi_hi $hilo_lo $hilo_hi $grab $is_grab $group $(printf '%03d\n' $o) $max_duration_ref
+					$do_off_by $(printf '%03d\n' $o) 000 $lohi_off_hi $hilo_off_lo 127
+				fi
+				echo ''
+				lohi_off_hi=$lohi_hi
+				hilo_off_lo=$hilo_lo
+				(( o += 1 ))
+				r_o=${keys[$r_n]}
+				(( r_n+=1 ))
+				lohi_hi=127
+				hilo_lo=000
+				if [[ ${#opennesses[@]} -gt 0 ]]
+				then
+					read lohi_lo hi_x <<<"${hh_cc4_lohi[$r_o]}"
+					read lo_x hilo_hi <<<"${hh_cc4_hilo[$r_o]}"
+					a_o=${opennesses[0]}
+					opennesses=(${opennesses[@]:1})
+				fi
+			elif [[ $r_o < $a_o ]]
+			then
+				read lo_x lohi_hi <<<"${hh_cc4_lohi[$r_o]}"
+				read hilo_lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
+				r_o=${keys[$r_n]}
+				(( r_n+=1 ))
+			fi
+		done
+		$do_group $f $a_o $trigger $lohi_lo $lohi_hi $hilo_lo $hilo_hi $grab $is_grab $group $(printf '%03d\n' $o) $max_duration_ref
+		if $is_grab || [[ $movement == lo_to_hi && $lohi_lo == 000 ]] || [[ $movement == hi_to_lo && $hilo_hi == 127 ]]
 		then
-			while [[ ${#opennesses[@]} -gt 0 && $r_n -lt ${#keys[@]} ]]
-			do
-				[[ $a_o == $r_o ]] && {
-					read lo_x hi <<<"${hh_cc4_lohi[$r_o]}"
-					if $is_grab || [[ $lo == 000 ]]
-					then
-						do_group $f $a_o $trigger $lo $hi $grab true $group 000 max_duration
-					else
-						do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration
-						do_off_by $(printf '%03d\n' $o) 000 $off_hi
-					fi
-					echo ''
-					off_hi=$hi
-					(( o += 1 ))
-					r_o=${keys[$r_n]}
-					(( r_n+=1 ))
-					hi=127
-					[[ ${#opennesses[@]} -gt 0 ]] && {
-						read lo hi_x <<<"${hh_cc4_lohi[$r_o]}"
-						a_o=${opennesses[0]}
-						opennesses=(${opennesses[@]:1})
-					} || true
-				} || {
-					[[ $r_o < $a_o ]] && {
-						read lo_x hi <<<"${hh_cc4_lohi[$r_o]}"
-						r_o=${keys[$r_n]}
-						(( r_n+=1 ))
-					} || true
-				}
-			done
-			do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration
-			$is_grab || [[ $lo == 000 ]] || do_off_by $(printf '%03d\n' $o) 000 $off_hi
+			echo -n
 		else
-			while [[ ${#opennesses[@]} -gt 0 && $r_n -lt ${#keys[@]} ]]
-			do
-				[[ $a_o == $r_o ]] && {
-					read lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
-					if $is_grab || [[ $hi == 127 ]]
-					then
-						do_group $f $a_o $trigger $lo $hi $grab true $group 000 max_duration_invcc
-					else
-						do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration_invcc
-						do_off_by $(printf '%03d\n' $o) $off_lo 127
-					fi
-					echo ''
-					off_lo=$lo
-					(( o += 1 ))
-					r_o=${keys[$r_n]}
-					(( r_n+=1 ))
-					lo=000
-					[[ ${#opennesses[@]} -gt 0 ]] && {
-						read lo_x hi <<<"${hh_cc4_hilo[$r_o]}"
-						a_o=${opennesses[0]}
-						opennesses=(${opennesses[@]:1})
-					} || true
-				} || {
-					[[ $r_o < $a_o ]] && {
-						read lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
-						r_o=${keys[$r_n]}
-						(( r_n+=1 ))
-					} || true
-				}
-			done
-			do_group $f $a_o $trigger $lo $hi $grab $is_grab $group $(printf '%03d\n' $o) max_duration_invcc
-			$is_grab || [[ $hi == 127 ]] || do_off_by $(printf '%03d\n' $o) $off_lo 127
+			$do_off_by $(printf '%03d\n' $o) 000 $lohi_off_hi $hilo_off_lo 127
 		fi
 		echo ''
 
-	} >> $inc_file
+	}
 }
 
 declare -A hh_cc4_lohi hh_cc4_hilo
