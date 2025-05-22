@@ -181,11 +181,11 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 					echo "#include \"kit_pieces/cymbals/${f}.sfz\""
 					if ! $is_grab
 					then
-						echo "<group>"
+						echo "<region> key=-1"
 						echo " on_locc130=001 on_hicc130=127"
-						echo " locc133=$key hicc133=$key"
+						echo " locc133=${key} hicc133=${key}"
 						echo " group=600${group}000"
-						echo " end=1 sample=../samples/_misc/silence/silence_2ms.wav"
+						echo " end=-1 sample=*silence"
 					fi
 				done
 			done

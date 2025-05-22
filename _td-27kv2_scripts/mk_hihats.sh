@@ -6,6 +6,30 @@ mkdir -p triggers
 rm -rf triggers/*/hihats/ triggers/hihat-mutes.inc
 
 cat >/dev/null <<-\@COMMENT
+Hi-hat muting is fun.
+
+Whilst a sounding hi-hat is playing, it can be muted in a number of ways:
+- pressing down on the pedal
+- splashing down on the pedal
+- grabbing the cymbal to hit a note (*1)
+- grabbing the cymbal without hitting a note (*2)
+- closing the gap between the cymbals and triggering again (*3)
+
+The first two are straight forward "mute that region if this one triggers" - just lots of regions.
+
+*1: There are a couple of ways this works
+    - some hardware eDrum kits just send out MIDI Note On Velocity zero and expect that to stop any sounding note
+    - however, technically that's meant to be "Note Off" identical and most samplers studiously ignore note off for drums,
+      so a back up technique is to send the Note On Velocity zero followed by a Polyphonic Aftertouch pressure 127 (or >= 64)
+      message, indicating the grab
+*2: However... that (*1) just ends of abruptly cutting the note (okay here for hi-hats)...
+    but maybe the eDrum kit doesn't send that Note On Velocity zero because that abrupt stop isn't appropriate
+    - now the sampler needs to process the PA note number to know what it's muting
+*3: And then there's the real nitty-gritty of hi-hat muting -- that pedal position
+    - currently, just moving the pedal to more closed (less open) doesn't affect the sounding sample
+    - you need to go ahead and _hit_ the hi-hat in the new position to trigger the cut of the more open (less closed) sound.
+
+Original explanation, in case it helps:
 Regions go from tight closed to wide open (the expected openness list for a hihat is held in "${keys[@]}").
 
 A region triggering hi-hat openness x
@@ -18,22 +42,22 @@ Of course, two senses of FC mean two separate sets of group definitions:
     sense=0 - low  CC4 means less open   ( i.e.   0 -> a; 127 -> p )
     sense=1 - high CC4 means more closed ( i.e. 127 -> a;   0 -> p ) -> invcc4
 
-Some triggers always mute: pedal, splash and grab; plus any polyphonic aftertouch as a trigger
+Some triggers always mute: pedal, splash and grab; plus any polyphonic aftertouch for that note as a trigger.
 @COMMENT
 
 cat > triggers/hihat-mutes.inc <<-'@EOF'
-<region> key=$hh_ped
-<region> key=$hh_spl
-<region> key=$hh_rim_l lopolyaft=64 hipolyaft=127
-<region> key=$hh_rim_r lopolyaft=64 hipolyaft=127
-<region> on_locc130=1 on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel
-<region> on_locc130=1 on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l
-<region> on_locc130=1 on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r
-<region> on_locc130=1 on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l
-<region> on_locc130=1 on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r
-<region> key=$hh_bel   locc4=$LOCC4 hicc4=$HICC4
-<region> key=$hh_top_l locc4=$LOCC4 hicc4=$HICC4
-<region> key=$hh_top_r locc4=$LOCC4 hicc4=$HICC4
+<region> key=$hh_ped                                                                    end=-1 sample=*silence
+<region> key=$hh_spl                                                                    end=-1 sample=*silence
+<region> key=$hh_rim_l    locc130=64    hicc130=127                                     end=-1 sample=*silence
+<region> key=$hh_rim_r    locc130=64    hicc130=127                                     end=-1 sample=*silence
+<region> key=$hh_bel   on_locc130=1  on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel   end=-1 sample=*silence
+<region> key=$hh_top_l on_locc130=1  on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l end=-1 sample=*silence
+<region> key=$hh_top_r on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r end=-1 sample=*silence
+<region> key=$hh_rim_l on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l end=-1 sample=*silence
+<region> key=$hh_rim_r on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r end=-1 sample=*silence
+<region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
+<region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
+<region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
 @EOF
 
 declare -A sample_durations
@@ -191,15 +215,15 @@ function do_off_by () {
 	local lo=$1;     shift || { echo "Missing lo"     >&2; exit 1; }
 	local hi=$1;     shift || { echo "Missing hi"     >&2; exit 1; }
 
-	echo "<group> group=601${off_by}000 end=1 sample=../samples/_misc/silence/silence_2ms.wav"
+	echo "<group> group=601${off_by}000 end=-1"
 	echo "#define \$LOCC4 $lo"
 	echo "#define \$HICC4 $hi"
 	echo "#include \"triggers/hihat-mutes.inc\""
 }
 
-# args as do_off_by (ignore trailing)
+# args as do_off_by (skip hi_to_lo)
 function do_off_by_lo_to_hi () {
-	[[ $1 == 000 ]] || do_off_by "${@:1:3}"
+	[[ $1 == 000 ]] || do_off_by "${@:1:1}" "${@:2:2}"
 }
 
 # args as do_off_by (skip lo_to_hi)
