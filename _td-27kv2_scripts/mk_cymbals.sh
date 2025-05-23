@@ -195,9 +195,9 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 		{
 			release=$(awk 'BEGIN { print '$max_duration' / 2; }' <&-)
 			echo "// Max duration $max_duration"
-			echo "<master>"
-			echo " ampeg_release=$release"
-			echo " ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
+			echo "//<master>"
+			echo "// ampeg_release=$release"
+			echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
 			echo
 			i=1
 			for key in $(echo ${keys[keys]})

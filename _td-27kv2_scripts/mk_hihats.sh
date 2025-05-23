@@ -48,16 +48,21 @@ Some triggers always mute: pedal, splash and grab; plus any polyphonic aftertouc
 cat > triggers/hihat-mutes.inc <<-'@EOF'
 <region> key=$hh_ped                                                                    end=-1 sample=*silence
 <region> key=$hh_spl                                                                    end=-1 sample=*silence
+<region> key=$hh_bel      locc130=64    hicc130=127                                     end=-1 sample=*silence
+<region> key=$hh_top_l    locc130=64    hicc130=127                                     end=-1 sample=*silence
+<region> key=$hh_top_r    locc130=64    hicc130=127                                     end=-1 sample=*silence
 <region> key=$hh_rim_l    locc130=64    hicc130=127                                     end=-1 sample=*silence
 <region> key=$hh_rim_r    locc130=64    hicc130=127                                     end=-1 sample=*silence
-<region> key=$hh_bel   on_locc130=1  on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel   end=-1 sample=*silence
-<region> key=$hh_top_l on_locc130=1  on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l end=-1 sample=*silence
-<region> key=$hh_top_r on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r end=-1 sample=*silence
-<region> key=$hh_rim_l on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l end=-1 sample=*silence
-<region> key=$hh_rim_r on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r end=-1 sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel   end=-1 sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l end=-1 sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r end=-1 sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l end=-1 sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r end=-1 sample=*silence
 <region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
 <region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
 <region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
+<region> key=$hh_rim_l                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
+<region> key=$hh_rim_r                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
 @EOF
 
 declare -A sample_durations
@@ -413,9 +418,9 @@ do
 		{
 			release=$(awk 'BEGIN { print '$max_duration' / 2; }' <&-)
 			echo "// Max duration $max_duration"
-			echo "<master>"
-			echo " ampeg_release=$release"
-			echo " ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
+			echo "//<master>"
+			echo "// ampeg_release=$release"
+			echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
 			echo
 			i=1
 			for key in $(echo ${triggers[keys]})
@@ -423,15 +428,16 @@ do
 				printf '#define %s %03d\n' ${key} $i
 				(( i += 1 ))
 			done
-			echo ""
+
+			echo
 			echo "#include \"triggers/$beater/hihats/${hihat}.inc\""
 		} > triggers/$beater/${hihat}.inc
 		{
 			release=$(awk 'BEGIN { print '$max_duration_invcc' / 2; }' <&-)
 			echo "// Max duration $max_duration_invcc"
-			echo "<master>"
-			echo " ampeg_release=$release"
-			echo " ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
+			echo "//<master>"
+			echo "// ampeg_release=$release"
+			echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
 			echo
 			i=1
 			for key in $(echo ${triggers[keys]})
@@ -439,7 +445,8 @@ do
 				printf '#define %s %03d\n' ${key} $i
 				(( i += 1 ))
 			done
-			echo ""
+
+			echo
 			echo "#include \"triggers/$beater/hihats/${hihat}_invcc4.inc\""
 		} > triggers/$beater/${hihat}_invcc4.inc
 		# } - hihat
