@@ -46,23 +46,23 @@ Some triggers always mute: pedal, splash and grab; plus any polyphonic aftertouc
 @COMMENT
 
 cat > triggers/hihat-mutes.inc <<-'@EOF'
-<region> key=$hh_ped                                                                    end=-1 sample=*silence
-<region> key=$hh_spl                                                                    end=-1 sample=*silence
-<region> key=$hh_bel      locc130=64    hicc130=127                                     end=-1 sample=*silence
-<region> key=$hh_top_l    locc130=64    hicc130=127                                     end=-1 sample=*silence
-<region> key=$hh_top_r    locc130=64    hicc130=127                                     end=-1 sample=*silence
-<region> key=$hh_rim_l    locc130=64    hicc130=127                                     end=-1 sample=*silence
-<region> key=$hh_rim_r    locc130=64    hicc130=127                                     end=-1 sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel   end=-1 sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l end=-1 sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r end=-1 sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l end=-1 sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r end=-1 sample=*silence
-<region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
-<region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
-<region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
-<region> key=$hh_rim_l                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
-<region> key=$hh_rim_r                              locc4=$LOCC4      hicc4=$HICC4      end=-1 sample=*silence
+<region> key=$hh_ped                                                                    sample=*silence
+<region> key=$hh_spl                                                                    sample=*silence
+<region> key=$hh_bel      locc130=64    hicc130=127                                     sample=*silence
+<region> key=$hh_top_l    locc130=64    hicc130=127                                     sample=*silence
+<region> key=$hh_top_r    locc130=64    hicc130=127                                     sample=*silence
+<region> key=$hh_rim_l    locc130=64    hicc130=127                                     sample=*silence
+<region> key=$hh_rim_r    locc130=64    hicc130=127                                     sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel   sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l sample=*silence
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r sample=*silence
+<region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4      sample=*silence
+<region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
+<region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
+<region> key=$hh_rim_l                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
+<region> key=$hh_rim_r                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
 @EOF
 
 declare -A sample_durations
