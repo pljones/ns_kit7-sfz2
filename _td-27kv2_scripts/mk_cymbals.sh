@@ -173,10 +173,10 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 					if $is_grab
 					then
 						echo " lopolyaft=064 hipolyaft=127"
-						echo " group=600${group}000"
+						echo " group=600${group}$(printf "%03d\n" $i)"
 					else
 						echo " lopolyaft=000 hipolyaft=063"
-						echo " group=500${group}$(printf "%03d\n" $i) off_by=600${group}000"
+						echo " group=500${group}$(printf "%03d\n" $i) off_by=600${group}$(printf "%03d\n" $i)"
 					fi
 					echo "#include \"kit_pieces/cymbals/${f}.sfz\""
 					if ! $is_grab
@@ -184,7 +184,7 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 						echo "<region> key=-1 end=-1"
 						echo " on_locc130=001 on_hicc130=127"
 						echo " locc133=${key} hicc133=${key}"
-						echo " group=600${group}000"
+						echo " group=600${group}$(printf "%03d\n" $i)"
 						echo " sample=*silence"
 					fi
 				done

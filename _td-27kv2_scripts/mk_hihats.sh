@@ -45,9 +45,7 @@ Of course, two senses of FC mean two separate sets of group definitions:
 Some triggers always mute: pedal, splash and grab; plus any polyphonic aftertouch for that note as a trigger.
 @COMMENT
 
-cat > triggers/hihat-mutes.inc <<-'@EOF'
-<region> key=$hh_ped                                                                    sample=*silence
-<region> key=$hh_spl                                                                    sample=*silence
+cat > triggers/hihat-grab-mutes.inc <<-'@EOF'
 <region> key=$hh_bel      locc130=64    hicc130=127                                     sample=*silence
 <region> key=$hh_top_l    locc130=64    hicc130=127                                     sample=*silence
 <region> key=$hh_top_r    locc130=64    hicc130=127                                     sample=*silence
@@ -58,6 +56,8 @@ cat > triggers/hihat-mutes.inc <<-'@EOF'
 <region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r sample=*silence
 <region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l sample=*silence
 <region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r sample=*silence
+@EOF
+cat > triggers/hihat-pedal-mutes.inc <<-'@EOF'
 <region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4      sample=*silence
 <region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
 <region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
@@ -174,66 +174,78 @@ function make_articulation () {
 function do_group () {
 	local f=$1;            shift || { echo "Missing f"         >&2; exit 1; }
 	local a_o=$1;          shift || { echo "Missing a_o"       >&2; exit 1; }
+	local -n durations=$1; shift || { echo "Missing durations" >&2; exit 1; }
+	local group=$1;        shift || { echo "Missing group"     >&2; exit 1; }
 	local trigger=$1;      shift || { echo "Missing trigger"   >&2; exit 1; }
+	local off_by=$1;       shift || { echo "Missing off_by"    >&2; exit 1; }
+	local grab=$1;         shift || { echo "Missing grab"      >&2; exit 1; }
 	local lo=$1;           shift || { echo "Missing lo"        >&2; exit 1; }
 	local hi=$1;           shift || { echo "Missing hi"        >&2; exit 1; }
-	local grab=$1;         shift || { echo "Missing grab"      >&2; exit 1; }
-	local is_grab=$1;      shift || { echo "Missing is_grab"   >&2; exit 1; }
-	local group=$1;        shift || { echo "Missing group"     >&2; exit 1; }
-	local off_by=$1;       shift || { echo "Missing off_by"    >&2; exit 1; }
-	local -n durations=$1; shift || { echo "Missing durations" >&2; exit 1; }
+	local off_group=$(printf '%s%s%s' $(( 100 + $group )) ${trigger} ${off_by})
 
 	[[ -f "kit_pieces/hihats/${f}_${a_o}.sfz" ]] || { echo "new $f not found" >&2; exit 1; }
 	[[ -f "../hihats/${f}_${a_o}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
+	durations=$(get_durations $durations kit_pieces/hihats/${f}_${a_o}.sfz)
 
 	echo "<group>"
+	echo " group=${group}${trigger}${off_by} off_by=${off_group}"
 	echo " key=$trigger"
-	echo " locc4=$lo hicc4=$hi"
 	[[ $grab == free ]] && echo " lopolyaft=000 hipolyaft=063"
 	[[ $grab == held ]] && echo " lopolyaft=064 hipolyaft=127"
-	$is_grab && {
-		echo " group=${group}${trigger}000"
-	} || {
-		echo " group=${group}${trigger}${off_by} off_by=601${off_by}000"
-	}
+	if [[ $lo != "000" || $hi != "127" ]]
+	then
+		echo " locc4=$lo hicc4=$hi"
+	fi
 	echo "#include \"kit_pieces/hihats/${f}_${a_o}.sfz\""
-	durations=$(get_durations $durations kit_pieces/hihats/${f}_${a_o}.sfz)
 }
-
-# args as do_group except lo hi duplicated for each direction
-# do_group_lo_to_hi           hh14_spl a $hh_spl 000 127 000 127 - true 502 000 max_duration
-# do_group_lo_to_hi: do_group hh14_spl a $hh_spl 000 max_duration 000 127 - true 502 000 max_duration
-# do_group_hi_to_lo           hh14_spl a $hh_spl 000 127 000 127 - true 502 000 max_duration_invcc
-# do_group_hi_to_lo: do_group hh14_spl a $hh_spl 000 127 - true 502 000 max_duration_invcc
 
 function do_group_lo_to_hi () {
-	do_group "${@:1:3}" "${@:4:2}" "${@:8:5}"
+	do_group "${@:1:7}" "${@:8:2}"
 }
 
-# args as do_group except lo hi are in pos 13 and 14, rather than 4 and 5
 function do_group_hi_to_lo () {
-	do_group "${@:1:3}" "${@:6:2}" "${@:8:5}"
+	do_group "${@:1:7}" "${@:10:2}"
 }
 
 function do_off_by () {
-	local off_by=$1; shift || { echo "Missing off_by" >&2; exit 1; }
-	local lo=$1;     shift || { echo "Missing lo"     >&2; exit 1; }
-	local hi=$1;     shift || { echo "Missing hi"     >&2; exit 1; }
+	local off_by=$1;  shift || { echo "Missing off_by"  >&2; exit 1; }
+	local trigger=$1; shift || { echo "Missing trigger" >&2; exit 1; }
+	local grab=$1;    shift || { echo "Missing grab"    >&2; exit 1; }
+	local lo=$1;      shift || { echo "Missing lo"      >&2; exit 1; }
+	local hi=$1;      shift || { echo "Missing hi"      >&2; exit 1; }
+	local off_group=$(printf '%s%s%s' $(( 100 + $group )) ${trigger} ${off_by})
 
-	echo "<group> group=601${off_by}000 end=-1"
-	echo "#define \$LOCC4 $lo"
-	echo "#define \$HICC4 $hi"
-	echo "#include \"triggers/hihat-mutes.inc\""
+	echo "<group> group=${off_group} end=-1"
+	if [[ $trigger != '$hh_ped' ]]
+	then
+		cat <<-'@EOF'
+<region> key=$hh_ped sample=*silence
+@EOF
+	fi
+	if [[ $trigger != '$hh_spl' ]]
+	then
+		cat <<-'@EOF'
+<region> key=$hh_spl sample=*silence
+@EOF
+	fi
+	if [[ $lo != "000" || $hi != "127" ]]
+	then
+		echo "#define \$LOCC4 $lo"
+		echo "#define \$HICC4 $hi"
+		echo "#include \"triggers/hihat-pedal-mutes.inc\""
+	fi
+	if [[ $grab == free ]]
+	then
+		echo "#include \"triggers/hihat-grab-mutes.inc\""
+	fi
 }
 
-# args as do_off_by (skip hi_to_lo)
 function do_off_by_lo_to_hi () {
-	[[ $1 == 000 ]] || do_off_by "${@:1:1}" "${@:2:2}"
+	do_off_by "${@:1:3}" "${@:4:2}"
 }
 
-# args as do_off_by (skip lo_to_hi)
 function do_off_by_hi_to_lo () {
-	[[ $1 == 000 ]] || do_off_by "${@:1:1}" "${@:4:2}"
+	do_off_by "${@:1:3}" "${@:6:2}"
 }
 
 function do_hihat () {
@@ -243,9 +255,8 @@ function do_hihat () {
 	local f=$1;            shift || { echo "Missing f"         >&2; exit 1; }
 	local trigger=$1;      shift || { echo "Missing trigger"   >&2; exit 1; }
 	local grab=$1;         shift || { echo "Missing grab"      >&2; exit 1; }
-	local is_grab=$1;      shift || { echo "Missing is_grab"   >&2; exit 1; }
 	local group=$1;        shift || { echo "Missing group"     >&2; exit 1; }
-#echo >&2 "do_hihat: movement {$movement}; beater {$beater}; hihat {$hihat}; f {$f}; trigger {$trigger}; grab {$grab}; is_grab {$is_grab}; group {$group}"
+#echo >&2 "do_hihat: movement {$movement}; beater {$beater}; hihat {$hihat}; f {$f}; trigger {$trigger}; grab {$grab}; group {$group}"
 
 	local do_group=do_group_${movement} do_off_by=do_off_by_${movement}
 	local max_duration_ref
@@ -273,7 +284,6 @@ function do_hihat () {
 	#
 	# ... and then for the other direction
 
-	local o=0
 	local r_n=0
 	local r_o=${keys[$r_n]}
 	(( r_n+=1 ))
@@ -284,54 +294,47 @@ function do_hihat () {
 	local lohi_lo=000 lohi_hi=127 lohi_off_hi=127
 	local hilo_lo=000 hilo_hi=127 hilo_off_lo=000
 	local lo_x hi_x
+	local off_by
 
-	{
-		while [[ ${#opennesses[@]} -gt 0 && $r_n -lt ${#keys[@]} ]]
-		do
-			if [[ $a_o == $r_o ]]
-			then
-				read lo_x lohi_hi <<<"${hh_cc4_lohi[$r_o]}"
-				read hilo_lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
-				if $is_grab || [[ $movement == lo_to_hi && $lohi_lo == 000 ]] || [[ $movement == hi_to_lo && $hilo_hi == 127 ]]
-				then
-					$do_group $f $a_o $trigger $lohi_lo $lohi_hi $hilo_lo $hilo_hi $grab true $group 000 $max_duration_ref
-				else
-					$do_group $f $a_o $trigger $lohi_lo $lohi_hi $hilo_lo $hilo_hi $grab $is_grab $group $(printf '%03d\n' $o) $max_duration_ref
-					$do_off_by $(printf '%03d\n' $o) 000 $lohi_off_hi $hilo_off_lo 127
-				fi
-				echo ''
-				lohi_off_hi=$lohi_hi
-				hilo_off_lo=$hilo_lo
-				(( o += 1 ))
-				r_o=${keys[$r_n]}
-				(( r_n+=1 ))
-				lohi_hi=127
-				hilo_lo=000
-				if [[ ${#opennesses[@]} -gt 0 ]]
-				then
-					read lohi_lo hi_x <<<"${hh_cc4_lohi[$r_o]}"
-					read lo_x hilo_hi <<<"${hh_cc4_hilo[$r_o]}"
-					a_o=${opennesses[0]}
-					opennesses=(${opennesses[@]:1})
-				fi
-			elif [[ $r_o < $a_o ]]
-			then
-				read lo_x lohi_hi <<<"${hh_cc4_lohi[$r_o]}"
-				read hilo_lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
-				r_o=${keys[$r_n]}
-				(( r_n+=1 ))
-			fi
-		done
-		$do_group $f $a_o $trigger $lohi_lo $lohi_hi $hilo_lo $hilo_hi $grab $is_grab $group $(printf '%03d\n' $o) $max_duration_ref
-		if $is_grab || [[ $movement == lo_to_hi && $lohi_lo == 000 ]] || [[ $movement == hi_to_lo && $hilo_hi == 127 ]]
+	while [[ ${#opennesses[@]} -gt 0 && $r_n -lt ${#keys[@]} ]]
+	do
+		if [[ $a_o == $r_o ]]
 		then
-			echo -n
-		else
-			$do_off_by $(printf '%03d\n' $o) 000 $lohi_off_hi $hilo_off_lo 127
-		fi
-		echo ''
+			read lo_x lohi_hi <<<"${hh_cc4_lohi[$r_o]}"
+			read hilo_lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
+			off_by=$(printf '%03d' $o)
+			(( o += 1 ))
+			$do_group $f $a_o $max_duration_ref $group $trigger $off_by $grab $lohi_lo $lohi_hi $hilo_lo $hilo_hi
+			$do_off_by $off_by $trigger $grab 000 $lohi_off_hi $hilo_off_lo 127
+			echo ''
 
-	}
+			lohi_off_hi=$lohi_hi
+			hilo_off_lo=$hilo_lo
+			r_o=${keys[$r_n]}
+			(( r_n+=1 ))
+			lohi_hi=127
+			hilo_lo=000
+			if [[ ${#opennesses[@]} -gt 0 ]]
+			then
+				read lohi_lo hi_x <<<"${hh_cc4_lohi[$r_o]}"
+				read lo_x hilo_hi <<<"${hh_cc4_hilo[$r_o]}"
+				a_o=${opennesses[0]}
+				opennesses=(${opennesses[@]:1})
+			fi
+		elif [[ $r_o < $a_o ]]
+		then
+			read lo_x lohi_hi <<<"${hh_cc4_lohi[$r_o]}"
+			read hilo_lo hi_x <<<"${hh_cc4_hilo[$r_o]}"
+			r_o=${keys[$r_n]}
+			(( r_n+=1 ))
+		fi
+	done
+	off_by=$(printf '%03d' $o)
+	(( o += 1 ))
+	$do_group $f $a_o $max_duration_ref $group $trigger $off_by $grab $lohi_lo $lohi_hi $hilo_lo $hilo_hi
+	$do_off_by $off_by $trigger $grab 000 $lohi_off_hi $hilo_off_lo 127
+	echo ''
+
 }
 
 declare -A hh_cc4_lohi hh_cc4_hilo
@@ -345,110 +348,100 @@ do
 	for hihat in hh13 hh14
 	do
 		# {
-		(( c+=1 ))
-		group=$(printf "%03d\n" $c)
-
-		triggers=()
-		mkdir -p triggers/$beater/hihats
-		rm -f triggers/$beater/hihats/${hihat}.inc
-		rm -f triggers/$beater/hihats/${hihat}_invcc4.inc
-		max_duration=0
-		max_duration_invcc=0
-
-		i=0
-		for position in bel top rim ped spl
+		for movement in lo_to_hi hi_to_lo
 		do
-
-			if [[ $hihat == hh13 && ( $beater == stx || $position =~ ^ped|spl$ ) ]]
+			# {
+			if [[ $movement == lo_to_hi ]]
 			then
-				keys=(a b c d e f g h i j k l m n o p)
-				hh_cc4_lohi=(a "000 007" b "008 015" c "016 023" d "024 031" e "032 039" f "040 047" g "048 055" h "056 063" i "064 071" j "072 079" k "080 087" l "088 095" m "096 103" n "104 111" o "112 119" p "120 127")
-				hh_cc4_hilo=(p "000 007" o "008 015" n "016 023" m "024 031" l "032 039" k "040 047" j "048 055" i "056 063" h "064 071" g "072 079" f "080 087" e "088 095" d "096 103" c "104 111" b "112 119" a "120 127")
-			elif [[ $hihat == hh13 ]]
-			then
-				keys=(a b c d e f)
-				hh_cc4_lohi=(a "000 021" b "022 042" c "043 063" d "064 085" e "086 106" f "107 127")
-				hh_cc4_hilo=(f "000 021" e "022 042" d "043 063" c "064 085" b "086 106" a "107 127")
+				inc_file="triggers/$beater/hihats/${hihat}.inc"
+				out_file="triggers/$beater/${hihat}.inc"
 			else
-				keys=(a b c d e)
-				hh_cc4_lohi=(a "000 025" b "026 051" c "052 076" d "077 102" e "103 127")
-				hh_cc4_hilo=(e "000 025" d "026 051" c "052 076" b "077 102" a "103 127")
+				inc_file="triggers/$beater/hihats/${hihat}_invcc4.inc"
+				out_file="triggers/$beater/${hihat}_invcc4.inc"
 			fi
+			mkdir -p triggers/$beater/hihats
+			rm -f "$inc_file" "$out_file"
 
-			[[ $position =~ ^ped|spl$ ]] && grabs=(-) || grabs=(free held)
-			for grab in ${grabs[@]}
+			(( c+=1 ))
+			group=$(printf "%03d\n" $c)
+
+			triggers=()
+			max_duration=0
+			max_duration_invcc=0
+
+			i=0
+			o=0
+			for position in bel top rim ped spl
 			do
-				[[ $position =~ ^ped|spl|bel$ ]] && hands=(-) || hands=(l r)
-				for hand in ${hands[@]}
+
+				if [[ $hihat == hh13 && ( $beater == stx || $position =~ ^ped|spl$ ) ]]
+				then
+					keys=(a b c d e f g h i j k l m n o p)
+					hh_cc4_lohi=(a "000 007" b "008 015" c "016 023" d "024 031" e "032 039" f "040 047" g "048 055" h "056 063" i "064 071" j "072 079" k "080 087" l "088 095" m "096 103" n "104 111" o "112 119" p "120 127")
+					hh_cc4_hilo=(p "000 007" o "008 015" n "016 023" m "024 031" l "032 039" k "040 047" j "048 055" i "056 063" h "064 071" g "072 079" f "080 087" e "088 095" d "096 103" c "104 111" b "112 119" a "120 127")
+				elif [[ $hihat == hh13 ]]
+				then
+					keys=(a b c d e f)
+					hh_cc4_lohi=(a "000 021" b "022 042" c "043 063" d "064 085" e "086 106" f "107 127")
+					hh_cc4_hilo=(f "000 021" e "022 042" d "043 063" c "064 085" b "086 106" a "107 127")
+				else
+					keys=(a b c d e)
+					hh_cc4_lohi=(a "000 025" b "026 051" c "052 076" d "077 102" e "103 127")
+					hh_cc4_hilo=(e "000 025" d "026 051" c "052 076" b "077 102" a "103 127")
+				fi
+
+				[[ $position =~ ^ped|spl$ ]] && grabs=(-) || grabs=(free held)
+				for grab in ${grabs[@]}
 				do
+					[[ $position =~ ^ped|spl|bel$ ]] && hands=(-) || hands=(l r)
+					for hand in ${hands[@]}
+					do
 
-					[[ $position =~ ^ped|spl$ ]] && {
-						read articulation available_opennesses <<<"$(make_articulation $hihat $position - $grab $hand)"
-					} || {
-						read articulation available_opennesses <<<"$(make_articulation $hihat $beater $position $grab $hand)"
-					}
-					is_grab=$([[ $articulation =~ ^grb|ped|spl|rim$ ]] && echo true || echo false)
-					$is_grab || (( i+=1 ))
+						[[ $position =~ ^ped|spl$ ]] && {
+							read articulation available_opennesses <<<"$(make_articulation $hihat $position - $grab $hand)"
+						} || {
+							read articulation available_opennesses <<<"$(make_articulation $hihat $beater $position $grab $hand)"
+						}
+						is_grab=$([[ $articulation =~ ^grb|ped|spl|rim$ ]] && echo true || echo false)
+						$is_grab || (( i+=1 ))
 
-					[[ $articulation =~ ^ped|spl$ ]] && {
-						f="${hihat}_${articulation}"
-						trigger="\$hh_${articulation}"
-					} || {
-						f="${hihat}_${beater}_${articulation}"
-						trigger="\$hh_${position}$([[ $hand == - ]] || echo "_$hand")"
-					}
+						[[ $articulation =~ ^ped|spl$ ]] && {
+							f="${hihat}_${articulation}"
+							trigger="\$hh_${articulation}"
+						} || {
+							f="${hihat}_${beater}_${articulation}"
+							trigger="\$hh_${position}$([[ $hand == - ]] || echo "_$hand")"
+						}
 
-					[[ -v triggers[$trigger] ]] || { triggers[$trigger]=1; [[ -v triggers[keys] ]] && triggers[keys]="${triggers[keys]} $trigger" || triggers[keys]=$trigger; }
+						[[ -v triggers[$trigger] ]] || { triggers[$trigger]=1; [[ -v triggers[keys] ]] && triggers[keys]="${triggers[keys]} $trigger" || triggers[keys]=$trigger; }
 
-#echo >&2 "hihat {$hihat}; beater {$beater}; position {$position}; grab {$grab}; hand {$hand} -> articulation {$articulation}; available_opennesses {$available_opennesses}"
-					inc_file="triggers/$beater/hihats/${hihat}.inc"
+	#echo >&2 "hihat {$hihat}; beater {$beater}; position {$position}; grab {$grab}; hand {$hand} -> articulation {$articulation}; available_opennesses {$available_opennesses}"
 [[ -f $inc_file ]] || echo >&2 $inc_file
-#echo >&2 do_hihat lo_to_hi $beater $hihat $f $trigger $grab $is_grab $group $i
-					do_hihat lo_to_hi $beater $hihat $f $trigger $grab $is_grab $group $(printf '%03d\n' $i) >> $inc_file
+						do_hihat $movement $beater $hihat $f $trigger $grab $group $(printf '%03d\n' $i) >> $inc_file
 
-					inc_file="triggers/$beater/hihats/${hihat}_invcc4.inc"
-[[ -f $inc_file ]] || echo >&2 $inc_file
-#echo >&2 do_hihat hi_to_lo $beater $hihat $f $trigger $grab $is_grab $group $i
-					do_hihat hi_to_lo $beater $hihat $f $trigger $grab $is_grab $group $(printf '%03d\n' $i) >> $inc_file
-
+					done
 				done
 			done
+
+			{
+				release=$(awk 'BEGIN { print '$max_duration' / 2; }' <&-)
+				echo "// Max duration $max_duration"
+				echo "//<master>"
+				echo "// ampeg_release=$release"
+				echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
+				echo
+				i=1
+				for key in $(echo ${triggers[keys]})
+				do
+					printf '#define %s %03d\n' ${key} $i
+					(( i += 1 ))
+				done
+
+				echo
+				echo "#include \"${inc_file}\""
+			} > "$out_file"
+			# } - movement
 		done
-
-		{
-			release=$(awk 'BEGIN { print '$max_duration' / 2; }' <&-)
-			echo "// Max duration $max_duration"
-			echo "//<master>"
-			echo "// ampeg_release=$release"
-			echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
-			echo
-			i=1
-			for key in $(echo ${triggers[keys]})
-			do
-				printf '#define %s %03d\n' ${key} $i
-				(( i += 1 ))
-			done
-
-			echo
-			echo "#include \"triggers/$beater/hihats/${hihat}.inc\""
-		} > triggers/$beater/${hihat}.inc
-		{
-			release=$(awk 'BEGIN { print '$max_duration_invcc' / 2; }' <&-)
-			echo "// Max duration $max_duration_invcc"
-			echo "//<master>"
-			echo "// ampeg_release=$release"
-			echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
-			echo
-			i=1
-			for key in $(echo ${triggers[keys]})
-			do
-				printf '#define %s %03d\n' ${key} $i
-				(( i += 1 ))
-			done
-
-			echo
-			echo "#include \"triggers/$beater/hihats/${hihat}_invcc4.inc\""
-		} > triggers/$beater/${hihat}_invcc4.inc
 		# } - hihat
 	done
 	# } - beater
