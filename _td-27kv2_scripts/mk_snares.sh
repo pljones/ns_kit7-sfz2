@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+. utils.sh
+
 declare -A keys
 
 # sn<size>_<tuning>_<beater>_snare_<on|off>_<articulation><|roundrobin>_<l|r><|mishit>.sfz
@@ -133,24 +135,6 @@ has_rr=(\
 	[rr3a]="0.0 0.33333" [rr3b]="0.33333 0.66667" [rr3c]="0.66667 1.0"\
 )
 
-function get_durations () {
-	local current_max=$1; shift || { echo "Missing current_max" >&2; exit 1; }
-	local sfz_file=$1   ; shift || { echo "Missing sfz_file"    >&2; exit 1; }
-
-	local line x duration
-	while read line
-	do
-		read x duration <<<$(echo $line)
-		current_max=$(awk '{ print ( ( 0.0 + $1 ) > ( 0.0 + $2 ) ? $1 : $2 ) }' <<<"$duration $current_max")
-	done < <(
-		grep 'sample=' $sfz_file | sed -e 's!^.*sample=\.\./samples/!!' | while read sample
-		do
-			grep "^$sample " ../ns_kits7-all_samples-duration.txt
-		done
-	)
-	echo $current_max
-}
-
 function do_rr () {
 	local beater=$1      ; shift || { echo "do_rr: Missing beater"       >&2; exit 1; }
 	local tuning=$1      ; shift || { echo "do_rr: Missing tuning"       >&2; exit 1; }
@@ -175,7 +159,7 @@ function do_rr () {
 		[[ -f "kit_pieces/snares/${file}.sfz" ]] || { echo "Missing kit piece: $file" >&2; exit 1; }
 		[[ -v keys[$key] ]] || { keys[$key]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} $key" || keys[keys]=$key; }
 #echo >&2 "key {$key}; file {$file}"
-		max_duration=$(get_durations $max_duration kit_pieces/snares/${file}.sfz)
+		get_durations kit_pieces/snares/${file}.sfz max_duration
 
 		echo "<group>"
 		echo " key=$key"
@@ -193,7 +177,7 @@ function do_rr () {
 			[[ -f "kit_pieces/snares/${file}.sfz" ]] || { echo "Missing kit piece: $file" >&2; exit 1; }
 			[[ -v keys[$key] ]] || { keys[$key]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} $key" || keys[keys]=$key; }
 #echo >&2 "key {$key}; file {$file}; rr {$rr}"
-			max_duration=$(get_durations $max_duration kit_pieces/snares/${file}.sfz)
+			get_durations kit_pieces/snares/${file}.sfz max_duration
 
 			echo "<group>"
 			echo " key=$key"

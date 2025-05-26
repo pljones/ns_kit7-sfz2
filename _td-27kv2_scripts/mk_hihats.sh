@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+. utils.sh
+
 # ns_kit7 hi-hats
 
 mkdir -p triggers
@@ -64,27 +66,6 @@ cat > triggers/hihat-pedal-mutes.inc <<-'@EOF'
 <region> key=$hh_rim_l                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
 <region> key=$hh_rim_r                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
 @EOF
-
-declare -A sample_durations
-while read sample duration
-do
-	sample_durations[$sample]=$duration
-done < ../ns_kits7-all_samples-duration.txt
-
-function get_durations () {
-	local current_max=$1; shift || { echo "Missing current_max" >&2; exit 1; }
-	local sfz_file=$1   ; shift || { echo "Missing sfz_file"    >&2; exit 1; }
-
-	local line sample duration
-
-	while read line
-	do
-		sample=${line##*sample=../samples/}
-		duration=${sample_durations[$sample]}
-		(( $(awk 'BEGIN { print ('$duration' > '$current_max') }') )) && current_max=$duration || true
-	done < <(grep 'sample=' "$sfz_file")
-	echo $current_max
-}
 
 # Map hihat/beater/position/grab/hand to an "articulation" and return the available opennesses for that articulation.
 # (This is all the messy logic.)
@@ -246,11 +227,12 @@ function do_group () {
 	local grab=$1;         shift || { echo "Missing grab"      >&2; exit 1; }
 	local lo=$1;           shift || { echo "Missing lo"        >&2; exit 1; }
 	local hi=$1;           shift || { echo "Missing hi"        >&2; exit 1; }
+	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
 	local off_group=$(printf '%s%s%s' $(( 100 + $group )) ${trigger} ${off_by})
 
 	[[ -f "kit_pieces/hihats/${f}_${a_o}.sfz" ]] || { echo "new $f not found" >&2; exit 1; }
 	[[ -f "../hihats/${f}_${a_o}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
-	max_duration=$(get_durations $max_duration kit_pieces/hihats/${f}_${a_o}.sfz)
+	get_durations kit_pieces/hihats/${f}_${a_o}.sfz max_duration
 
 	echo "<group>"
 	echo " group=${group}${trigger}${off_by} off_by=${off_group}"
@@ -278,6 +260,7 @@ function do_off_by () {
 	local grab=$1;    shift || { echo "Missing grab"    >&2; exit 1; }
 	local lo=$1;      shift || { echo "Missing lo"      >&2; exit 1; }
 	local hi=$1;      shift || { echo "Missing hi"      >&2; exit 1; }
+	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
 	local off_group=$(printf '%s%s%s' $(( 100 + $group )) ${trigger} ${off_by})
 
 	echo "<group> group=${off_group} end=-1"
@@ -433,9 +416,10 @@ declare -a keys
 declare -A hh_cc4_lohi hh_cc4_hilo
 
 function get_hihat () {
-	local beater=$1;         shift || { echo "No beater supplied"      >&2; exit 1; }
-	local hihat=$1;          shift || { echo "No hihat supplied"       >&2; exit 1; }
-	local position=$1;       shift || { echo "No position supplied"    >&2; exit 1; }
+	local beater=$1;   shift || { echo "No beater supplied"   >&2; exit 1; }
+	local hihat=$1;    shift || { echo "No hihat supplied"    >&2; exit 1; }
+	local position=$1; shift || { echo "No position supplied" >&2; exit 1; }
+	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
 
 	if [[ $hihat == hh13 && ( $beater == stx || $position =~ ^ped|spl$ ) ]]
 	then
@@ -459,6 +443,7 @@ function write_articulations () {
 	local hihat=$1;    shift || { echo "Missing hihat"        >&2; exit 1; }
 	local movement=$1; shift || { echo "No movement supplied" >&2; exit 1; }
 	local group=$1;    shift || { echo "Missing group"        >&2; exit 1; }
+	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
 
 	local position grab hand
 

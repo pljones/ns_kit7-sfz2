@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+. utils.sh
+
 # ns_kit7 cymbals
 
 # trigger = (cymbal)_(articulation)(|_inner|_outer)_(free|held)
@@ -44,8 +46,6 @@
 #                     grb      grb     grc     grb                                  grb      trigger: rim (PAT>=64)
 
 function make_articulation () {
-	local grab=$1; shift || { echo "No grab supplied" >&2; exit 1; }
-	[[ $grab =~ ^held|free$ ]] || { echo "Unknown grab {$grab}" >&2; exit 1; }
 	local beater=$1; shift || { echo "No beater supplied" >&2; exit 1; }
 	[[ $beater =~ ^brs|hnd|mlt|stx$ ]] || { echo "Unknown beater {$beater}" >&2; exit 1; }
 	local cymbal=$1; shift || { echo "No cymbal supplied" >&2; exit 1; }
@@ -54,6 +54,10 @@ function make_articulation () {
 	[[ $position =~ ^bel|top|rim$ ]] || { echo "Unknown position {$position}" >&2; exit 1; }
 	local zone=$1; shift || { echo "No zone supplied" >&2; exit 1; }
 	[[ $zone =~ ^inner|outer|-$ ]] || { echo "Unknown zone {$zone}" >&2; exit 1; }
+	local grab=$1; shift || { echo "No grab supplied" >&2; exit 1; }
+	[[ $grab =~ ^held|free$ ]] || { echo "Unknown grab {$grab}" >&2; exit 1; }
+	local -n _art_ref=$1; shift || { echo "No _art_ref supplied" >&2; exit 1; }
+	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
 
 	if [[ $grab == held ]]
 	then
@@ -61,64 +65,45 @@ function make_articulation () {
 		then
 			if [[ $position == bel ]]
 			then
-				articulation=rim
+				_art_ref=rim
 			elif [[ $cymbal == cy19_ride && $position == top ]]
 			then
-				articulation=grt
+				_art_ref=grt
 			elif [[ $cymbal == cy19_ride && $position == rim ]]
 			then
-				articulation=grc
+				_art_ref=grc
 			else
-				articulation=grb
+				_art_ref=grb
 			fi
 		else
-			articulation=grb
+			_art_ref=grb
 		fi
 	else
 		if [[ $beater == brs && $cymbal =~ ^cy19_ride|cy20_ride|cy19_sizzle$ && $position == bel ]]
 		then
-			articulation=bel
+			_art_ref=bel
 		elif [[ $beater == brs && $position == rim ]]
 		then
-			articulation=sws
+			_art_ref=sws
 		elif [[ $beater == mlt && $cymbal != cy19_sizzle && $position == rim ]]
 		then
-			articulation=rol
+			_art_ref=rol
 		elif [[ $beater == stx && $position == bel && $cymbal != cy19_china && $cymbal != cy9_splash ]]
 		then
-			articulation=bel
+			_art_ref=bel
 		elif [[ $beater == stx && $position == top && $cymbal =~ ^cy19_china|cy1[58]_crash|cy12_splash$ ]]
 		then
-			articulation=top
+			_art_ref=top
 		elif [[ $beater == stx && $position == top && $cymbal =~ ^cy19_ride|cy20_ride|cy19_sizzle$ && $zone == outer ]]
 		then
-			articulation=elv
+			_art_ref=elv
 		elif [[ $beater == stx && $position == rim && $cymbal == cy19_ride ]]
 		then
-			articulation=crs
+			_art_ref=crs
 		else
-			articulation=ord
+			_art_ref=ord
 		fi
 	fi
-	echo $articulation
-}
-
-function get_durations () {
-	local current_max=$1; shift || { echo "Missing current_max" >&2; exit 1; }
-	local sfz_file=$1   ; shift || { echo "Missing sfz_file"    >&2; exit 1; }
-
-	local line x duration
-	while read line
-	do
-		read x duration <<<$(echo $line)
-		current_max=$(awk '{ print ( ( 0.0 + $1 ) > ( 0.0 + $2 ) ? $1 : $2 ) }' <<<"$duration $current_max")
-	done < <(
-		grep 'sample=' $sfz_file | sed -e 's!^.*sample=\.\./samples/!!' | while read sample
-		do
-			grep "^$sample " ../ns_kits7-all_samples-duration.txt
-		done
-	)
-	echo $current_max
 }
 
 rm -rf triggers/*/cymbals/
@@ -141,18 +126,19 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 		max_duration=0
 		for position in bel top rim
 		do
-			for grab in free held
+			if [[ ${position} == top ]]
+			then
+				zones=(inner outer)
+			else
+				zones=(-)
+			fi
+			for zone in "${zones[@]}"
 			do
-				#if [[ "${beater}_${cymbal}_${position}_${grab}" =~ ^stx_(cy19_ride|cy20_ride|cy19_sizzle)_top_free$ ]]
-				if [[ ${position} == top ]]
-				then
-					zones=(inner outer)
-				else
-					zones=(-)
-				fi
-				for zone in "${zones[@]}"
+				for grab in free held
 				do
-					articulation=$(make_articulation $grab $beater $cymbal $position $zone)
+					#if [[ "${beater}_${cymbal}_${position}_${grab}" =~ ^stx_(cy19_ride|cy20_ride|cy19_sizzle)_top_free$ ]]
+					declare articulation
+					make_articulation $beater $cymbal $position $zone $grab articulation
 					if [[ $articulation =~ ^gr[bct]|rim$ ]]
 					then
 						is_grab=true
@@ -160,16 +146,17 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 						is_grab=false
 					fi
 					$is_grab || (( i+=1 ))
+
 					f="$(echo $cymbal | sed -e 's/\(cy[^_]*\)_\(.*\)$/\2_\1/')_${beater}_${articulation}"
 					[[ -f "kit_pieces/cymbals/${f}.sfz" ]] || { echo "new $f not found" >&2; exit 1; }
 					[[ -f "../cymbals/${f}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
+					get_durations kit_pieces/cymbals/${f}.sfz max_duration
 
-					max_duration=$(get_durations $max_duration kit_pieces/cymbals/${f}.sfz)
 					key="\$${cymbal}_${position}$([[ $zone == - ]] || echo "_${zone}")"
 					group=$(printf "%03d\n" $c)
 					[[ -v keys[$key] ]] || { keys[$key]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} $key" || keys[keys]=$key; }
-					echo "<group>"
-					echo " key=${key}"
+
+					echo "<group> key=${key}"
 					if $is_grab
 					then
 						echo " lopolyaft=064 hipolyaft=127"
@@ -179,17 +166,18 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 						echo " group=500${group}$(printf "%03d\n" $i) off_by=600${group}$(printf "%03d\n" $i)"
 					fi
 					echo "#include \"kit_pieces/cymbals/${f}.sfz\""
+
 					if ! $is_grab
 					then
-						echo "<region> key=-1 end=-1"
-						echo " on_locc130=001 on_hicc130=127"
-						echo " locc133=${key} hicc133=${key}"
+						echo "<group> <region> key=-1 end=-1"
+						echo " on_locc130=001 on_hicc130=127 locc133=${key} hicc133=${key}"
 						echo " group=600${group}$(printf "%03d\n" $i)"
 						echo " sample=*silence"
 					fi
+
+					echo ""
 				done
 			done
-			echo ""
 		done >> triggers/$beater/cymbals/$cymbal.inc
 
 		{

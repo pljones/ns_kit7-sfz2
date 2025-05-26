@@ -1,22 +1,6 @@
 #!/bin/bash -eu
 
-function get_durations () {
-	local current_max=$1; shift || { echo "Missing current_max" >&2; exit 1; }
-	local sfz_file=$1   ; shift || { echo "Missing sfz_file"    >&2; exit 1; }
-
-	local line x duration
-	while read line
-	do
-		read x duration <<<$(echo $line)
-		current_max=$(awk '{ print ( ( 0.0 + $1 ) > ( 0.0 + $2 ) ? $1 : $2 ) }' <<<"$duration $current_max")
-	done < <(
-		grep 'sample=' $sfz_file | sed -e 's!^.*sample=\.\./samples/!!' | while read sample
-		do
-			grep "^$sample " ../ns_kits7-all_samples-duration.txt
-		done
-	)
-	echo $current_max
-}
+. utils.sh
 
 rm -rf triggers/*/kicks/ triggers/*/kd*.inc
 
@@ -53,7 +37,7 @@ echo >&2 "$t"
 								&& keys[keys]="${keys[keys]} $trigger" \
 								|| keys[keys]="$trigger"
 						}
-						max_duration=$(get_durations $max_duration $f)
+						get_durations $f max_duration
 						echo "<group>"
 						echo " key=$trigger"
 						[[ "$rr" == "a" ]] && echo " lorand=0.00 hirand=0.50"
