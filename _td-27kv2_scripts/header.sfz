@@ -93,7 +93,22 @@
 // tom3Rim     = 58; // tomAuxCC > 95    A#3  -> D#-1 rim
 // tom3RimAlt  =  3; // tomAuxCC > 95    D#-1 -> D#-1 rim
 
+// Current snare message preprocessing
+// snareHead
+// - snareCC for Head seems to run across the inner zone then switch.  Oh well.  "Inner" and "Outer" rather than "rim"...
+//   (snareCC >= 127) ? snareHeadAlt : snareHead
+// snareRim
+// - snareCC for Rim seems highly unreliable, so skip snareRimAlt
+//   (snareCC > 127) ? snareRimAlt : snareRim
+// snareXstick
+// - pass through
+//   -> snareXstick
+// snareBrush
+// - snareBrush is snareHead with the "brush" option on the module - treat as snareHead
+//   -> snareHead
 
+
+// ---- sticks ----
 // snareHead      = 38; // D2  -> ord_l D#-1 / ord_r E-1
 // snareHeadAlt   = 21; // A0  -> rmh_l G#-1 / rmh_r A-1
 // snareRim       = 40; // E2  -> rms_l A#-1 / rms_r B-1
@@ -111,8 +126,8 @@
 #define $NNO 133
 
 <control>
- default_path=G:/naturalstudios/ns_kit7/samples/
- hint_ram_based=1
+// default_path=G:/naturalstudios/ns_kit7/samples/
+// hint_ram_based=1
  octave_offset=0
  set_cc$FC=000   label_cc$FC=Foot Ctrl (cc$FC)
  set_cc$VOL=127  label_cc$VOL=Kit VOL (cc$VOL)

@@ -1,6 +1,8 @@
 #!/bin/bash -eu
 
 function header() {
+	echo "Emitted at: $(date -Iseconds)"
+	echo
 	cat <<-"EOF"
 //***
 // Aria Player sfz Mapping for Natural Studio ns_kit7
@@ -24,6 +26,9 @@ function header() {
 // 
 // key=rim
 //  include->rim
+//
+// Also in progress is progress polyphonic aftertouch muting,
+// whereby the polypressure controls how fast the muting happens.
 
 // Done but undocumented:
 //
@@ -94,13 +99,13 @@ function header() {
 // tom3Rim     = 58; // tomAuxCC > 95    A#3  -> D#-1 rim
 // tom3RimAlt  =  3; // tomAuxCC > 95    D#-1 -> D#-1 rim
 
-
+// ---- sticks ----
 // snareHead      = 38; // D2  -> ord_l D#-1 / ord_r E-1
 // snareHeadAlt   = 21; // A0  -> rmh_l G#-1 / rmh_r A-1
 // snareRim       = 40; // E2  -> rms_l A#-1 / rms_r B-1
 // snareRimAlt    = 20; // G#0 -> rim   G-1
 // snareXstick    = 37; // C#2 -> xtk   C#0
-// snareBrush     = 23; // but this is just head with brush mode on
+// snareBrush     = 23; // -> snareHead
 
 // ------------------------------------------------------------------
 // Standard CCs
@@ -112,12 +117,12 @@ function header() {
 
 <control>
 // #include "default_path.inc"
- hint_ram_based=1
+// hint_ram_based=1
  octave_offset=0
  set_cc$FC=000   label_cc$FC=Foot Ctrl (cc$FC)
  set_cc$VOL=127  label_cc$VOL=Kit VOL (cc$VOL)
  set_cc$PAN=64   label_cc$PAN=Kit PAN (cc$PAN)
- set_cc$PLY=000  label_cc$PLY=Polyphonic Aftertouch (cc$PLY)
+ set_cc$PLY=000  label_cc$PLY=P ATouch (cc$PLY)
  set_cc$NNO=000  label_cc$NNO=Last Note Number (cc$NNO)
 
 <global>
