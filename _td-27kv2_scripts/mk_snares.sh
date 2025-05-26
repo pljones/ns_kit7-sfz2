@@ -2,6 +2,52 @@
 
 . utils.sh
 
+
+### rework -- table unfinished: it does not work like this yet
+
+# positions head rim xtk
+
+# snareCC for inaccurately controlling anything else
+
+# ???: head->ord, rim->rms, xtk->xtk
+# brs: head->cls, xtk->opn, rim->sw? (with ? in four zones based on snareCC? or straight random?)
+
+
+#     |------ sn10 ------|----------------------------- sn12 ----------------------------|------- sn14 ------|
+#      jungle  | piccolo |           bop         |   dead  |  funk   | orleans |  tight  | metal   | rock    | trigger
+#      off on  |   on    |     off        on     |    on   |   on    |   on    |   on    | off on  | off on  |
+#                        | muted open muted open |         |         |         |         |
+
+# brs
+#                              cls        cls    |         |   cls   |         |         |         |         | head (snareCC?)
+#                              opn        opn    |         |   cls   |         |         |         |         | rim
+#                              rms        rms    |         |   cls   |         |         |         |         | xtk
+#                              cls        swc    |         |   cls   |         |         |         |         | (head snareCC?)
+#                              cls        swl    |         |   cls   |         |         |         |         | (head snareCC?)
+#                              cls        sws    |         |   cls   |         |         |         |         | (head snareCC?)
+#                              cls        swu    |         |   cls   |         |         |         |         | (head snareCC?)
+
+# hnd
+#      ord     |         |     ord        ord    |         |         |         |         |         |         | head
+#      rms     |         |     ord        ord    |         |         |         |         |         |         | rim
+#      slp     |         |     ord        ord    |         |         |         |         |         |         | xtk
+
+# mlt
+#              |         |     ord        ord    |         |         |         |         |         |         | head
+#              |         |     ord        ord    |         |         |         |         |         |         | rim
+#              |         |     ord        ord    |         |         |         |         |         |         | xtk
+
+# stx
+#      ord ord |  ord    |  ord  ord   ord  ord  |         |         |         |         |         |         | head (snareCC?)
+#      rms rms |  rms    |  rms  rms   rms  rms  |         |         |         |         |         |         | rim
+#      xtk xtk |  xtk    |       xtk   xtk  xtk  |         |         |         |         |         |         | xtk
+#      rmh rmh |         |       rmh   rmh  rmh  |         |         |         |         |         |         | (head snareCC?)
+#      rim rim |         |       rim   rim       |         |         |         |         |         |         | (rim snareCC??!)
+#      prs prs |  prs    |       prs   prs  prs  |         |         |         |         |         |         | -
+#          e2c |         |       e2c   e2c  e2c  |         |         |         |         |         |         | -
+#          rol |         |       rol   rol  rol  |         |         |         |         |         |         | -
+
+
 declare -A keys
 
 # sn<size>_<tuning>_<beater>_snare_<on|off>_<articulation><|roundrobin>_<l|r><|mishit>.sfz
