@@ -163,7 +163,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       (msg2 == hrVel) ? slider21
     ) = msg3);
   );
-  ((msg2 != fc) && ((msg2 < gp1) || (msg2 > gp4)) && ((msg2 < gp5) || (msg2 > gp8)) && (msg2 != hrVel)) ? (
+  cmd == cc && ((msg2 != fc) && ((msg2 < gp1) || (msg2 > gp4)) && ((msg2 < gp5) || (msg2 > gp8)) && (msg2 != hrVel)) ? (
     slider22 = msg2;
     slider23 = msg3;
     passthru = 0;
