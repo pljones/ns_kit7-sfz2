@@ -1,0 +1,265 @@
+desc:MIDI Map TD-27 input to ns_kit7 layout (pljones)
+
+in_pin:none
+out_pin:none
+
+slider1:0<0,127,1>msg1 1
+slider2:0<0,127,1>msg2 2
+slider3:0<0,127,1>msg3 3
+
+slider4:0<0,7,1{Note Off,Note On,Poly Pressure,Controller,Program Change,Channel Pressure,Pitchbend,System}>Message 4
+slider5:0<1,16,1>Channel 5
+
+slider6:0<0,127,1>Note Off Note 6
+slider7:0<0,127,1>Note Off Velocity 7
+slider8:0<0,127,1>Note On Note 8
+slider9:0<0,127,1>Note On Velocity 9
+slider10:0<0,127,1>Polyphonic Aftertouch Note 10
+slider11:0<0,127,1>Polyphonic Aftertouch Pressure 11
+slider12:hhPedal=0<0,127,1>Foot Controller Value 12
+slider13:snareCC=64<0,127,1>GP1 (snare pos) Controller Value 13
+slider14:rideCC=96<0,127,1>GP2 (ride pos) Controller Value 14
+slider15:tomAuxCC=96<0,127,1>GP3 (tom/aux) Controller Value 15
+slider16:hihatCC=8<0,127,1>GP4 (hihat pos) Controller Value 16
+slider17:0<0,127,1>GP5 Controller Value 17
+slider18:0<0,127,1>GP6 Controller Value 18
+slider19:0<0,127,1>GP7 Controller Value 19
+slider20:hihatLRCC=64<0,127,1>GP8 (hihat l/r) Controller Value 20
+slider21:0<0,127,1>High Resolution Velocity Prefix 21
+slider22:0<0,127,1>Controller XX Number 22
+slider23:0<0,127,1>Controller XX Value 23
+
+@init
+// Channel Voice messages (low half-byte = channel; 0x0 to 0xF = "1" to "16")
+noteOff = 0x80; // note No; off velocity
+noteOn  = 0x90; // note No; on velocity
+polyAft = 0xA0; // note No; note pressure
+cc      = 0xB0; // control No (< 0x78); value
+pc      = 0xC0; // program No
+chanAft = 0xD0; // channel pressure
+pb      = 0xE0; // pitch bend: lsb, msb
+
+// Channel Mode messages
+cm      = 0xB0; // 3 (>= 0x78)
+
+// System messages
+sysex   = 0xF0; // "start of sysex": varies
+sysmtcq = 0xF1; // MIDI Time Code Quarter Frame: 0nnndddd; nnn message type, dddd values
+sysspp  = 0xF2; // Song Position Pointer: lsb, msb
+syssong = 0xF3; // Song Select: num
+//        0xF4  -- undefined
+//        0xF5  -- undefined
+systune = 0xF6; // Tune request
+syseox  = 0xF7; // "end of sysex"
+
+// Control Nos
+fc      = 4;  // 0x04;
+gp1     = 16; // 0x10; snare pos
+gp2     = 17; // 0x11; ride pos
+gp3     = 18; // 0x12; tom/aux pos
+gp4     = 19; // 0x13; hihat pos
+gp5     = 80; // 0x50; (unused?)
+gp6     = 81; // 0x51; (unused?)
+gp7     = 82; // 0x52; (unused?)
+gp8     = 83; // 0x53; hihat l/r
+hrVel   = 88; // 0x58;
+
+// TD-27 default trigger note assignments
+kick           = 36;
+
+snareHead      = 38; // D2 (alt 21 A0)
+snareRim       = 40; // E2 ((unused) alt 20 G#0)
+snareBrush     = 23; // but this is just head with brush mode on
+snareXstick    = 37; // C#2
+
+tom1Head       = 48;
+tom1Rim        = 50;
+tom2Head       = 45;
+tom2Rim        = 47;
+tom3Head       = 43;
+tom3Rim        = 58;
+
+hiHatOpenBow   = 46;
+hiHatOpenEdge  = 26; // module built-in
+hiHatCloseBow  = 42;
+hiHatCloseEdge = 22; // module built-in
+hiHatPedal     = 44;
+
+crash1Bow      = 49;
+crash1Edge     = 55;
+crash2Bow      = 57;
+crash2Edge     = 52;
+
+rideBow        = 51;
+rideEdge       = 59;
+rideBell       = 53;
+
+aux1Head       = 27; // module built-in
+aux1Rim        = 28; // module built-in
+aux2Head       = 29; // module built-in
+aux2Rim        = 30; // module built-in
+aux3Head       = 31; // module built-in
+aux3Rim        = 32; // module built-in
+
+// 23 is snare head in brush mode
+// no idea where 24 and 25 are but I choose to keep clear
+snareHeadAlt     = 21;
+snareRimAlt      = 20;
+hiHatOpenBowAlt  = 19; // hihatCC
+hiHatOpenBowL    = 18; // hihatLRCC
+hiHatOpenBowR    = 17; // hihatLRCC
+hiHatCloseBowAlt = 16; // hihatCC
+hiHatCloseBowL   = 15; // hihatLRCC
+hiHatCloseBowR   = 14; // hihatLRCC
+hiHatOpenEdgeL   = 13; // hihatLRCC
+hiHatOpenEdgeR   = 12; // hihatLRCC
+hiHatCloseEdgeL  = 11; // hihatLRCC
+hiHatCloseEdgeR  = 10; // hihatLRCC
+rideBowAlt       =  9;
+tom1HeadAlt      =  8;
+tom1RimAlt       =  7;
+tom2HeadAlt      =  6;
+tom2RimAlt       =  5;
+tom3HeadAlt      =  4;
+tom3RimAlt       =  3;
+
+result = -1;
+passthru = 1;
+
+@block
+while (midirecv(offset, msg1, msg2, msg3)) (
+  slider1 = msg1;
+  slider2 = msg2;
+  slider3 = msg3;
+  
+  cmd = msg1 & 0xF0;
+  passthru = 1;
+  
+  slider4 = ((msg1 & 0xF0) / 16) - 8;
+  (cmd != 0xF0) ? (
+    slider5 = 1 + (msg1 & 0x0F);
+  );
+  
+  (cmd == noteOff) ? (
+    slider6 = msg2;
+    slider7 = msg3;
+  ) : (cmd == noteOn) ? (
+    slider8 = msg2;
+    slider9 = msg3;
+  ) : (cmd == polyAft) ? (
+    slider10 = msg2;
+    slider11 = msg3;
+  ) : (cmd == cc) ? (
+    (msg2 == fc) ? hhPedal = msg3 : (
+    (
+      (msg2 == gp1) ? snareCC : // snare pos
+      (msg2 == gp2) ? rideCC : // ride pos
+      (msg2 == gp3) ? tomAuxCC : // tom/aux pos
+      (msg2 == gp4) ? hihatCC : // hihat pos
+      (msg2 == gp5) ? slider17 :
+      (msg2 == gp6) ? slider18 :
+      (msg2 == gp7) ? slider19 :
+      (msg2 == gp8) ? hihatLRCC : // hihat l/r
+      (msg2 == hrVel) ? slider21
+    ) = msg3);
+  );
+  ((msg2 != fc) && ((msg2 < gp1) || (msg2 > gp4)) && ((msg2 < gp5) || (msg2 > gp8)) && (msg2 != hrVel)) ? (
+    slider22 = msg2;
+    slider23 = msg3;
+    passthru = 0;
+  );
+
+  // sliders now all hold latest state and addPolyAft is set
+  // the "note" messages need note number adjusting based on
+  // whatever the mapping is
+  // b00 no position
+  // b01 centre (0) to edge (127)
+  // b10 left (0) to right (127)
+  (cmd == noteOff || cmd == noteOn || cmd == polyAft) ? (
+    (msg2 == kick) ? (
+    0;
+  
+    ) : (msg2 == snareHead) ? (
+      // snareCC for Head seems to run across the inner zone then switch.
+      // Oh well.  "Inner" and "Outer" rather than "rim"...
+      msg2 = (snareCC >= 127) ? snareHeadAlt : msg2;
+    ) : (msg2 == snareRim) ? (
+      // snareCC for Rim seems highly unreliable, so skip snareRimAlt
+      msg2 = (snareCC > 127) ? snareRimAlt : msg2;
+    ) : (msg2 == snareBrush) ? (
+      // snareBrush is snareHead with the "brush" option on the module - treat as snareHead
+      msg2 = snareHead;
+    ) : (msg2 == snareXstick) ? (
+    0;
+  
+    ) : (msg2 == tom1Head) ? (
+      msg2 = (tomAuxCC > 95) ? tom1HeadAlt : msg2;
+    ) : (msg2 == tom1Rim) ? (
+      msg2 = (tomAuxCC > 95) ? tom1RimAlt : msg2;
+    ) : (msg2 == tom2Head) ? (
+      msg2 = (tomAuxCC > 95) ? tom2HeadAlt : msg2;
+    ) : (msg2 == tom2Rim) ? (
+      msg2 = (tomAuxCC > 95) ? tom2RimAlt : msg2;
+    ) : (msg2 == tom3Head) ? (
+      msg2 = (tomAuxCC > 95) ? tom3HeadAlt : msg2;
+    ) : (msg2 == tom3Rim) ? (
+      msg2 = (tomAuxCC > 95) ? tom3RimAlt : msg2;
+  
+    ) : (msg2 == hiHatOpenBow) ? (
+      msg2 = 
+      (hihatLRCC < 48) ? hiHatOpenBowL : (
+        (hihatLRCC > 79) ? hiHatOpenBowR : (
+          (hihatCC < 8) ? hiHatOpenBowAlt : msg2
+        )
+      );
+    ) : (msg2 == hiHatCloseBow) ? (
+      msg2 = (hihatLRCC < 48) ? hiHatCloseBowL : (
+        (hihatLRCC > 79) ? hiHatCloseBowR : (
+          (hihatCC < 8) ? hiHatCloseBowAlt : msg2
+        )
+      );
+  
+    ) : (msg2 == hiHatOpenEdge) ? (
+      msg2 = (hihatLRCC < 48) ? hiHatOpenEdgeL : ((hihatLRCC > 79) ? hiHatOpenEdgeR : msg2);
+    ) : (msg2 == hiHatCloseEdge) ? (
+      msg2 = (hihatLRCC < 48) ? hiHatCloseEdgeL : ((hihatLRCC > 79) ? hiHatCloseEdgeR : msg2);
+    ) : (msg2 == hiHatPedal) ? (
+    0;
+  
+    ) : (msg2 == crash1Bow) ? (
+    0;
+    ) : (msg2 == crash1Edge) ? (
+    0;
+    ) : (msg2 == crash2Bow) ? (
+    0;
+    ) : (msg2 == crash2Edge) ? (
+    0;
+  
+    ) : (msg2 == rideBow) ? (
+      msg2 = (rideCC > 95) ? rideBowAlt : msg2;
+  
+    ) : (msg2 == rideEdge) ? (
+    0;
+    ) : (msg2 == rideBell) ? (
+    0;
+  
+    ) : (msg2 == aux1Head) ? (
+    1;
+    ) : (msg2 == aux1Rim) ? (
+    1;
+    ) : (msg2 == aux2Head) ? (
+    1;
+    ) : (msg2 == aux2Rim) ? (
+    1;
+    ) : (msg2 == aux3Head) ? (
+    1;
+    ) : (msg2 == aux3Rim) ? (
+    1;
+    );
+    result = msg2;
+  ) : (
+    0;
+  );
+
+  (passthru == 1) ? midisend(offset, msg1, msg2, msg3);
+)

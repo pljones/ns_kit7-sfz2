@@ -1,0 +1,32 @@
+desc:MIDI Map TD-27 to ns_kit7 cymbals tracks / triggers (defunct?) (pljones)
+
+in_pin:none
+out_pin:none
+
+slider1:cr1=0<0,8,1{8" splash,9" splash,12" splash,15" crash,18" crash,19" china,19" ride,19" sizzle ride,20" ride}>Crash 1
+slider2:cr2=0<0,8,1{8" splash,9" splash,12" splash,15" crash,18" crash,19" china,19" ride,19" sizzle ride,20" ride}>Crash 2
+slider3:cy18dr=0<0,8,1{8" splash,9" splash,12" splash,15" crash,18" crash,19" china,19" ride,19" sizzle ride,20" ride}>Digital Ride
+slider4:vh14d=0<0,1,1{13" Hi-hat,14" Hi-hat}>Hi-hat
+slider5:kd10=0<0,7,1{14" Bop (off),14" Bop (on),20" Full (on),20" Punch (off),20" Punch (on),22" Boom (off),22" Boom (on),22" Noreso (on)}>Kick
+slider6:pd140ds=0<0,14,1{10" Jungle (off),10" Jungle (on),10" Piccolo (on),12" Bop muted (off),12" Bop muted (on),12" Bop open (off),12" Bop open (on),12" Dead (on),12" Funk (on),12" Orleans (on),12" Tight (on),14" Metal (off),14" Metal (on),14" Rock (off),14" Rock (on)}>Digital Snare
+slider7:tom1=0<0,0,1{x}>tom1
+slider8:tom2=0<0,0,1{x}>tom2
+slider9:tom3=0<0,0,1{x}>tom3
+slider10:aux1=0<0,1,1{Muted cowbell,Open cowbell}>Aux 1
+slider11:aux2=0<0,1,1{Muted cowbell,Open cowbell}>Aux 2
+slider12:aux3=0<0,1,1{Muted cowbell,Open cowbell}>Aux 3
+
+@init
+cymbal_offset     =  1; // offset cr1/cr2/cy18dr slider to Reaper track stx_cy8_splash
+hihat_offset      = 11; // offset vh14d slider (times two) to Reaper track stx_hh13_invcc4
+pedspl_offset     = 16; // offset vh14d slider (times two) to Reaper track ped_hh13_invcc4
+kick_offset       = 25; // offset pd140ds slider to Reaper track stx_sn10_jungle_snare_off
+snare_offset      = 34; // offset pd140ds slider to Reaper track stx_sn10_jungle_snare_off
+toms_offset       = 50; // offset tom1/2/3 slider to Reaper track stx_tm8_bop_snare_off
+percussion_offset = 41; // offset aux1/2/3 slider to Reaper track stx_pn8_cowbell_muted
+
+@slider
+
+
+@block
+

@@ -1,0 +1,43 @@
+desc:MIDI Map PgmChg To Track Enable (pljones)
+
+slider1:minTrack=1<1,99,1>Lowest Controlled Track
+slider2:maxTrack=99<1,99,1>Highest Controlled Track
+slider3:minPgmChg=1<1,128,1>Lowest PgmChg value
+slider4:maxPgmChg=99<1,128,1>Highest PgmChg value
+slider5:ourChannel=0<0,16,1{Any,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}>MIDI Channel
+
+in_pin:none
+out_pin:none
+options:no_meter
+
+@init
+ext_noinit=1.0;
+pp=0;
+t=0;
+strcmp(#dbg_desc_save,"")==0 ? strcpy(#dbg_desc_save,#dbg_desc);
+
+@block
+while (midirecv(offset,msg1,msg2,msg3)) (
+  strcpy(#dbg_desc,#dbg_desc_save);
+  ((msg1 & 0xF0) == 0xC0) && (
+    ourChannel == 0 || ((msg1 & 0x0F) + 1) == ourChannel
+  ) && (
+    pp = msg2 + 1; // Program number (1 to 128)
+    pp >= minPgmChg && pp <= maxPgmChg
+  ) ? (
+    t = minTrack;
+    while (t <= maxTrack) (
+      ( t == pp - minPgmChg + minTrack ) && (
+        sprintf(#dbg_desc, "pgmChg: %i; tk: %i", pp, t);
+        0;
+      );
+      //tk = GetTrack(0, t + 1);
+      //x = SetMediaTrackInfo_Value(tk, "I_FXEN", (pp == t ? -1 : 0));
+      t += 1;
+    );
+    t=0;
+  ) : (
+    midisend(offset,msg1,msg2,msg3); // passthrough other events
+    0;
+  )
+);

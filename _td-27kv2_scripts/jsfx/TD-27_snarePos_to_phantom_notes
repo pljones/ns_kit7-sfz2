@@ -1,0 +1,92 @@
+desc:MIDI Map TD-27 Snare Position CC to phantom note numbers (pljones)
+slider1:4<0,127,1>-CC Number to track
+
+@init
+cc_num = slider1;
+cc_val = 0;
+cumulative_offset = 0;
+
+// Initialize arrays to -1, as note number 0 is valid
+i = 0;
+loop(128,
+  note_on_time[i] = -1;
+  note_replace[i] = -1;
+  i += 1;
+);
+
+last_note_on = -1;                  // Last Note On event (raw 3 bytes, packed)
+last_midi_event = -1;               // Last MIDI event (raw 3 bytes, packed)
+
+@slider
+cc_num = slider1;
+
+@block
+block_start = cumulative_offset;
+
+while (
+  midirecv(offset, msg1, msg23)
+) (
+  status = msg1 & 0xF0;
+  channel = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Store last MIDI event (raw packed) unless note off
+  status != 0x80 && (status != 0x90 || data2 != 0) ? (
+    last_midi_event = (msg1 << 16) | msg23;
+    status == 0x90 && (last_note_on = last_midi_event);
+  );
+
+  // Track CC value for specified CC number
+  status == 0xB0 && data1 == cc_num ? (
+    i = 0;
+    loop(128,
+      replacement_1 = note_replace[i];
+      replacement_1 != -1 ? (
+        // Send note off for replacement note
+        midisend(offset, 0x80 | channel, (replacement & 0x7F));
+        note_replace[i] = -1;
+      );
+      i += 1;
+    );
+    cc_val = data2;
+  );
+
+  // Handle Note On events
+  status == 0x90 && data2 > 0 ? (
+    note = data1;
+    note_on_time[note] = block_start + offset;
+
+    // If last MIDI event was the tracked CC, clear any old replacements
+    ( last_midi_event != -1 &&
+        ((last_midi_event >> 16) & 0xF0) == 0xB0 &&
+        ((last_midi_event & 0x7F00) >> 8) == cc_num ) ? (
+      // Send Note On unchanged
+      midisend(offset, msg1, msg23);
+    ) : (
+      // Not preceded by CC: replace note number
+      replacement = ( (note + 64) & 0x7F );
+      note_replace[note] = replacement;
+      midisend(offset, msg1, replacement | (data2 << 8));
+    );
+    continue; // Don't send again at end
+  );
+
+  // Handle Note Off events
+  status == 0x80 || (status == 0x90 && data2 == 0) ? (
+    note = data1;
+    replacement = note_replace[note];
+    // If replacement is set (not -1), use it. Otherwise, just forward the original note off.
+    send_note = replacement != -1 ? replacement : note;
+    midisend(offset, msg1, (send_note & 0x7F) | (data2 << 8));
+    // Do NOT reset note_replace here!
+    continue;
+  );
+
+  // For all other events, just forward
+  midisend(offset, msg1, msg23);
+);
+
+// advance running total
+cumulative_offset += samplesblock;
+
