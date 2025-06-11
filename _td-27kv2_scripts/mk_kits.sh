@@ -1,5 +1,5 @@
 #!/bin/bash
-cat >/dev/null <<-"EOF"
+: <<-'@EOF'
 One idea is to have one file containing an include for a kit piece trigger along with its kit piece "group" include
 for each kit piece and load each of those as separate Sforzando instances.
 
@@ -9,7 +9,7 @@ It also means putting together kits is "easier"
 - each beater type separate
   - snare on / off separate
 - but different tunings of drums and different selections of cymbals would all be in the one "kit" for switching in and out quickly
-EOF
+@EOF
 
 # kit layout (joy of ASCII art) for ns_kit7 generic
 

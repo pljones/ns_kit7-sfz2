@@ -11,7 +11,7 @@ grab_held='lo{GP}=064 hi{GP}=127'
 hand_left='locc{GP}=000 hicc{GP}=063'
 hand_right='locc{GP}=064 hicc{GP}=127'
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 // Control Nos
 fc      = 4;  // 0x04;
 gp1     = 16; // 0x10; # snare inner/outer
@@ -23,17 +23,17 @@ gp6     = 81; // 0x51;
 gp7     = 82; // 0x52;
 gp8     = 83; // 0x53; # hihat left/right
 hrVel   = 88; // 0x58; 
-EOF
+@EOF
 
 # Foot Controller is use is built into the hi-hat kit piece files
 grabcc=([crash1]='polyaft' [crash2]='polyaft' [ride]='polyaft')
 zonecc=([snare]='016' [ride]='017' [hihat]='019')
 handcc=([hihat]='083')
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 // TD-27 default trigger note assignments
 kick           = 36;
-EOF
+@EOF
 kick=([head]=36)
 
 kit1[kick]='kd20_full_snare_on'
@@ -41,12 +41,12 @@ kit2[kick]='kd20_full_snare_on'
 kit3[kick]='kd20_full_snare_on'
 kit4[kick]='kd20_full_snare_on'
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 snareHead      = 38;
 snareRim       = 40;
 snareBrush     = 23; // but this is just head with brush mode on
 snareXstick    = 37;
-EOF
+@EOF
 snare=([head]=38 [rim]=40 [brush]=23 [xstick]=37)
 
 kit1[snare]='sn14_rock_stx_snare_on'
@@ -54,14 +54,14 @@ kit2[snare]='sn14_rock_stx_snare_on'
 kit3[snare]='sn14_rock_stx_snare_on'
 kit4[snare]='sn14_rock_stx_snare_on'
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 tom1Head       = 48;
 tom1Rim        = 50;
 tom2Head       = 45;
 tom2Rim        = 47;
 tom3Head       = 43;
 tom3Rim        = 58;
-EOF
+@EOF
 tom1=([head]=48 [rim]=50)
 tom2=([head]=45 [rim]=47)
 tom3=([head]=43 [rim]=58)
@@ -83,13 +83,13 @@ kit4[tom2]='tm12_rock_stx_snare_on'
 kit4[tom3]='tm16_rock_stx_snare_on'
 
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 hiHatOpenBow   = 46;
 hiHatOpenEdge  = 26;
 hiHatCloseBow  = 42;
 hiHatCloseEdge = 22;
 hiHatPedal     = 44;
-EOF
+@EOF
 # Hihat gets triggered by notes 46 and 26 when open (fc > 10?)
 hihat_open=([top]=46 [rim]=26)
 # Hihat gets triggered by notes 42 and 22 when closed (fc <= 10?)
@@ -100,12 +100,12 @@ hihat_pedal=([ped]='44 locc004=000 hicc004=010' [spl]='44 locc004=011 hicc004=12
 
 kit1[hihat_open]=
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 crash1Bow      = 49;
 crash1Edge     = 55;
 crash2Bow      = 57;
 crash2Edge     = 52;
-EOF
+@EOF
 crash1=([top]=49 [rim]=55)
 crash2=([top]=57 [rim]=52)
 
@@ -119,11 +119,11 @@ kit2[crash2]='crash_15'
 kit3[crash2]='china_19'
 kit4[crash2]='crash_18'
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 rideBow        = 51;
 rideEdge       = 59;
 rideBell       = 53;
-EOF
+@EOF
 ride=([bel]=53 [top]=51 [rim]=59)
 
 kit1[ride]='ride_19'
@@ -131,14 +131,14 @@ kit2[ride]='ride_20'
 kit3[ride]='sizzle_19'
 kit4[ride]='ride_19'
 
-cat > /dev/null <<-"EOF"
+: <<-'@EOF'
 aux1Head       = 27;
 aux1Rim        = 28;
 aux2Head       = 29;
 aux2Rim        = 30;
 aux3Head       = 31;
 aux3Rim        = 32;
-EOF
+@EOF
 aux1=([head]=27 [rim]=28)
 aux2=([head]=29 [rim]=30)
 aux3=([head]=31 [rim]=32)

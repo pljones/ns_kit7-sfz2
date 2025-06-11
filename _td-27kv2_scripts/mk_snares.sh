@@ -27,7 +27,9 @@ declare -A snares=(
 	[sn14_rock]="off on"
 )
 
-cat <<-'@EOF' > /dev/null
+: <<-'@EOF'
+----- BRUSH SNARE -----
+
 positions: head xtk rim brush ... magic happens:
     head xtk rim
     brush_down_new brush_down_legato brush_down_legato_rls
@@ -56,8 +58,6 @@ Flow B - Note On following Note On without intervening Snare Position CC (i.e. n
   - else sn_head_drag_legato
 
 We do NOT get a valid position from Snare Position CC for brush notes
-@EOF
-cat <<-'@EOF' > /dev/null
 
 sn_brush_down_new:        opn
 sn_brush_down_legato:     cls
@@ -98,12 +98,10 @@ brs
     swl/sws may have swlrpt/swsrpt (swl/sws: bop/w; sws: rock/w) to be triggered for repeated strokes
     or, where no swlrpt/swsrpt, swl/sws
 
-sn_xtk:                  xtk
-sn_rim:                  rim
-
-
 @EOF
-cat <<-'@EOF' > /dev/null
+: <<-'@EOF'
+----- HAND, MALLET, STICK SNARE -----
+
 positions head rim xtk
 snareCC for inaccurately controlling anything else
 

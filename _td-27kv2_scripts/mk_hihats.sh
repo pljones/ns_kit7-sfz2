@@ -7,7 +7,7 @@
 mkdir -p triggers
 rm -rf triggers/*/hihats/ triggers/hihat-mutes.inc
 
-cat >/dev/null <<-\@COMMENT
+: <<-'@COMMENT'
 Hi-hat muting is fun.
 
 Whilst a sounding hi-hat is playing, it can be muted in a number of ways:
