@@ -187,8 +187,9 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       // snareCC for Rim seems highly unreliable, so skip snareRimAlt
       msg2 = (snareCC > 127) ? snareRimAlt : msg2;
     ) : (msg2 == snareBrush) ? (
-      // snareBrush is snareHead with the "brush" option on the module - treat as snareHead
-      msg2 = snareHead;
+      // snareBrush is snareHead with the "brush" option on the module
+      // we will be adding magic for brush kits so we keep this unscathed.
+    0;
     ) : (msg2 == snareXstick) ? (
     0;
   
