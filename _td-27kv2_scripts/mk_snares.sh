@@ -68,8 +68,8 @@ sn_brush_drag_new:        sws
 sn_brush_drag_new_rpt:    swsrpt or sws
 sn_brush_drag_legato:     swl
 sn_brush_drag_legato_rpt: swlrpt or swl
-sn_xtk:                  xtk
-sn_rim:                  rim
+sn_xtk:                   xtk
+sn_rim:                   rim
 
 
 cls may have clsrls (bop, rock/w) to be triggered when the brush leaves the head
@@ -137,9 +137,9 @@ mlt
 stx
      ord ord |  ord    |  ord  ord   ord  ord  |   ord   |   ord   |   ord   |   ord   | ord ord | ord ord | head
      xtk xtk |  xtk    |  rms  xtk   xtk  xtk  |   rms   |   xtk   |   xtk   |   xtk   | rms xtk | xtk xtk | xtk
-     rim rim |         |       rim   rim       |         |         |         |         |         |         | rim
+     rim rim |  rms    |  rms  rim   rim  rms  |   rms   |   rms   |   rms   |   rms   | rms rms | rms rms | rim
      rms rms |  rms    |  rms  rms   rms  rms  |   rms   |   rms   |   rms   |   rms   | rms rms | rms rms | rim+head CCin
-     rmh rmh |         |       rmh   rmh  rmh  |         |   rmh   |   rmh   |   rmh   |         |         | rim+head CCout
+     rmh rmh |  rms    |  rms  rmh   rmh  rmh  |   rms   |   rmh   |   rmh   |   rmh   | rms rms | rms rms | rim+head CCout
      prs prs |  prs    |       prs   prs  prs  |   prs   |   prs   |   prs   |   prs   | prs prs | prs prs | -
          e2c |         |       e2c   e2c  e2c  |         |   e2c   |         |   e2c   |         |         | -
          rol |         |             rol  rol  |         |   rol   |   rol   |   rol   |         |     rol | -
@@ -212,24 +212,24 @@ function get_articulations () {
 	if [[ -v articulations[$art_key] ]]
 	then
 	 _arts_ref=(${articulations[$art_key]})
-echo >&2 "art_key {$art_key}; articulations (${_arts_ref[@]})"
+#echo >&2 "art_key {$art_key}; articulations (${_arts_ref[@]})"
 	fi
 }
 
 function get_articulation () {
-	local trigger=$1; shift || { echo "get_articulation: Missing trigger" >&2; exit 1; }
-	local -n _arts_ref=$1; shift || { echo "get_articulation: Missing articulations reference" >&2; exit 1; }
-	local -n _articulation=$1; shift || { echo "get_articulation: Missing articulation array reference" >&2; exit 1; }
-	[[ $# -eq 0 ]] || { echo "get_articulation: Unexpected trailing parameters: [$@]" >&2; exit 1; }
+	local trigger=$1; shift || { echo "get_art_ref: Missing trigger" >&2; exit 1; }
+	local -n _arts_ref=$1; shift || { echo "get_art_ref: Missing articulations reference" >&2; exit 1; }
+	local -n _art_ref=$1; shift || { echo "get_art_ref: Missing articulation array reference" >&2; exit 1; }
+	[[ $# -eq 0 ]] || { echo "get_art_ref: Unexpected trailing parameters: [$@]" >&2; exit 1; }
 
-	[[ -v triggermap["$trigger"] ]] || { echo "get_articulation: Invalid trigger {$trigger}" >&2; exit 1; }
+	[[ -v triggermap["$trigger"] ]] || { echo "get_art_ref: Invalid trigger {$trigger}" >&2; exit 1; }
 	local index=${triggermap["$trigger"]}
 
 	if [[ $index -ge ${#_arts_ref[@]} ]]
 	then
-		_articulation="-"
+		_art_ref="-"
 	else
-		_articulation=${_arts_ref[$index]}
+		_art_ref=${_arts_ref[$index]}
 	fi
 }
 
@@ -260,9 +260,9 @@ function get_rrs () {
 	# deal with the simple ones first - lucky these do not have real rrs
 	if [[ -v handed[$art] ]]
 	then
-		_rrs_ref[0]="l r"
-		_rrs_ref[1]="0.0 0.5"
-		_rrs_ref[2]="0.5 1.0"
+		_rrs_ref["keys"]="l r"
+		_rrs_ref["l"]="0.0 0.5"
+		_rrs_ref["r"]="0.5 1.0"
 		return
 	fi
 
@@ -275,16 +275,56 @@ function get_rrs () {
 	rrs_key="${rrs_key}_${art}"
 	if [[ -v has_rr[$rrs_key] ]]
 	then
-		_rrs_ref[0]="${has_rr[$rrs_key]}"
-		local i=1
-		local -a rrs=(${has_rr[$rrs_key]})
-		local rr_name="rr${#rrs[@]}"
-		for rr in ${rrs[@]}
+		_rrs_ref["keys"]="${has_rr[$rrs_key]}"
+		local -a _rrs=(${has_rr[$rrs_key]})
+		local rr_name="rr${#_rrs[@]}"
+		for rr in ${_rrs[@]}
 		do
-			_rrs_ref[$i]="${has_rr["${rr_name}${rr}"]}"
-			(( i += 1 ))
+			_rrs_ref["$rr"]="${has_rr["${rr_name}${rr}"]}"
 		done
 	fi
+}
+
+# do_articulation $drum $tuning $_sn $beater $mute $trigger $articulation $rr "${rrs[$rr]}"
+function do_articulation () {
+	local drum=$1; shift || { echo "do_articulation: Missing drum" >&2; exit 1; }
+	local tuning=$1; shift || { echo "do_articulation: Missing tuning" >&2; exit 1; }
+	local snare=$1; shift || { echo "do_articulation: Missing snare" >&2; exit 1; }
+	local beater=$1; shift || { echo "do_articulation: Missing beater" >&2; exit 1; }
+	local mute=$1; shift || { echo "do_articulation: Missing mute" >&2; exit 1; }
+	local trigger=$1; shift || { echo "do_articulation: Missing trigger" >&2; exit 1; }
+	local articulation=$1; shift || { echo "do_articulation: Missing articulation" >&2; exit 1; }
+	local rr=$1; shift || { echo "do_articulation: Missing rr" >&2; exit 1; }
+	local rr_range=$1; shift || { echo "do_articulation: Missing rr_range" >&2; exit 1; }
+	[[ $# -eq 0 ]] || { echo "do_articulation: Unexpected trailing parameters: [$@]" >&2; exit 1; }
+
+	local sfz_file="${drum}_${tuning}"
+	if [[ "${mute}" != "-" ]]
+	then
+		sfz_file="${sfz_file}_${mute}"
+	fi
+	sfz_file="${sfz_file}_${beater}_snare_${snare}_${articulation}"
+	if [[ "${rr}" =~ ^[abc]$ ]]
+	then
+		sfz_file="${sfz_file}${rr}"
+	elif [[ "${rr}" =~ ^[lr]$ ]]
+	then
+		sfz_file="${sfz_file}_${rr}"
+	fi
+#echo >&2 "do_articulation: drum {$drum}; tuning {$tuning}; snare {$_sn}; beater {$beater}; mute {$mute}; trigger {$trigger}; articulation {$articulation}; rr {$rr}; rr_range {$rr_range}; sfz_file {$sfz_file}"
+	[[ -f "kit_pieces/snares/${sfz_file}.sfz" ]] || { echo "do_articulation: new kit piece ${sfz_file} not found" >&2; exit 1; }
+	[[ -f "../snares/${sfz_file}.sfz" ]] || { echo "do_articulation: old kit piece ${sfz_file} not found" >&2; exit 1; }
+
+	get_durations kit_pieces/snares/${sfz_file}.sfz max_duration || { echo "do_articulation: get_durations failed" >&2; exit 1; }
+
+	echo "<group>"
+	echo " key=\$sn_${trigger}"
+	if [[ "${rr}" != "-" ]]
+	then
+		local -a lohirand=($rr_range)
+		echo " lorand=${lohirand[0]} hirand=${lohirand[1]}"
+	fi
+	echo "#include \"kit_pieces/snares/${sfz_file}.sfz\""
 }
 
 for drum in $(echo ${drum_tunings["keys"]})
@@ -303,24 +343,71 @@ do
 				fi
 				for mute in ${_mutes[@]}
 				do
+
 					arts=()
 					get_articulations $drum $tuning $_sn $beater $mute arts || { echo "get_articulations failed" >&2; exit 1; }
 					if [[ ${#arts[@]} == 0 ]]
 					then
-						echo >&2 "No articulations for $drum $tuning $_sn $beater $mute"
+#echo >&2 "No articulations for $drum $tuning $_sn $beater $mute"
 						continue
 					fi
 
+					file="${drum}_${tuning}"
+					[[ "${mute}" == "-" ]] || file="${file}_${mute}"
+					file="${file}_snare_${_sn}.inc"
+					rm -f "triggers/${beater}/${file}"
+					rm -f "triggers/${beater}/snares/${file}"
+					max_duration=0
+
+					declare -A keymap=()
 					for trigger in $(echo ${triggermap["keys"]})
 					do
 						articulation=""
 						get_articulation $trigger arts articulation || { echo "get_articulation failed" >&2; exit 1; }
+						if [[ "$articulation" == "-" ]]
+						then
+							keymap["$trigger"]=0
+							continue
+						fi
+						keymap["$trigger"]=1
+
 						# This gets left/right and real round-robin groups
 						# For left/right, need to check if l/r files exist else ignore it
-						rrs=()
+						declare -A rrs=()
 						get_rrs $drum $tuning $_sn $beater $mute $articulation rrs || { echo "get_rrs failed" >&2; exit 1; }
-						echo >&2 "drum {$drum}; tuning {$tuning}; snare ${_sn}; beater {$beater}; mute {$mute}; trigger {$trigger}; articulation {$articulation}; rrs [${rrs[@]}]"
+
+[[ -f "triggers/${beater}/snares/${file}" ]] || echo >&2 "drum {$drum}; tuning {$tuning}; snare {$_sn}; beater {$beater}; mute {$mute} -> triggers/${beater}/snares/${file}"
+						{
+							if [[ -v rrs["keys"] ]]
+							then
+								for rr in $(echo ${rrs["keys"]})
+								do
+									do_articulation $drum $tuning $_sn $beater $mute $trigger $articulation $rr "${rrs[$rr]}" || { echo "do_articulation failed" >&2; exit 1; }
+								done
+							else
+								do_articulation $drum $tuning $_sn $beater $mute $trigger $articulation - - || { echo "do_articulation failed" >&2; exit 1; }
+							fi
+						} >> "triggers/${beater}/snares/${file}"
 					done
+
+					{
+						echo "// Max duration $max_duration"
+						i=1
+						for key in $(echo ${triggermap["keys"]})
+						do
+							if [[ ${keymap["$key"]} == 0 ]]
+							then
+								printf '#define $sn_%s %03d\n' ${key} 0
+							else
+								printf '#define $sn_%s %03d\n' ${key} $i
+							fi
+							(( i += 1 ))
+						done
+						echo ""
+						echo "#include \"triggers/${beater}/snares/${file}\""
+					} > "triggers/${beater}/${file}"
+
+
 				done
 			done
 		done
