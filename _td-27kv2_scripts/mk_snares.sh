@@ -150,11 +150,11 @@ stx
 # Where index exceeds articulations for snare, use "-".
 declare -A triggermap=(
 	[keys]="head xtk rim rms rmh prs e2c rol brush_down_new brush_down_legato brush_down_legato_rls brush_drag_new brush_drag_new_rpt brush_drag_legato brush_drag_legato_rpt swc swu"
-	[head]=1 [xtk]=2 [rim]=3 [rms]=4 [rmh]=5
-	[prs]=6 [e2c]=7 [rol]=8
-	[brush_down_new]=9 [brush_down_legato]=10 [brush_down_legato_rls]=11
-	[brush_drag_new]=12 [brush_drag_new_rpt]=13 [brush_drag_legato]=14 [brush_drag_legato_rpt]=15
-	[swc]=16 [swu]=17
+	[head]=0 [xtk]=1 [rim]=2 [rms]=3 [rmh]=4
+	[prs]=5 [e2c]=6 [rol]=7
+	[brush_down_new]=8 [brush_down_legato]=9 [brush_down_legato_rls]=10
+	[brush_drag_new]=11 [brush_drag_new_rpt]=12 [brush_drag_legato]=13 [brush_drag_legato_rpt]=14
+	[swc]=15 [swu]=16
 )
 
 declare -A articulations=(
@@ -388,7 +388,7 @@ do
 							then
 								printf '#define $sn_%s %03d\n' ${key} 0
 							else
-								printf '#define $sn_%s %03d\n' ${key} ${triggermap[$key]}
+								printf '#define $sn_%s %03d\n' ${key} $(( ${triggermap[$key]} + 1 ))
 							fi
 						done
 						echo ""
