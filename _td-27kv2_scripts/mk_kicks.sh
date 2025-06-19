@@ -19,8 +19,7 @@ do
 			(( c+=1 ))
 			keys=()
 			t="triggers/$beater/kicks/${kick}_snare_${snare}.inc"
-echo >&2 "$t"
-			rm -f $t
+			rm -f "$t"
 			max_duration=0
 			for mishit in '' 'x'
 			do
@@ -38,14 +37,17 @@ echo >&2 "$t"
 								|| keys[keys]="$trigger"
 						}
 						get_durations $f max_duration
+[[ -f "$t" ]] || echo >&2 "$t"
+						{
 						echo "<group>"
 						echo " key=$trigger"
 						[[ "$rr" == "a" ]] && echo " lorand=0.00 hirand=0.50"
 						[[ "$rr" == "b" ]] && echo " lorand=0.50 hirand=1.00"
 						echo "#include \"$f\""
+						} >> "$t"
 					done
 				done
-			done > $t
+			done
 
 			if [[ "${#keys[@]}" -gt 0 ]]
 			then
