@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -eu
 : <<-'@EOF'
 One idea is to have one file containing an include for a kit piece trigger along with its kit piece "group" include
 for each kit piece and load each of those as separate Sforzando instances.
@@ -113,120 +113,181 @@ It also means putting together kits is "easier"
 #  set_cc$cy_cr1_CC=064   label_cc$cy_cr1_CC=CR1 posn   (cc$cy_cr1_CC)
 #  set_cc$cy_cr2_CC=064   label_cc$cy_cr2_CC=CR2 posn   (cc$cy_cr2_CC)
 #  set_cc$cy_dr_CC=064    label_cc$cy_dr_CC=Ride posn  (cc$cy_dr_CC)
-exit
 
-rm *.sfz
-kits=(funk orleans bop bop_muted bop_open rock jungle tight piccolo dead metal funk_invcc4 orleans_invcc4 bop_invcc4 bop_muted_invcc4 bop_open_invcc4 rock_invcc4 jungle_invcc4 tight_invcc4 piccolo_invcc4 dead_invcc4 metal_invcc4)
+function override_defines () {
+	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
+	local -n key_ref=$1  ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
+
+	echo ''
+	mapfile -t triggers < "${trigger_file}"
+	i=0
+	while [[ $i -lt ${#triggers[@]} ]]
+	do
+		line=${triggers[$i]}
+		(( i += 1 ))
+		[[ "$line" =~ ^(#define  *)(\$[^ ]* )([0-9][0-9]*)$ ]] && {
+			printf '%s %s %03d\n' ${BASH_REMATCH[1]} ${BASH_REMATCH[2]} $key_ref
+			(( key_ref += 1 ))
+		}
+	done
+	grep -v '^\(#define\|$\)' "${trigger_file}"
+}
+
+rm -rf _kits
+mkdir _kits
+
+kits=(funk orleans bop bop_muted bop_open rock jungle tight piccolo dead metal)
 for kit in ${kits[@]}
 do
 	declare -A $kit
 done
-bop=(      [cymbals]=ride19   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop       [toms]=bop)
-bop_muted=([cymbals]=ride19   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_muted [toms]=bop)
-bop_open=( [cymbals]=ride19   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_open  [toms]=bop)
-jungle=(   [cymbals]=ride19   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn10_jungle    [toms]=bop)
-funk=(     [cymbals]=ride19   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn12_funk      [toms]=rock)
-rock=(     [cymbals]=ride19   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=rock)
-piccolo=(  [cymbals]=ride19   [hihats]=hh13 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=dry)
-orleans=(  [cymbals]=ride19   [hihats]=hh14 [kicks]=kd22_boom   [snares]=sn12_orleans   [toms]=rock)
-tight=(    [cymbals]=ride19   [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=rock)
-dead=(     [cymbals]=ride19   [hihats]=hh14 [kicks]=kd22_noreso [snares]=sn12_dead      [toms]=dry)
-metal=(    [cymbals]=sizzle19 [hihats]=hh13 [kicks]=kd22_boom   [snares]=sn14_metal     [toms]=noreso)
-bop_invcc4=(      [cymbals]=ride19   [hihats]=hh13_invcc4 [kicks]=kd14_bop    [snares]=sn12_bop       [toms]=bop)
-bop_muted_invcc4=([cymbals]=ride19   [hihats]=hh13_invcc4 [kicks]=kd14_bop    [snares]=sn12_bop_muted [toms]=bop)
-bop_open_invcc4=( [cymbals]=ride19   [hihats]=hh13_invcc4 [kicks]=kd14_bop    [snares]=sn12_bop_open  [toms]=bop)
-jungle_invcc4=(   [cymbals]=ride19   [hihats]=hh13_invcc4 [kicks]=kd14_bop    [snares]=sn10_jungle    [toms]=bop)
-funk_invcc4=(     [cymbals]=ride19   [hihats]=hh13_invcc4 [kicks]=kd20_punch  [snares]=sn12_funk      [toms]=rock)
-rock_invcc4=(     [cymbals]=ride19   [hihats]=hh13_invcc4 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=rock)
-piccolo_invcc4=(  [cymbals]=ride19   [hihats]=hh13_invcc4 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=dry)
-orleans_invcc4=(  [cymbals]=ride19   [hihats]=hh14_invcc4 [kicks]=kd22_boom   [snares]=sn12_orleans   [toms]=rock)
-tight_invcc4=(    [cymbals]=ride19   [hihats]=hh14_invcc4 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=rock)
-dead_invcc4=(     [cymbals]=ride19   [hihats]=hh14_invcc4 [kicks]=kd22_noreso [snares]=sn12_dead      [toms]=dry)
-metal_invcc4=(    [cymbals]=sizzle19 [hihats]=hh13_invcc4 [kicks]=kd22_boom   [snares]=sn14_metal     [toms]=noreso)
+bop=(      [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop       [toms]=bop)
+bop_muted=([cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_muted [toms]=bop)
+bop_open=( [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_open  [toms]=bop)
+jungle=(   [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn10_jungle    [toms]=bop)
+funk=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn12_funk      [toms]=rock)
+rock=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=rock)
+piccolo=(  [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=dry)
+orleans=(  [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd22_boom   [snares]=sn12_orleans   [toms]=rock)
+tight=(    [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=rock)
+dead=(     [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd22_noreso [snares]=sn12_dead      [toms]=dry)
+metal=(    [cymbals]=cy19_sizzle [hihats]=hh13 [kicks]=kd22_boom   [snares]=sn14_metal     [toms]=noreso)
+
+cys=(cy8_splash cy9_splash cy12_splash cy15_crash cy18_crash cy19_china cy20_ride)
+
+tm_bop=(tm8 tm10 tm12 tm14 tm16)
+tm_dry=(tm10 tm10 tm12 tm14 tm14)
+tm_noreso=(tm10 tm10 tm12 tm14 tm14)
+tm_rock=(tm8 tm10 tm12 tm14 tm16)
+
 
 for kit in ${kits[@]}
 do
+	echo --- $kit ---
 	declare -n k=$kit
+	declare -a c=(${cys[@]} ${k[cymbals]})
+	declare -n t=tm_${k[toms]}
 
 	for btr in brs hnd mlt stx
 	do
+		if [[ "$kit" == "bop" && "$btr" == "stx" ]]
+		then
+			continue
+		elif [[ "$btr" != "stx" && "$kit" =~ ^bop_ ]]
+		then
+			continue
+		fi
+		for cy in "${c[@]}"
+		do
+			[[ -f "triggers/${btr}/${cy}.inc" ]] || { echo "${kit} ${btr} snare ${snare} has no ${cy}"; continue; }
+		done
+		[[ -f "triggers/${btr}/${k[hihats]}.inc" ]] || { echo "${kit} ${btr} snare ${snare} has no ${k[hihats]}"; continue; }
 		for snare in off on
 		do
-			[[ -f ../cymbals/${btr}_${k[cymbals]}.sfz ]] || { echo "${kit}_${btr}_snare_${snare} has no cymbals"; continue; }
-			[[ -f ../hihats/${k[hihats]}_${btr}.sfz ]] || { echo "${kit}_${btr}_snare_${snare} has no hihats"; continue; }
-			[[ -f ../kicks/${k[kicks]}_snare_${snare}.inc ]] || { echo "${kit}_${btr}_snare_${snare} has no kicks"; continue; }
-			[[ -f ../snares/${k[snares]}_${btr}_snare_${snare}.inc ]] || { echo "${kit}_${btr}_snare_${snare} has no snares"; continue; }
-			[[ -f ../toms/${k[toms]}_${btr}_snare_${snare}.sfz ]] || {
-				echo "${kit}_${btr}_snare_${snare} has no toms"
-				[[ $snare == on && ( (
-					${k[toms]} == noreso && $btr == stx
-				) || (
-					${k[toms]} == bop && $btr == brs
-				) ) ]] && {
-					echo '... will use snare_off toms, then'
-				} || {
-					continue
-				}
+			[[ -f "triggers/${btr}/${k[snares]}_snare_${snare}.inc" ]] || {
+				# echo "${kit} ${btr} snare ${snare} has no ${k[snares]}";
+				continue;
 			}
+			[[ -f "triggers/ped/${k[kicks]}_snare_${snare}.inc" ]] || { echo "${kit} snare ${snare} has no ${k[kicks]}"; continue; }
+			actual_toms=()
+			# tm12_rock_snare_off.inc
+			for tm in "${t[@]}"
+			do
+				f="triggers/${btr}/${tm}_${k[toms]}_snare_${snare}.inc"
+				if [[ ! -f $f ]]
+				then
+					x="sn${snare}_btr${btr}_toms${k[toms]}"
+#echo >&2 "f {$f}; snare {$snare}; btr {$btr}; toms {${k[toms]}}; x {$x}"
+					echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}";
+					case $x in
+						snon_btrbrs_tomsbop|snon_btrstx_tomsbop|snon_btrstx_tomsnoreso)
+							actual_toms+=(${tm}_${k[toms]}_snare_off)
+							echo '... will use snare_off tom, then'
+							;;
+						*)
+							echo ''
+							;;
+					esac
+				else
+					actual_toms+=(${tm}_${k[toms]}_snare_${snare})
+				fi
+			done
 
-		echo "Making ${kit}_${btr}_snare_${snare}.sfz ..."
-		{
-cat <<-\@EOF
+			for hh in - invcc4
+			do
+				f="${kit}"
+				if [[ "$hh" != "-" ]]
+				then
+					f="${f}_${hh}"
+				fi
+				f="${f}_${btr}_snare_${snare}.sfz"
+				echo "Making _kits/$f ..."
+				{
+				cat <<-'@EOF'
 //***
-// Aria Player sfz Mapping for Natural Studio ns_kit7
-// Mapping Copyright (C) 2016 Peter L Jones
+// Aria Player sfz mapping V2 for Natural Studio ns_kit7
+// Mapping Copyright (C) 2025 Peter L Jones
 //***
 
 // ------------------------------------------------------------------
-// Standard CCs
-#define $MOD 001
-#define $FC 004
-#define $VOL 007
-#define $PAN 010
 
 <control>
  hint_ram_based=1
  octave_offset=0
- set_cc$MOD=000  label_cc$MOD=Mod Whl    (cc$MOD)
- set_cc$FC=127   label_cc$FC=Foot Ctrler (cc$FC)
- set_cc$VOL=127  label_cc$VOL=Kit VOL    (cc$VOL)
- set_cc$PAN=64   label_cc$PAN=Kit PAN    (cc$PAN)
+ set_cc7=127  set_cc10=64
+ set_cc4=127  label_cc4=Pedal (cc4)
+ set_cc16=0   label_cc16=GP1
+ set_cc17=0   label_cc17=GP2
+ set_cc18=0   label_cc18=GP3
+ set_cc19=0   label_cc19=GP4
+ set_cc48=0   label_cc48=GP5
+ set_cc49=0   label_cc49=GP6
+ set_cc50=0   label_cc50=GP7
+ set_cc51=0   label_cc51=GP8
 
   
 <global>
  loop_mode=one_shot off_mode=normal
- volume_cc$VOL=0 pan_cc$PAN=0
+ volume_cc7=0 pan_cc10=0
  ampeg_release=.2
 
-// "Any other hand strike" to mute rolls
-<group> end=-1 sample=*silence
- group=100000000
-<region> lokey=013 hikey=019
-<region> lokey=021 hikey=034
-<region> lokey=037 hikey=043
-<region> lokey=045 hikey=061
-
 @EOF
-cat <<-@EOF
-#include "cymbals/${btr}_${k[cymbals]}.sfz"
-#include "hihats/${k[hihats]}_${btr}.sfz"
-#include "kicks/${k[kicks]}_snare_${snare}.inc"
-#include "snares/${k[snares]}_${btr}_snare_${snare}.inc"
-@EOF
-			[[ $snare == on && ( (
-				${k[toms]} == noreso && $btr == stx
-			) || (
-				${k[toms]} == bop && $btr == brs
-			) ) ]] && {
-				echo "#include \"toms/${k[toms]}_${btr}_snare_off.sfz\""
-			} || {
-				echo "#include \"toms/${k[toms]}_${btr}_snare_${snare}.sfz\""
-			}
-			[[ -f ../percussion/cowbell_8_${btr}.inc ]] && echo "#include \"percussion/cowbell_8_${btr}.inc\""
-			[[ $btr == hnd ]]                           && echo '#include "percussion/tambourine_9_hnd.inc"'
-		} > "${kit}_${btr}_snare_${snare}.sfz"
+				key=1
+				for cy in ${cys[@]} ${k[cymbals]}
+				do
+					override_defines "triggers/${btr}/${cy}.inc" key
+				done
+				if [[ $hh == - ]]
+				then
+					override_defines "triggers/${btr}/${k[hihats]}.inc" key
+				else
+					override_defines "triggers/${btr}/${k[hihats]}_invcc4.inc" key
+				fi
+				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.inc" key
+				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.inc" key
+				for tm in ${actual_toms[@]}
+				do
+					override_defines "triggers/${btr}/${tm}.inc" key
+				done
+				if [[ -f "triggers/${btr}/pn8_cowbell.inc" ]]
+				then
+					override_defines "triggers/${btr}/pn8_cowbell.inc" key
+				else
+					# here we need to know how much to add to key - guess for now
+					(( key += 2 ))
+				fi
+				if [[ -f "triggers/${btr}/pn9_tambourine.inc" ]]
+				then
+					override_defines "triggers/${btr}/pn9_tambourine.inc" key
+				else
+					# here we need to know how much to add to key - guess for now
+					(( key += 5 ))
+				fi
+				} > "_kits/${f}"
+			done
 		done
 	done
 
 	unset -n k
+	unset -n t
 done
