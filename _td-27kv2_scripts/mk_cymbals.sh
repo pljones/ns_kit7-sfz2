@@ -150,7 +150,8 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 					f="$(echo $cymbal | sed -e 's/\(cy[^_]*\)_\(.*\)$/\2_\1/')_${beater}_${articulation}"
 					[[ -f "kit_pieces/cymbals/${f}.sfz" ]] || { echo "new $f not found" >&2; exit 1; }
 					[[ -f "../cymbals/${f}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
-					get_durations kit_pieces/cymbals/${f}.sfz max_duration
+					# ignore rolls
+					[[ $articulation == rol ]] || get_durations kit_pieces/cymbals/${f}.sfz max_duration
 
 					key="\$${cymbal}_${position}$([[ $zone == - ]] || echo "_${zone}")"
 					group=$(printf "%03d\n" $c)
