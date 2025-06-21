@@ -198,16 +198,35 @@ do
 				then
 					x="sn${snare}_btr${btr}_toms${k[toms]}"
 #echo >&2 "f {$f}; snare {$snare}; btr {$btr}; toms {${k[toms]}}; x {$x}"
-					echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}";
+					#echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}";
 					case $x in
 						snon_btrbrs_tomsbop|snon_btrstx_tomsbop|snon_btrstx_tomsnoreso)
 							actual_toms+=(${tm}_${k[toms]}_snare_off)
-							echo '... will use snare_off tom, then'
+							#echo '... will use snare_off tom, then'
+							;;
+						snon_btrhnd_tomsbop)
+							if [[ $tm =~ ^(tm8|tm10)$ ]]
+							then
+								actual_toms+=(tm12_${k[toms]}_snare_${snare})
+								#echo '... will use tm12 tom, then'
+							elif [[ $tm == tm16 ]]
+							then
+								actual_toms+=(tm14_${k[toms]}_snare_${snare})
+								#echo '... will use tm14 tom, then'
+							fi
+							;;
+						snon_btrmlt_tomsbop)
+							if [[ $tm =~ ^(tm8|tm10)$ ]]
+							then
+								actual_toms+=(tm12_${k[toms]}_snare_${snare})
+								#echo '... will use tm12 tom, then'
+							fi
 							;;
 						*)
-							echo ''
+							true
 							;;
 					esac
+					#echo ''
 				else
 					actual_toms+=(${tm}_${k[toms]}_snare_${snare})
 				fi
@@ -232,18 +251,25 @@ do
 // ------------------------------------------------------------------
 
 <control>
- hint_ram_based=1
+ // hint_ram_based=1
  octave_offset=0
  set_cc7=127  set_cc10=64
- set_cc4=127  label_cc4=Pedal (cc4)
- set_cc16=0   label_cc16=GP1
- set_cc17=0   label_cc17=GP2
- set_cc18=0   label_cc18=GP3
- set_cc19=0   label_cc19=GP4
- set_cc48=0   label_cc48=GP5
- set_cc49=0   label_cc49=GP6
- set_cc50=0   label_cc50=GP7
- set_cc51=0   label_cc51=GP8
+@EOF
+				if [[ "${hh}" == "-" ]]
+				then
+					echo ' set_cc4=0    label_cc4=Pedal (cc4)'
+				else
+					echo ' set_cc4=127  label_cc4=Pedal (cc4)'
+				fi
+				cat <<-'@EOF'
+ set_cc16=0   label_cc16=GP1 (cc16)
+ set_cc17=0   label_cc17=GP2 (cc17)
+ set_cc18=0   label_cc18=GP3 (cc18)
+ set_cc19=0   label_cc19=GP4 (cc19)
+ set_cc48=0   label_cc48=GP5 (cc48)
+ set_cc49=0   label_cc49=GP6 (cc49)
+ set_cc50=0   label_cc50=GP7 (cc50)
+ set_cc51=0   label_cc51=GP8 (cc51)
 
   
 <global>
@@ -273,15 +299,13 @@ do
 				then
 					override_defines "triggers/${btr}/pn8_cowbell.inc" key
 				else
-					# here we need to know how much to add to key - guess for now
-					(( key += 2 ))
+					override_defines "triggers/stx/pn8_cowbell.inc" key
 				fi
 				if [[ -f "triggers/${btr}/pn9_tambourine.inc" ]]
 				then
 					override_defines "triggers/${btr}/pn9_tambourine.inc" key
 				else
-					# here we need to know how much to add to key - guess for now
-					(( key += 5 ))
+					override_defines "triggers/hnd/pn9_tambourine.inc" key
 				fi
 				} > "_kits/${f}"
 			done
