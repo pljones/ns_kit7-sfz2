@@ -94,7 +94,8 @@ echo >&2 triggers/$beater/toms/$t
 				done > triggers/$beater/toms/$t
 
 				{
-					echo "// Max duration $max_duration"
+					# echo "// Max duration $max_duration"
+					# Start at MIDI note 001 for each tom - mk_kits.sh overrides these; mk_sfz.sh does not
 					i=1
 					for key in $(echo ${keys[keys]})
 					do

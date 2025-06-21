@@ -54,7 +54,8 @@ do
 				t="triggers/$beater/${kick}_snare_${snare}.inc"
 				rm -f $t
 				{
-					echo "// Max duration $max_duration"
+					# echo "// Max duration $max_duration"
+					# Start at MIDI note 001 for each kick -- mk_kits.sh overrides these; mk_sfz.sh does not
 					i=1
 					for key in $(echo ${keys[keys]})
 					do

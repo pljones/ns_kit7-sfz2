@@ -146,6 +146,7 @@ stx
 # articulations is the mapping from trigger to kit piece for that snare.
 # "-" means play `end=-1 sample=*silence` and should generally never happen.
 # Where index exceeds articulations for snare, use "-".
+# Start at MIDI note 001 (value + 1) for each snare - mk_kits.sh overrides these; mk_sfz.sh does not
 declare -A triggermap=(
 	[keys]="head xtk rim rms rmh prs e2c rol brush_down_new brush_down_legato brush_down_legato_rls brush_drag_new brush_drag_new_rpt brush_drag_legato brush_drag_legato_rpt swc swu"
 	[head]=0 [xtk]=1 [rim]=2 [rms]=3 [rmh]=4
@@ -315,6 +316,8 @@ function do_articulation () {
 	echo "#include \"kit_pieces/snares/${sfz_file}.sfz\""
 }
 
+rm -rf triggers/*/snares
+rm -f triggers/*/sn??_*o{n,ff}.inc
 for drum in $(echo ${drum_tunings["keys"]})
 do
 	for tuning in ${drum_tunings[$drum]}
@@ -343,8 +346,6 @@ do
 					file="${drum}_${tuning}"
 					[[ "${mute}" == "-" ]] || file="${file}_${mute}"
 					file="${file}_snare_${_sn}.inc"
-					rm -f "triggers/${beater}/${file}"
-					rm -f "triggers/${beater}/snares/${file}"
 					max_duration=0
 
 					declare -A keymap=()
@@ -365,6 +366,7 @@ do
 						get_rrs $drum $tuning $_sn $beater $mute $articulation rrs || { echo "get_rrs failed" >&2; exit 1; }
 
 [[ -f "triggers/${beater}/snares/${file}" ]] || echo >&2 "drum {$drum}; tuning {$tuning}; snare {$_sn}; beater {$beater}; mute {$mute} -> triggers/${beater}/snares/${file}"
+						mkdir -p "triggers/${beater}/snares/"
 						{
 							if [[ -v rrs["keys"] ]]
 							then
@@ -379,7 +381,7 @@ do
 					done
 
 					{
-						echo "// Max duration $max_duration"
+						# echo "// Max duration $max_duration"
 						for key in $(echo ${triggermap["keys"]})
 						do
 							if [[ ${keymap["$key"]} == 0 ]]

@@ -479,7 +479,7 @@ function write_triggers () {
 	# echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
 	# echo
 
-	# Start at MIDI note 001 for each hi-hat
+	# Start at MIDI note 001 for each hi-hat -- mk_kits.sh overrides these; mk_sfz.sh does not
 	midi_note=1
 	for key in $(echo ${_keys[keys]})
 	do

@@ -182,12 +182,15 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 		done >> triggers/$beater/cymbals/$cymbal.inc
 
 		{
+			# TODO: get the release time controlled by CC130 but stay at 0.2s if not muting by polyphonic aftertouch
 			release=$(awk 'BEGIN { print '$max_duration' / 2; }' <&-)
-			echo "// Max duration $max_duration"
-			echo "//<master>"
-			echo "// ampeg_release=$release"
-			echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
-			echo
+			# echo "// Max duration $max_duration"
+			# echo "//<master>"
+			# echo "// ampeg_release=$release"
+			# echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
+			# echo
+
+			# Start at MIDI note 001 for each cymbal -- mk_kits.sh overrides these; mk_sfz.sh does not
 			i=1
 			for key in $(echo ${keys[keys]})
 			do
