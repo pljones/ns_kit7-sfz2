@@ -108,26 +108,25 @@ function header() {
 // snareBrush     = 23; // -> snareHead
 
 // ------------------------------------------------------------------
-// Standard CCs
-#define $FC 004
-#define $VOL 007
-#define $PAN 010
-#define $PLY 130
-#define $NNO 133
 
 <control>
 // #include "default_path.inc"
 // hint_ram_based=1
  octave_offset=0
- set_cc$FC=000   label_cc$FC=Foot Ctrl (cc$FC)
- set_cc$VOL=127  label_cc$VOL=Kit VOL (cc$VOL)
- set_cc$PAN=64   label_cc$PAN=Kit PAN (cc$PAN)
- set_cc$PLY=000  label_cc$PLY=P ATouch (cc$PLY)
- set_cc$NNO=000  label_cc$NNO=Last Note Number (cc$NNO)
+ set_cc7=127  set_cc10=64
+ set_cc4=0    label_cc4=Pedal
+ set_cc16=0   label_cc16=GP1
+ set_cc17=0   label_cc17=GP2
+ set_cc18=0   label_cc18=GP3
+ set_cc19=0   label_cc19=GP4
+ set_cc48=0   label_cc48=GP5
+ set_cc49=0   label_cc49=GP6
+ set_cc50=0   label_cc50=GP7
+ set_cc51=0   label_cc51=GP8
 
 <global>
  loop_mode=one_shot off_mode=normal
- volume_cc$VOL=0 pan_cc$PAN=0
+ volume_cc7=0 pan_cc10=0
  ampeg_release=.2
 EOF
 #cat > _sfzs/default_path_windows.inc <<-"EOF"
