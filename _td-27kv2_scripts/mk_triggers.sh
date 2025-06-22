@@ -1,4 +1,8 @@
 #!/bin/bash -eu
+exit 1
+
+# Do not use this
+
 declare -A grabcc zonecc handcc
 declare -A kit1 kit2 kit3 kit4
 declare -A kick snare tom1 tom2 tom3 crash1 crash2 ride aux1 aux2 aux3
