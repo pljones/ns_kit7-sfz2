@@ -2,7 +2,7 @@
 
 . utils.sh
 
-rm -rf triggers/*/kicks/ triggers/*/kd*.inc
+rm -rf triggers/*/kicks/ triggers/*/kd*.sfzh
 
 declare -A keys
 for beater in ped
@@ -18,7 +18,7 @@ do
 			# {
 			(( c+=1 ))
 			keys=()
-			t="triggers/$beater/kicks/${kick}_snare_${snare}.inc"
+			t="triggers/$beater/kicks/${kick}_snare_${snare}.sfzh"
 			rm -f "$t"
 			max_duration=0
 			for mishit in '' 'x'
@@ -27,7 +27,7 @@ do
 				do
 					for rr in '' a b
 					do
-						f="kit_pieces/kicks/${kick}_snare_${snare}_${pos}$([[ -z $rr ]] && echo '' || echo '_'$rr)$([[ -z $mishit ]] && echo '' || echo '_'$mishit).sfz"
+						f="kit_pieces/kicks/${kick}_snare_${snare}_${pos}$([[ -z $rr ]] && echo '' || echo '_'$rr)$([[ -z $mishit ]] && echo '' || echo '_'$mishit).sfzh"
 						[[ -f "$f" ]] || continue
 						trigger=\$"${kick}_$pos$([[ -z $mishit ]] && echo '' || echo '_'$mishit)"
 						[[ -v keys[$trigger] ]] || {
@@ -51,7 +51,7 @@ do
 
 			if [[ "${#keys[@]}" -gt 0 ]]
 			then
-				t="triggers/$beater/${kick}_snare_${snare}.inc"
+				t="triggers/$beater/${kick}_snare_${snare}.sfzh"
 				rm -f $t
 				{
 					# echo "// Max duration $max_duration"
@@ -63,7 +63,7 @@ do
 						(( i += 1 ))
 					done
 					echo ""
-					echo "#include \"triggers/$beater/kicks/${kick}_snare_${snare}.inc\""
+					echo "#include \"triggers/$beater/kicks/${kick}_snare_${snare}.sfzh\""
 				} > $t
 			fi
 			# } - do snare

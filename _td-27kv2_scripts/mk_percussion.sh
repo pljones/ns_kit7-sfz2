@@ -6,7 +6,7 @@ declare -A keys
 
 for beater in brs hnd mlt stx
 do
-	rm -rf triggers/$beater/percussion pn*_*.inc
+	rm -rf triggers/$beater/percussion pn*_*.sfzh
 done
 
 percussion=cowbell
@@ -15,7 +15,7 @@ for beater in brs hnd mlt stx
 do
 	# {
 	keys=()
-	t=triggers/$beater/percussion/${p}.inc
+	t=triggers/$beater/percussion/${p}.sfzh
 	rm -f $t
 	max_duration=0
 
@@ -27,17 +27,17 @@ do
 			# {
 
 			f="kit_pieces/percussion/cowbell_pn8_${beater}"
-			if [[ -f "${f}_${articulation}_${position}.sfz" ]]
+			if [[ -f "${f}_${articulation}_${position}.sfzh" ]]
 			then
-				f="${f}_${articulation}_${position}.sfz"
-			elif [[ -f "${f}_${articulation}_ord.sfz" ]]
+				f="${f}_${articulation}_${position}.sfzh"
+			elif [[ -f "${f}_${articulation}_ord.sfzh" ]]
 			then
-				f="${f}_${articulation}_ord.sfz"
-			elif [[ -f "${f}_${position}.sfz" ]]
+				f="${f}_${articulation}_ord.sfzh"
+			elif [[ -f "${f}_${position}.sfzh" ]]
 			then
-				f="${f}_${position}.sfz"
+				f="${f}_${position}.sfzh"
 			else
-				f="${f}_ord.sfz"
+				f="${f}_ord.sfzh"
 			fi
 			[[ -f "${f}" ]] || continue
 
@@ -69,8 +69,8 @@ do
 					(( i += 1 ))
 				done
 				echo ""
-				echo "#include \"triggers/$beater/percussion/${p}.inc\""
-			} > "triggers/$beater/${p}.inc"
+				echo "#include \"triggers/$beater/percussion/${p}.sfzh\""
+			} > "triggers/$beater/${p}.sfzh"
 		fi
 		# } - articulation
 	done
@@ -100,7 +100,7 @@ for beater in hnd
 do
 	# {
 	keys=()
-	t="triggers/$beater/percussion/${p}.inc"
+	t="triggers/$beater/percussion/${p}.sfzh"
 	rm -f $t
 	max_duration=0
 
@@ -116,10 +116,10 @@ do
 		f="kit_pieces/percussion/tambourine_pn9_${beater}_${articulation}"
 		if [[ $articulation == jng ]]
 		then
-			do_rr "${trigger}" "${f}_l.sfz" 0.0 0.5 max_duration >> $t
-			do_rr "${trigger}" "${f}_r.sfz" 0.5 1.0 max_duration >> $t
+			do_rr "${trigger}" "${f}_l.sfzh" 0.0 0.5 max_duration >> $t
+			do_rr "${trigger}" "${f}_r.sfzh" 0.5 1.0 max_duration >> $t
 		else
-			do_rr "${trigger}" "${f}.sfz"   ''  ''  max_duration >> $t
+			do_rr "${trigger}" "${f}.sfzh"   ''  ''  max_duration >> $t
 		fi
 
 		# } - articulation
@@ -137,8 +137,8 @@ do
 				(( i += 1 ))
 			done
 			echo ""
-			echo "#include \"triggers/$beater/percussion/${p}.inc\""
-		} > "triggers/$beater/${p}.inc"
+			echo "#include \"triggers/$beater/percussion/${p}.sfzh\""
+		} > "triggers/$beater/${p}.sfzh"
 	fi
 
 	# } - beater

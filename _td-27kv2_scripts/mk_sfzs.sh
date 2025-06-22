@@ -110,7 +110,7 @@ function header() {
 // ------------------------------------------------------------------
 
 <control>
-// #include "default_path.inc"
+// #include "default_path.sfzh"
 // hint_ram_based=1
  octave_offset=0
  set_cc7=127  set_cc10=64
@@ -129,10 +129,10 @@ function header() {
  volume_cc7=0 pan_cc10=0
  ampeg_release=.2
 EOF
-#cat > _sfzs/default_path_windows.inc <<-"EOF"
+#cat > _sfzs/default_path_windows.sfzh <<-"EOF"
 # default_path=G:/naturalstudios/ns_kit7/samples/
 #EOF
-#cat > _sfzs/default_path_linux.inc <<-"EOF"
+#cat > _sfzs/default_path_linux.sfzh <<-"EOF"
 # default_path=/mnt/content/space/shared/samples/
 #EOF
 }
@@ -142,11 +142,11 @@ mkdir -p _sfzs
 
 for x in $(cd triggers; echo */)
 do
-	for y in $(cd triggers/$x; echo *.inc)
+	for y in $(cd triggers/$x; echo *.sfzh)
 	do
 	{
 		header
 		cat triggers/$x/$y
-	} > "_sfzs/${x%%/}_${y%.inc}.sfz"
+	} > "_sfzs/${x%%/}_${y%.sfzh}.sfz"
 	done
 done

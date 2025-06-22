@@ -201,35 +201,35 @@ function mk_kit_hihats () {
 declare -A cymbals hihats
 for kit in 1 2 3 4
 do
-	rm -f triggers/kit$kit.sfz
+	rm -f triggers/kit$kit.sfzh
 	{
 	echo '// TD-27KV2 Kit '$kit
 	echo ''
 
 	cymbals=()
-	while read d trigger z; do mk_kit_cymbals kit$kit $trigger; done < triggers/cymbals.inc
-	for cy in ${!cymbals[@]}; do echo '#include "triggers/stx/cymbals/'$cy'.inc'; done
+	while read d trigger z; do mk_kit_cymbals kit$kit $trigger; done < triggers/cymbals.sfzh
+	for cy in ${!cymbals[@]}; do echo '#include "triggers/stx/cymbals/'$cy'.sfzh'; done
 	echo ''
 
 	hihats=()
-	while read d trigger z; do mk_kit_hihats kit$kit $trigger; done < triggers/hihats.inc
-	for hh in ${!hihats[@]}; do echo '#include "triggers/stx/hihats/'$hh'.inc'; done
-	} ;# >> triggers/kit$kit.sfz
+	while read d trigger z; do mk_kit_hihats kit$kit $trigger; done < triggers/hihats.sfzh
+	for hh in ${!hihats[@]}; do echo '#include "triggers/stx/hihats/'$hh'.sfzh'; done
+	} ;# >> triggers/kit$kit.sfzh
 done
 
-#include "cymbals/stx_ride19.sfz"
-#include "cymbals/china_19_stx.inc"
-#include "cymbals/crash_15_stx.inc"
-#include "cymbals/crash_18_stx.inc"
-#include "cymbals/ride_19_stx.inc"
-#include "cymbals/ride_20_stx.inc"
-#include "cymbals/splash_12_stx.inc"
-#include "cymbals/splash_8_stx.inc"
-#include "cymbals/splash_9_stx.inc"
+#include "cymbals/stx_ride19.sfzh"
+#include "cymbals/china_19_stx.sfzh"
+#include "cymbals/crash_15_stx.sfzh"
+#include "cymbals/crash_18_stx.sfzh"
+#include "cymbals/ride_19_stx.sfzh"
+#include "cymbals/ride_20_stx.sfzh"
+#include "cymbals/splash_12_stx.sfzh"
+#include "cymbals/splash_8_stx.sfzh"
+#include "cymbals/splash_9_stx.sfzh"
 #
-#include "hihats/hh13_stx.sfz"
-#include "kicks/kd20_punch_snare_on.inc"
-#include "snares/sn14_rock_stx_snare_on.inc"
-#include "toms/rock_stx_snare_on.sfz"
-#include "percussion/cowbell_8_stx.inc"
+#include "hihats/hh13_stx.sfzh"
+#include "kicks/kd20_punch_snare_on.sfzh"
+#include "snares/sn14_rock_stx_snare_on.sfzh"
+#include "toms/rock_stx_snare_on.sfzh"
+#include "percussion/cowbell_8_stx.sfzh"
 

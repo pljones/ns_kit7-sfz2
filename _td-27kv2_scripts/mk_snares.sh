@@ -301,10 +301,10 @@ function do_articulation () {
 		sfz_file="${sfz_file}_${rr}"
 	fi
 #echo >&2 "do_articulation: drum {$drum}; tuning {$tuning}; snare {$_sn}; beater {$beater}; mute {$mute}; trigger {$trigger}; articulation {$articulation}; rr {$rr}; rr_range {$rr_range}; sfz_file {$sfz_file}"
-	[[ -f "kit_pieces/snares/${sfz_file}.sfz" ]] || { echo "do_articulation: new kit piece ${sfz_file} not found" >&2; exit 1; }
+	[[ -f "kit_pieces/snares/${sfz_file}.sfzh" ]] || { echo "do_articulation: new kit piece ${sfz_file} not found" >&2; exit 1; }
 	[[ -f "../snares/${sfz_file}.sfz" ]] || { echo "do_articulation: old kit piece ${sfz_file} not found" >&2; exit 1; }
 
-	[[ $articulation == rol ]] || get_durations kit_pieces/snares/${sfz_file}.sfz max_duration || { echo "do_articulation: get_durations failed" >&2; exit 1; }
+	[[ $articulation == rol ]] || get_durations kit_pieces/snares/${sfz_file}.sfzh max_duration || { echo "do_articulation: get_durations failed" >&2; exit 1; }
 
 	echo "<group>"
 	echo " key=\$sn_${trigger}"
@@ -313,11 +313,11 @@ function do_articulation () {
 		local -a lohirand=($rr_range)
 		echo " lorand=${lohirand[0]} hirand=${lohirand[1]}"
 	fi
-	echo "#include \"kit_pieces/snares/${sfz_file}.sfz\""
+	echo "#include \"kit_pieces/snares/${sfz_file}.sfzh\""
 }
 
 rm -rf triggers/*/snares
-rm -f triggers/*/sn??_*o{n,ff}.inc
+rm -f triggers/*/sn??_*o{n,ff}.sfzh
 for drum in $(echo ${drum_tunings["keys"]})
 do
 	for tuning in ${drum_tunings[$drum]}
@@ -345,7 +345,7 @@ do
 
 					file="${drum}_${tuning}"
 					[[ "${mute}" == "-" ]] || file="${file}_${mute}"
-					file="${file}_snare_${_sn}.inc"
+					file="${file}_snare_${_sn}.sfzh"
 					max_duration=0
 
 					declare -A keymap=()

@@ -179,21 +179,21 @@ do
 		fi
 		for cy in "${c[@]}"
 		do
-			[[ -f "triggers/${btr}/${cy}.inc" ]] || { echo "${kit} ${btr} snare ${snare} has no ${cy}"; continue; }
+			[[ -f "triggers/${btr}/${cy}.sfzh" ]] || { echo "${kit} ${btr} snare ${snare} has no ${cy}"; continue; }
 		done
-		[[ -f "triggers/${btr}/${k[hihats]}.inc" ]] || { echo "${kit} ${btr} snare ${snare} has no ${k[hihats]}"; continue; }
+		[[ -f "triggers/${btr}/${k[hihats]}.sfzh" ]] || { echo "${kit} ${btr} snare ${snare} has no ${k[hihats]}"; continue; }
 		for snare in off on
 		do
-			[[ -f "triggers/${btr}/${k[snares]}_snare_${snare}.inc" ]] || {
+			[[ -f "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" ]] || {
 				# echo "${kit} ${btr} snare ${snare} has no ${k[snares]}";
 				continue;
 			}
-			[[ -f "triggers/ped/${k[kicks]}_snare_${snare}.inc" ]] || { echo "${kit} snare ${snare} has no ${k[kicks]}"; continue; }
+			[[ -f "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" ]] || { echo "${kit} snare ${snare} has no ${k[kicks]}"; continue; }
 			actual_toms=()
-			# tm12_rock_snare_off.inc
+			# tm12_rock_snare_off.sfzh
 			for tm in "${t[@]}"
 			do
-				f="triggers/${btr}/${tm}_${k[toms]}_snare_${snare}.inc"
+				f="triggers/${btr}/${tm}_${k[toms]}_snare_${snare}.sfzh"
 				if [[ ! -f $f ]]
 				then
 					x="sn${snare}_btr${btr}_toms${k[toms]}"
@@ -304,31 +304,31 @@ do
 				key=1
 				for cy in ${cys[@]} ${k[cymbals]}
 				do
-					override_defines "triggers/${btr}/${cy}.inc" key
+					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 				if [[ $hh == - ]]
 				then
-					override_defines "triggers/${btr}/${k[hihats]}.inc" key
+					override_defines "triggers/${btr}/${k[hihats]}.sfzh" key
 				else
-					override_defines "triggers/${btr}/${k[hihats]}_invcc4.inc" key
+					override_defines "triggers/${btr}/${k[hihats]}_invcc4.sfzh" key
 				fi
-				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.inc" key
-				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.inc" key
+				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
+				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 				for tm in ${actual_toms[@]}
 				do
-					override_defines "triggers/${btr}/${tm}.inc" key
+					override_defines "triggers/${btr}/${tm}.sfzh" key
 				done
-				if [[ -f "triggers/${btr}/pn8_cowbell.inc" ]]
+				if [[ -f "triggers/${btr}/pn8_cowbell.sfzh" ]]
 				then
-					override_defines "triggers/${btr}/pn8_cowbell.inc" key
+					override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
 				else
-					override_defines "triggers/stx/pn8_cowbell.inc" key
+					override_defines "triggers/stx/pn8_cowbell.sfzh" key
 				fi
-				if [[ -f "triggers/${btr}/pn9_tambourine.inc" ]]
+				if [[ -f "triggers/${btr}/pn9_tambourine.sfzh" ]]
 				then
-					override_defines "triggers/${btr}/pn9_tambourine.inc" key
+					override_defines "triggers/${btr}/pn9_tambourine.sfzh" key
 				else
-					override_defines "triggers/hnd/pn9_tambourine.inc" key
+					override_defines "triggers/hnd/pn9_tambourine.sfzh" key
 				fi
 				} > "_kits/${f}"
 			done

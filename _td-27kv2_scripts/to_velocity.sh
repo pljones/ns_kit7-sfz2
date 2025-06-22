@@ -182,7 +182,7 @@ do
 	}
 
 	mkdir -p "kit_pieces/$instrument"
-	rm -f "kit_pieces/${f}.sfz"
+	rm -f "kit_pieces/${f}.sfzh"
 
 	# Read in a group of samples in ascending dB order
 	group=()
@@ -319,7 +319,7 @@ do
 	do
 		read dB_sample sample_path vel hi_vel amp_veltrack lo_vel seq_position seq_length <<<"${group_seq[$i]}"
 		echo "<region> lovel=$lo_vel hivel=$hi_vel amp_velcurve_$hi_vel=1 amp_veltrack=$amp_veltrack seq_position=$seq_position seq_length=$seq_length sample=../samples/$sample_path"; # dB_sample {$dB_sample}
-	done > "kit_pieces/${f}.sfz"
+	done > "kit_pieces/${f}.sfzh"
 
 echo >&2 "base_path {$base_path}; f {$f}"
 done < "$ranges"

@@ -46,7 +46,7 @@ function do_articulation () {
 		key="${key}_${hand}"
 		file="${file}_${hand}"
 	}
-	file="${file}.sfz"
+	file="${file}.sfzh"
 	[[ -f $file ]] || file=${file/_rim/_ord_r}
 	[[ -f $file ]] || file=${file/_rms/_ord}
 	[[ -f $file ]] || { echo "${tom}_${tuning}_${beater}_snare_${snare}_${articulation} / hand {$hand} - file {$file} not found" >&2; exit 1; }
@@ -73,7 +73,7 @@ do
 				# {
 
 				mkdir -p triggers/$beater/toms
-				t="${tom}_${tuning}_snare_${snare}.inc"
+				t="${tom}_${tuning}_snare_${snare}.sfzh"
 				rm -f triggers/$beater/toms/$t
 				rm -f triggers/$beater/$t
 				max_duration=0

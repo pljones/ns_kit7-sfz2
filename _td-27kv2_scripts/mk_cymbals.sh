@@ -119,9 +119,9 @@ do
 		(( c+=1 ))
 		keys=()
 		mkdir -p triggers/$beater/cymbals
-		rm -f triggers/$beater/$cymbal.inc
-		rm -f triggers/$beater/cymbals/$cymbal.inc
-echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
+		rm -f triggers/$beater/$cymbal.sfzh
+		rm -f triggers/$beater/cymbals/$cymbal.sfzh
+echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 		i=0
 		max_duration=0
 		for position in bel top rim
@@ -148,10 +148,10 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 					$is_grab || (( i+=1 ))
 
 					f="$(echo $cymbal | sed -e 's/\(cy[^_]*\)_\(.*\)$/\2_\1/')_${beater}_${articulation}"
-					[[ -f "kit_pieces/cymbals/${f}.sfz" ]] || { echo "new $f not found" >&2; exit 1; }
+					[[ -f "kit_pieces/cymbals/${f}.sfzh" ]] || { echo "new $f not found" >&2; exit 1; }
 					[[ -f "../cymbals/${f}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
 					# ignore rolls
-					[[ $articulation == rol ]] || get_durations kit_pieces/cymbals/${f}.sfz max_duration
+					[[ $articulation == rol ]] || get_durations kit_pieces/cymbals/${f}.sfzh max_duration
 
 					key="\$${cymbal}_${position}$([[ $zone == - ]] || echo "_${zone}")"
 					group=$(printf "%03d\n" $c)
@@ -166,7 +166,7 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 						echo " lopolyaft=000 hipolyaft=063"
 						echo " group=500${group}$(printf "%03d\n" $i) off_by=600${group}$(printf "%03d\n" $i)"
 					fi
-					echo "#include \"kit_pieces/cymbals/${f}.sfz\""
+					echo "#include \"kit_pieces/cymbals/${f}.sfzh\""
 
 					if ! $is_grab
 					then
@@ -179,7 +179,7 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 					echo ""
 				done
 			done
-		done >> triggers/$beater/cymbals/$cymbal.inc
+		done >> triggers/$beater/cymbals/$cymbal.sfzh
 
 		{
 			# TODO: get the release time controlled by CC130 but stay at 0.2s if not muting by polyphonic aftertouch
@@ -198,8 +198,8 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.inc"
 				(( i += 1 ))
 			done
 			echo ""
-			echo "#include \"triggers/$beater/cymbals/$cymbal.inc\""
-		} > triggers/$beater/$cymbal.inc
+			echo "#include \"triggers/$beater/cymbals/$cymbal.sfzh\""
+		} > triggers/$beater/$cymbal.sfzh
 		# } - do cymbal
 	done
 	# } - do beater

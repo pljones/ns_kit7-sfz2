@@ -5,7 +5,7 @@
 # ns_kit7 hi-hats
 
 mkdir -p triggers
-rm -rf triggers/*/hihats/ triggers/hihat-mutes.inc
+rm -rf triggers/*/hihats/ triggers/hihat-mutes.sfzh
 
 : <<-'@COMMENT'
 Hi-hat muting is fun.
@@ -47,7 +47,7 @@ Of course, two senses of FC mean two separate sets of group definitions:
 Some triggers always mute: pedal, splash and grab; plus any polyphonic aftertouch for that note as a trigger.
 @COMMENT
 
-cat > triggers/hihat-grab-mutes.inc <<-'@EOF'
+cat > triggers/hihat-grab-mutes.sfzh <<-'@EOF'
 <region> key=$hh_bel      locc130=64    hicc130=127                                     sample=*silence
 <region> key=$hh_top_l    locc130=64    hicc130=127                                     sample=*silence
 <region> key=$hh_top_r    locc130=64    hicc130=127                                     sample=*silence
@@ -59,7 +59,7 @@ cat > triggers/hihat-grab-mutes.inc <<-'@EOF'
 <region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l sample=*silence
 <region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r sample=*silence
 @EOF
-cat > triggers/hihat-pedal-mutes.inc <<-'@EOF'
+cat > triggers/hihat-pedal-mutes.sfzh <<-'@EOF'
 <region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4      sample=*silence
 <region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
 <region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
@@ -230,9 +230,9 @@ function do_group () {
 	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
 	local off_group=$(printf '%s%s%s' $(( 100 + $group )) ${trigger} ${off_by})
 
-	[[ -f "kit_pieces/hihats/${f}_${a_o}.sfz" ]] || { echo "new $f not found" >&2; exit 1; }
+	[[ -f "kit_pieces/hihats/${f}_${a_o}.sfzh" ]] || { echo "new $f not found" >&2; exit 1; }
 	[[ -f "../hihats/${f}_${a_o}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
-	get_durations kit_pieces/hihats/${f}_${a_o}.sfz max_duration
+	get_durations kit_pieces/hihats/${f}_${a_o}.sfzh max_duration
 
 	echo "<group>"
 	echo " group=${group}${trigger}${off_by} off_by=${off_group}"
@@ -243,7 +243,7 @@ function do_group () {
 	then
 		echo " locc4=$lo hicc4=$hi"
 	fi
-	echo "#include \"kit_pieces/hihats/${f}_${a_o}.sfz\""
+	echo "#include \"kit_pieces/hihats/${f}_${a_o}.sfzh\""
 }
 
 function do_group_lo_to_hi () {
@@ -280,11 +280,11 @@ function do_off_by () {
 	then
 		echo "#define \$LOCC4 $lo"
 		echo "#define \$HICC4 $hi"
-		echo "#include \"triggers/hihat-pedal-mutes.inc\""
+		echo "#include \"triggers/hihat-pedal-mutes.sfzh\""
 	fi
 	if [[ $grab == free ]]
 	then
-		echo "#include \"triggers/hihat-grab-mutes.inc\""
+		echo "#include \"triggers/hihat-grab-mutes.sfzh\""
 	fi
 }
 
@@ -514,11 +514,11 @@ do
 
 			if [[ $movement == lo_to_hi ]]
 			then
-				inc_file="triggers/$beater/hihats/${hihat}.inc"
-				out_file="triggers/$beater/${hihat}.inc"
+				inc_file="triggers/$beater/hihats/${hihat}.sfzh"
+				out_file="triggers/$beater/${hihat}.sfzh"
 			else
-				inc_file="triggers/$beater/hihats/${hihat}_invcc4.inc"
-				out_file="triggers/$beater/${hihat}_invcc4.inc"
+				inc_file="triggers/$beater/hihats/${hihat}_invcc4.sfzh"
+				out_file="triggers/$beater/${hihat}_invcc4.sfzh"
 			fi
 
 			triggers=()
