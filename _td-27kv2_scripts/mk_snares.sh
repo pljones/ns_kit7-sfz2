@@ -392,9 +392,9 @@ do
 							fi
 						done
 						echo ""
-						echo '<group>'
-						echo '<region> key=000 end=-1 sample=*silence'
-						echo ""
+						#echo '<group>'
+						#echo '<region> key=000 end=-1 sample=*silence'
+						#echo ""
 						echo "#include \"triggers/${beater}/snares/${file}\""
 					} > "triggers/${beater}/${file}"
 
