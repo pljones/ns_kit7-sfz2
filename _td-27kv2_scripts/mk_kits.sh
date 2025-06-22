@@ -248,6 +248,29 @@ do
 // Mapping Copyright (C) 2025 Peter L Jones
 //***
 
+// // TD-27 default trigger note assignments
+// kick           = 36;
+//
+// crash1Bow      = 49;
+// crash1Edge     = 55;
+// crash2Bow      = 57;
+// crash2Edge     = 52;
+//
+// rideBow        = 51;
+// rideEdge       = 59;
+// rideBell       = 53;
+// rideBowAlt     =  9;
+//
+// // 23 is snare head in brush mode
+// // no idea where 24 and 25 are but I choose to keep clear
+//
+// aux1Head       = 27; // module built-in
+// aux1Rim        = 28; // module built-in
+// aux2Head       = 29; // module built-in
+// aux2Rim        = 30; // module built-in
+// aux3Head       = 31; // module built-in
+// aux3Rim        = 32; // module built-in
+
 // ------------------------------------------------------------------
 
 <control>
