@@ -1,0 +1,562 @@
+desc:MIDI Map TD-27 input to ns_kit7 layout (take 2) (pljones)
+
+// Whilst care is taken to use the incoming channel number,
+// no attempt is made to allow for multiple channels in use:
+// use separate tracks.
+
+in_pin:none
+out_pin:none
+
+slider1:crash1=2<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Crash 1 Assign
+slider2:crash2=3<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Crash 2 Assign
+slider3:ride=7<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Ride Assign
+slider4:tom1=1<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 1 Assign
+slider5:tom2=3<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 2 Assign
+slider6:tom3=4<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 3 Assign
+
+// Treat as separate triggers
+slider7:aux1head=4<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,cowbell open top,tambourine hit,tambourine jng,tambourine rol,tambourine thm}>Aux 1 Head Assign
+slider8:aux1rim=5<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,cowbell open top,tambourine hit,tambourine jng,tambourine rol,tambourine thm}>Aux 1 Rim Assign
+slider9:aux2head=2<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,cowbell open top,tambourine hit,tambourine jng,tambourine rol,tambourine thm}>Aux 2 Head Assign
+slider10:aux2rim=3<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,cowbell open top,tambourine hit,tambourine jng,tambourine rol,tambourine thm}>Aux 2 Rim Assign
+slider11:aux3head=0<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,cowbell open top,tambourine hit,tambourine jng,tambourine rol,tambourine thm}>Aux 3 Head Assign
+slider12:aux3rim=1<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,cowbell open top,tambourine hit,tambourine jng,tambourine rol,tambourine thm}>Aux 3 Rim Assign
+
+slider13:brushKit=0<0,1,1{off,on}>Brush Kit Mode
+
+
+slider14:dbgNoteOn=0<0,127,1>Note On note (msg2)
+slider15:dbgMappedNote=-1<-1,127,1>noteMap[msg2]
+slider16:dgbPolyAftVal=-1<-1,127,1>polyAftVal[msg2]
+
+
+@init
+nextFree = 0;
+function malloc(val, size) (
+  ptr = nextFree;
+  nextFree += size;
+  memset(ptr, val, size);
+  ptr;
+);
+
+// TD-27 default trigger note assignments
+// --------------------------------------
+// The DAW will need to map incoming MIDI notes to the triggers for the kit.
+// The default note assignments in the module are:
+//
+noteKick           = 36;
+noteSnareHead      = 38;
+noteSnareRim       = 40;
+noteSnareBrush     = 23;
+noteSnareXStick    = 37;
+noteTom1Head       = 48;
+noteTom1Rim        = 50;
+noteTom2Head       = 45;
+noteTom2Rim        = 47;
+noteTom3Head       = 43;
+noteTom3Rim        = 58;
+noteHiHatOpenBow   = 46;
+noteHiHatOpenEdge  = 26;
+noteHiHatCloseBow  = 42;
+noteHiHatCloseEdge = 22;
+noteHiHatPedal     = 44;
+noteCrash1Bow      = 49;
+noteCrash1Edge     = 55;
+noteCrash2Bow      = 57;
+noteCrash2Edge     = 52;
+noteRideBow        = 51;
+noteRideEdge       = 59;
+noteRideBell       = 53;
+noteAux1Head       = 27;
+noteAux1Rim        = 28;
+noteAux2Head       = 29;
+noteAux2Rim        = 30;
+noteAux3Head       = 31;
+noteAux3Rim        = 32;
+
+
+// TD-27 default CC assignments
+// ----------------------------
+//
+hhPedalCC  =  4;
+snareCC    = 16;
+rideCC     = 17;
+tomAuxCC   = 18;
+hihatCC    = 19;
+gp5CC      = 80;
+gp6CC      = 81;
+gp7CC      = 82;
+hihatLRCC  = 83;
+hiresVelCC = 88;
+
+
+// MIDI note assignments for the ns_kit7 layout
+// --------------------------------------------
+//
+// Cymbals
+trigger_cy8_splash  = 1;
+trigger_cy9_splash  = 5;
+trigger_cy12_splash = 9;
+trigger_cy15_crash  = 13;
+trigger_cy18_crash  = 17;
+trigger_cy19_china  = 21;
+trigger_cy20_ride   = 25;
+trigger_cy19_ride   = 29;
+// Cymbal offsets for zones
+zone_cy_bel       = 0;
+zone_cy_top_inner = 1;
+zone_cy_top_outer = 2;
+zone_cy_rim       = 3;
+
+// Trigger maps from sliders - zones from whatever position sensing we get
+cy_map = malloc(0, 8);
+cy_map[0] = trigger_cy8_splash;
+cy_map[1] = trigger_cy9_splash;
+cy_map[2] = trigger_cy12_splash;
+cy_map[3] = trigger_cy15_crash;
+cy_map[4] = trigger_cy18_crash;
+cy_map[5] = trigger_cy19_china;
+cy_map[6] = trigger_cy20_ride;
+cy_map[7] = trigger_cy19_ride;
+
+
+// Hi-Hat
+trigger_hh = 33;
+// Hi-Hat offsets for zones
+zone_hh_bel   = 0;
+zone_hh_top_l = 1;
+zone_hh_top_r = 2;
+zone_hh_rim_l = 3;
+zone_hh_rim_r = 4;
+zone_hh_ped   = 5;
+zone_hh_spl   = 6;
+
+
+// Kick
+trigger_kick = 40;
+// Kick offsets for zones
+zone_kick_cls = 0;
+zone_kick_opn = 1;
+
+
+// Snare
+trigger_snare = 42;
+// Snare offsets for zones
+zone_sn_head = 0;
+zone_sn_xtk  = 1;
+zone_sn_rim  = 2;
+zone_sn_rms  = 3;
+zone_sn_rmh  = 4;
+zone_sn_prs  = 5;
+zone_sn_e2c  = 6;
+zone_sn_rol  = 7;
+// Snare brush mode zones
+zone_sn_brush_down_new        = 8;
+zone_sn_brush_down_legato     = 9;
+zone_sn_brush_down_legato_rls = 10;
+zone_sn_brush_drag_new        = 11;
+zone_sn_brush_drag_new_rpt    = 12;
+zone_sn_brush_drag_legato     = 13;
+zone_sn_brush_drag_legato_rpt = 14;
+zone_sn_brush_drag_cirular    = 15;
+zone_sn_brush_drag_under      = 16;
+
+
+// Toms
+trigger_tm8  = 59;
+trigger_tm10 = 64;
+trigger_tm12 = 69;
+trigger_tm14 = 74;
+trigger_tm16 = 79;
+// Tom offsets for zones
+zone_tm_ord_l = 0;
+zone_tm_ord_r = 1;
+zone_tm_rim   = 2;
+zone_tm_rms_l = 3;
+zone_tm_rms_r = 4;
+
+// Trigger maps from sliders - zones from whatever position sensing we get
+tom_map = malloc(0, 5);
+tom_map[0] = trigger_tm8;
+tom_map[1] = trigger_tm10;
+tom_map[2] = trigger_tm12;
+tom_map[3] = trigger_tm14;
+tom_map[4] = trigger_tm16;
+
+// Cowbell
+trigger_cowbell = 84;
+// Cowbell offsets for zones
+zone_cowbell_muted_ord = 0;
+zone_cowbell_muted_top = 1;
+zone_cowbell_open_ord  = 2;
+zone_cowbell_open_top  = 3;
+
+// Tambourine
+trigger_tambourine = 88;
+// Tambourine offsets for zones
+zone_tambourine_hit = 0;
+zone_tambourine_jng = 1;
+zone_tambourine_rol = 2;
+zone_tambourine_thm = 3;
+
+// Trigger maps from sliders - zones from whatever position sensing we get
+pn_map = malloc(0, 8);
+pn_map[0] = trigger_cowbell + zone_cowbell_muted_ord;
+pn_map[1] = trigger_cowbell + zone_cowbell_muted_top;
+pn_map[2] = trigger_cowbell + zone_cowbell_open_ord;
+pn_map[3] = trigger_cowbell + zone_cowbell_open_top;
+pn_map[4] = trigger_tambourine + zone_tambourine_hit;
+pn_map[5] = trigger_tambourine + zone_tambourine_jng;
+pn_map[6] = trigger_tambourine + zone_tambourine_rol;
+pn_map[7] = trigger_tambourine + zone_tambourine_thm;
+
+
+// MIDI message definitions
+// ------------------------
+// Channel Voice messages (low half-byte = channel; 0x0 to 0xF = "1" to "16")
+noteOff = 0x80; // note No; off velocity
+noteOn  = 0x90; // note No; on velocity
+polyAft = 0xA0; // note No; note pressure
+cc      = 0xB0; // control No (< 0x78); value
+pc      = 0xC0; // program No
+chanAft = 0xD0; // channel pressure
+pb      = 0xE0; // pitch bend: lsb, msb
+
+// Channel Mode messages
+cm      = 0xB0; // 3 (>= 0x78)
+
+// System messages
+sysex   = 0xF0; // "start of sysex": varies
+sysmtcq = 0xF1; // MIDI Time Code Quarter Frame: 0nnndddd; nnn message type, dddd values
+sysspp  = 0xF2; // Song Position Pointer: lsb, msb
+syssong = 0xF3; // Song Select: num
+//        0xF4  -- undefined
+//        0xF5  -- undefined
+systune = 0xF6; // Tune request
+syseox  = 0xF7; // "end of sysex"
+
+// Do we just ignore the incoming MIDI messaage?
+passthru = 1;
+
+// Interesting control message values
+snareCCVal   = 0;
+rideCCVal    = 0;
+tomAuxCCVal  = 0;
+hihatCCVal   = 0;
+gp5CCVal     = 0;
+gp6CCVal     = 0;
+gp7CCVal     = 0;
+hihatLRCCVal = 0;
+
+// Track note mapping for noteOn so noteOff and polyAft match
+// (Set noteMap[note] to ns_kit7 trigger note number plus zone offset on noteOn;
+// then use noteMap[note] for noteOff, setting to 0 on noteOff.)
+noteMap = malloc(-1, 128);
+
+// Track polyphonic aftertouch values on a per-note basis
+polyAftVal = malloc(-1, 128);
+
+// Count blocks since last snare note in brush mode.
+// Use to determine what happens next.
+blocksSinceLastBrush = -1;
+isBrushDrag = 0;
+
+// Remaining count of blocks before phantom note expiry
+// (I could have 128 of these and check for any note number needing a phanom note off...)
+rlsExpiry = -1;
+
+// Count blocks since last kick to decide whether to use opn or cls kick note
+blocksSinceLastKick = -1;
+
+@block
+while (midirecv(offset, msg1, msg2, msg3)) (
+
+  cmd = msg1 & 0xF0;
+  passthru = 1;
+
+  // count on channel message so we can use channel number
+  (msg1 < 0xF0 && rlsExpiry >= 0) ? (
+    rlsExpiry = rlsExpiry - 1;
+    (rlsExpiry == -1) ? (
+      // Release phantom note
+      midisend(offset, (msg1 & 0x0F | noteOff) & 0xFF, trigger_snare + zone_sn_brush_down_legato_rls, 0);
+    );
+  );
+
+
+  // Let's say a block is 64 samples at 48KHz, so 64/48000 = 0.001333333 seconds per block, 750 blocks = 1 second.
+
+  // Blocks since last kick note.
+  // This affects the first note in a run, rather than the last note, which is what's really wanted.
+  blocksSinceLastKick >= 0 ? (
+    blocksSinceLastKick = blocksSinceLastKick + 1;
+    blocksSinceLastKick > 375 ? (
+      blocksSinceLastKick = -1; // reset
+    );
+  );
+
+  // Blocks since last brush note - needs to allow up to 3.465250 seconds for brush note: or at least the attack.
+  // 3.465250 seconds / 0.001333333 seconds per block = 2600.4375 blocks.
+  // Let's allow 1 second before expiring a drag.
+  blocksSinceLastBrush >= 0 ? (
+    blocksSinceLastBrush = blocksSinceLastBrush + 1;
+    blocksSinceLastBrush > 750 ? (
+      blocksSinceLastBrush = -1; // reset
+      isBrushDrag = 0; // reset brush drag mode
+    );
+  );
+
+
+  (cmd == cc) ?  (
+    (msg2 == snareCC) ? (
+      snareCCVal = msg3;
+      passthru = 0;
+    ) :
+    (msg2 == rideCC) ? (
+      rideCCVal = msg3;
+      passthru = 0;
+    ) :
+    (msg2 == tomAuxCC) ? (
+      tomAuxCCVal = msg3;
+      passthru = 0;
+    ) :
+    (msg2 == hihatCC) ? (
+      hihatCCVal = msg3;
+      passthru = 0;
+    ) :
+    //(msg2 == gp5CC) ? (
+    //  gp5CCVal = msg3;
+    //  passthru = 0;
+    //) :
+    //(msg2 == gp6CC) ? (
+    //  gp6CCVal = msg3;
+    //  passthru = 0;
+    //) :
+    //(msg2 == gp7CC) ? (
+    //  gp7CCVal = msg3;
+    //  passthru = 0;
+    //) :
+    (msg2 == hihatLRCC) ? (
+      hihatLRCCVal = msg3;
+      passthru = 0;
+    )
+
+
+  ) : (cmd == polyAft) ? (
+    (msg2 == noteHiHatCloseEdge) ||
+    (msg2 == noteSnareBrush)     ||
+    (msg2 == noteHiHatOpenEdge)  ||
+    (msg2 == noteAux1Head)       ||
+    (msg2 == noteAux1Rim)        ||
+    (msg2 == noteAux2Head)       ||
+    (msg2 == noteAux2Rim)        ||
+    (msg2 == noteAux3Head)       ||
+    (msg2 == noteAux3Rim)        ||
+    (msg2 == noteKick)           ||
+    (msg2 == noteSnareXStick)    ||
+    (msg2 == noteSnareHead)      ||
+    (msg2 == noteSnareRim)       ||
+    (msg2 == noteHiHatCloseBow)  ||
+    (msg2 == noteTom3Head)       ||
+    (msg2 == noteHiHatPedal)     ||
+    (msg2 == noteTom2Head)       ||
+    (msg2 == noteHiHatOpenBow)   ||
+    (msg2 == noteTom2Rim)        ||
+    (msg2 == noteTom1Head)       ||
+    (msg2 == noteCrash1Bow)      ||
+    (msg2 == noteTom1Rim)        ||
+    (msg2 == noteRideBow)        ||
+    (msg2 == noteCrash2Edge)     ||
+    (msg2 == noteRideBell)       ||
+    (msg2 == noteCrash1Edge)     ||
+    (msg2 == noteCrash2Bow)      ||
+    (msg2 == noteTom3Rim)        ||
+    (msg2 == noteRideEdge)       ? (
+      polyAftVal[msg2] = msg3;
+      passthru = 0;
+    )
+
+
+  ) : (cmd == noteOff) ? (
+    noteMap[msg2] >= 0 ? (
+      brushKit ? (
+        // Some magic happens on noteOff.
+        noteMap[msg2] == trigger_snare + zone_sn_brush_down_legato && rlsExpiry == -1 ? (
+          midisend(offset, (msg1 & 0x0F | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 0);
+          rlsExpiry = 4; // 4 blocks until noteOff for brush down legato release
+        );
+      );
+      midisend(offset, msg1, noteMap[msg2] & 0x7F, 0);
+      // noteMap[msg2] = 0; // reset the mapping?
+      passthru = 0;
+    )
+
+
+  ) : (cmd == noteOn) ? (
+    // Map the note to the ns_kit7 trigger note number plus zone offset
+    dbgNoteOn = msg2;
+
+    // Kick
+    (msg2 == noteKick) ? (
+      noteMap[msg2] = trigger_kick + (blocksSinceLastKick == -1) ? (
+        blocksSinceLastKick = 0; // first kick in half a second or more
+        zone_kick_cls // cls on first or slow kicks (fake slow pedal release)
+      ) : (
+        zone_kick_opn // opn on subsequent fast kicks
+      );
+    ) :
+
+    // Snare
+    // noteSnareBrush - trigger unmapped
+    // zone_sn_prs = 5; - zone unmapped
+    // zone_sn_e2c = 6; - zone unmapped
+    // zone_sn_rol = 7; - zone unmapped
+    // zone_sn_brush_down_legato_rls = 10; - mapped in noteOff
+    // zone_sn_brush_drag_cirular = 15; - zone unmapped (no exclusive off yet)
+    // zone_sn_brush_drag_under = 16; - zone unmapped
+    (msg2 == noteSnareHead) ? (
+      brushKit ? (
+        // Snare brush mode zones
+        noteMap[msg2] = trigger_snare +
+          (blocksSinceLastBrush == 0
+            ? zone_sn_brush_down_new
+            : (blocksSinceLastBrush < 10
+              ? (isBrushDrag == 0
+                ? (
+                    isBrushDrag = 1; // set brush drag mode
+                    zone_sn_brush_drag_new
+                  )
+                :
+                  zone_sn_brush_drag_new_rpt
+                )
+              : (blocksSinceLastBrush < 100
+                ? (isBrushDrag == 1
+                  ? (
+                      isBrushDrag = 2; // set brush drag legato mode
+                      zone_sn_brush_drag_legato
+                    )
+                  :
+                    zone_sn_brush_drag_legato_rpt
+                  )
+                : (
+                    isBrushDrag = 0; // reset brush drag mode
+                    zone_sn_brush_down_legato
+                  )
+                )
+              )
+            );
+          blocksSinceLastBrush = 0; // reset brush block count as we just had a brush note
+      ) :
+        noteMap[msg2] = trigger_snare + zone_sn_head;
+    ) :
+    (msg2 == noteSnareRim) ? (
+      noteMap[msg2] = trigger_snare + brushKit ? zone_sn_rim : (
+        // Position sensing may not be that reliable but try...
+        snareCCVal == 127 ? zone_sn_rim : (
+          snareCCVal < 64 ? zone_sn_rms : zone_sn_rmh
+        )
+      );
+    ) :
+    (msg2 == noteSnareXStick) ? (
+        noteMap[msg2] = trigger_snare + zone_sn_xtk;
+    ) :
+
+    // Toms
+    // zone_tm_ord_l = 0;
+    // zone_tm_ord_r = 1;
+    // zone_tm_rim = 2;
+    // zone_tm_rms_l = 3;
+    // zone_tm_rms_r = 4;
+    ((msg2 == noteTom1Head) || (msg2 == noteTom1Rim)) ? (
+      noteMap[msg2] = tom_map[tom1] + (msg2 == noteTom1Head
+        ? (tomAuxCCVal < 64 ? zone_tm_ord_l : zone_tm_ord_r)
+        : (tomAuxCCVal == 127 ? zone_tm_rim : (tomAuxCCVal < 64 ? zone_tm_rms_l : zone_tm_rms_r))
+        );
+    ) :
+    ((msg2 == noteTom2Head) || (msg2 == noteTom2Rim)) ? (
+      noteMap[msg2] = tom_map[tom2] + (msg2 == noteTom2Head
+        ? (tomAuxCCVal < 64 ? zone_tm_ord_l : zone_tm_ord_r)
+        : (tomAuxCCVal == 127 ? zone_tm_rim : (tomAuxCCVal < 64 ? zone_tm_rms_l : zone_tm_rms_r))
+        );
+    ) :
+    ((msg2 == noteTom3Head) || (msg2 == noteTom3Rim)) ? (
+      noteMap[msg2] = tom_map[tom3] + (msg2 == noteTom3Head
+        ? (tomAuxCCVal < 64 ? zone_tm_ord_l : zone_tm_ord_r)
+        : (tomAuxCCVal == 127 ? zone_tm_rim :  (tomAuxCCVal < 64 ? zone_tm_rms_l : zone_tm_rms_r))
+        );
+    ) :
+
+    // Hi-Hat
+    // zone_hh_spl = 6; - TD-27 does not *send* a splash note nor any way to guess it
+    ((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
+      noteMap[msg2] = trigger_hh + (hihatCCVal < 32 ? zone_hh_bel : (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r));
+    ) :
+    ((msg2 == noteHiHatOpenEdge) || (msg2 == noteHiHatCloseEdge)) ? (
+      noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_rim_l : zone_hh_rim_r);
+    ) :
+    (msg2 == noteHiHatPedal) ? (
+      noteMap[msg2] = trigger_hh + zone_hh_ped;
+    ) :
+
+    // No position sensing on TD-27 crash cymbals
+    (msg2 == noteCrash1Bow) ? (
+      noteMap[msg2] = cy_map[crash1] + zone_cy_top_inner;
+    ) :
+    (msg2 == noteCrash1Edge) ? (
+      noteMap[msg2] = cy_map[crash1] + zone_cy_rim;
+    ) :
+    (msg2 == noteCrash2Bow) ? (
+      noteMap[msg2] = cy_map[crash2] + zone_cy_top_inner;
+    ) :
+    (msg2 == noteCrash2Edge) ? (
+      noteMap[msg2] = cy_map[crash2] + zone_cy_rim;
+    ) :
+
+    (msg2 == noteRideBell) ? (
+      noteMap[msg2] = cy_map[ride] + zone_cy_bel;
+    ) :
+    (msg2 == noteRideBow) ? (
+      noteMap[msg2] = cy_map[ride] + (rideCCVal < 96 ? zone_cy_top_inner : zone_cy_top_outer);
+    ) :
+    (msg2 == noteRideEdge) ? (
+      noteMap[msg2] = cy_map[ride] + zone_cy_rim;
+    ) :
+
+    // Aux "head" and "rim" as separate inputs
+    (msg2 == noteAux1Head) ? (
+      noteMap[msg2] = pn_map[aux1head];
+    ) :
+    (msg2 == noteAux1Rim) ? (
+      noteMap[msg2] = pn_map[aux1rim];
+    ) :
+    (msg2 == noteAux2Head) ? (
+      noteMap[msg2] = pn_map[aux2head];
+    ) :
+    (msg2 == noteAux2Rim) ? (
+      noteMap[msg2] = pn_map[aux2rim];
+    ) :
+    (msg2 == noteAux3Head) ? (
+      noteMap[msg2] = pn_map[aux3head];
+    ) :
+    (msg2 == noteAux3Rim) ? (
+      noteMap[msg2] = pn_map[aux3rim];
+    );
+
+
+    (noteMap[msg2] != -1) ? (
+      (polyAftVal[msg2] != -1) ? (
+        midisend(offset, (msg1 & 0x0F | polyAft) & 0xFF, noteMap[msg2] & 0x7F, polyAftVal[msg2]);
+        polyAftVal[msg2] = -1;
+      );
+      // If we have a mapping, send the noteOn with the mapped note number and indicate no passthru
+      midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
+      passthru = 0;
+    );
+
+  );
+
+  dgbPolyAftVal = polyAftVal[msg2];
+  dbgMappedNote = noteMap[msg2];
+
+  (passthru == 1) ? midisend(offset, msg1, msg2, msg3);
+)
