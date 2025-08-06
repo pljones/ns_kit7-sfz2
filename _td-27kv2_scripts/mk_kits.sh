@@ -248,30 +248,42 @@ do
 // Mapping Copyright (C) 2025 Peter L Jones
 //***
 
-// // TD-27 default trigger note assignments
-// kick           = 36;
+// TD-27 default trigger note assignments
+// --------------------------------------
+// The DAW will need to map incoming MIDI notes to the triggers for the kit.
+// The default note assignments in the module are:
 //
-// crash1Bow      = 49;
-// crash1Edge     = 55;
-// crash2Bow      = 57;
-// crash2Edge     = 52;
+// Kick note               36
+// Snare head note         38
+// Snare rim note          40
+// Snare brush note        23
+// Snare xstick note       37
+// Tom 1 head note         48
+// Tom 1 rim note          50
+// Tom 2 head note         45
+// Tom 2 rim note          47
+// Tom 3 head note         43
+// Tom 3 rim note          58
+// Hi-hat open bow note    46
+// Hi-hat open edge note   26
+// Hi-hat close bow note   42
+// Hi-hat close edge note  22
+// Hi-hat pedal note       44
+// Crash 1 bow note        49
+// Crash 1 edge note       55
+// Crash 2 bow note        57
+// Crash 2 edge note       52
+// Ride bow note           51
+// Ride edge note          59
+// Ride bell note          53
+// Aux 1 head note         27
+// Aux 1 rim note          28
+// Aux 2 head note         29
+// Aux 2 rim note          30
+// Aux 3 head note         31
+// Aux 3 rim note          32
 //
-// rideBow        = 51;
-// rideEdge       = 59;
-// rideBell       = 53;
-// rideBowAlt     =  9;
-//
-// // 23 is snare head in brush mode
-// // no idea where 24 and 25 are but I choose to keep clear
-//
-// aux1Head       = 27; // module built-in
-// aux1Rim        = 28; // module built-in
-// aux2Head       = 29; // module built-in
-// aux2Rim        = 30; // module built-in
-// aux3Head       = 31; // module built-in
-// aux3Rim        = 32; // module built-in
-
-// ------------------------------------------------------------------
+// --------------------------------------
 
 <control>
  // hint_ram_based=1
@@ -285,14 +297,15 @@ do
 					echo ' set_cc4=127  label_cc4=Pedal (cc4)'
 				fi
 				cat <<-'@EOF'
- set_cc16=0   label_cc16=GP1 (cc16)
- set_cc17=0   label_cc17=GP2 (cc17)
- set_cc18=0   label_cc18=GP3 (cc18)
- set_cc19=0   label_cc19=GP4 (cc19)
- set_cc48=0   label_cc48=GP5 (cc48)
- set_cc49=0   label_cc49=GP6 (cc49)
- set_cc50=0   label_cc50=GP7 (cc50)
- set_cc51=0   label_cc51=GP8 (cc51)
+ set_cc16=0   label_cc16=snarePos   (cc16)
+ set_cc17=0   label_cc17=ridePos    (cc17)
+ set_cc18=0   label_cc18=tomAuxPos  (cc18)
+ set_cc19=0   label_cc19=hihatPos   (cc19)
+ set_cc80=0   label_cc80=GP5        (cc80)
+ set_cc81=0   label_cc81=GP6        (cc81)
+ set_cc82=0   label_cc82=GP7        (cc82)
+ set_cc83=0   label_cc83=hihatLRPos (cc83)
+ set_cc88=0   label_cc88=hiresVel   (cc88)
 
   
 <global>
