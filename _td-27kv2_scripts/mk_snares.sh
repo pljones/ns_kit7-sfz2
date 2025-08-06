@@ -38,24 +38,26 @@ articulations:
     sweeps: swc - circular; swl - legato; sws - stacato; swu - under
     brushes: cls - brush stays in contact; opn - brush allowed to rebound
 
+TODO: circular sweep needs to have exclusive off implemented.
+
 We're going to need some magic scripting.
 TD-27 sends the snare pos CC when it decides a fresh brush stroke has started.
 Overall timer (sample counter) needs to check whether we've had a Note On recently.
 
 Flow A - Note On following Snare Position CC without intervening Note On
 - Flow A1 - Timer has expired
-  - if we last sent sn_head_drag_new, send sn_head_drag_new_rpt
-  - else if we last sent sn_head_down_legato, send sn_head_down_legato_rls
-  - else sn_head_down_new
+  - if we last sent sn_brush_drag_new, send sn_brush_drag_new_rpt
+  - else if we last sent sn_brush_down_legato, send sn_brush_down_legato_rls
+  - else sn_brush_down_new
 - Flow A2 - Timer has not expired
-  - sn_head_down_legato
+  - sn_brush_down_legato
 Flow B - Note On following Note On without intervening Snare Position CC (i.e. not Flow A)
 - Flow B1 - Timer has expired
-  - if we last sent sn_head_drag_legato, send sn_head_drag_legato
-  - else sn_head_drag_new
+  - if we last sent sn_brush_drag_legato, send sn_brush_drag_legato
+  - else sn_brush_drag_new
 - Flow B2 - Timer has not expired
-  - if we last sent sn_head_drag_legato, send sn_head_drag_legato_rpt
-  - else sn_head_drag_legato
+  - if we last sent sn_brush_drag_legato, send sn_brush_drag_legato_rpt
+  - else sn_brush_drag_legato
 
 We do NOT get a valid position from Snare Position CC for brush notes
 
@@ -66,12 +68,14 @@ sn_brush_drag_new:        sws
 sn_brush_drag_new_rpt:    swsrpt or sws
 sn_brush_drag_legato:     swl
 sn_brush_drag_legato_rpt: swlrpt or swl
+sn_brush_drag_cirular:    swc
+sn_brush_drag_under:      swu
 sn_xtk:                   xtk
 sn_rim:                   rim
 
 
 cls may have clsrls (bop, rock/w) to be triggered when the brush leaves the head
-swl/sws may have swlrpt/swsrpt (swl/sws: bop/w; sws: rock/w) to be triggered continues the sweep rather than leaves the head
+swl/sws may have swlrpt/swsrpt (swl/sws: bop/w; sws: rock/w) to be triggered when continuing the sweep
 
 swc, cirular sweep, and swu, sweep under, are not supported.
 
@@ -81,20 +85,20 @@ swc, cirular sweep, and swu, sweep under, are not supported.
                        | muted open muted open |         |         |         |         |         |         | (or "-")
 
 brs
-                             opn        opn    |         |   cls   |         |         |         |     opn | sn_head_down_new
-                             cls        cls    |         |   cls   |         |         |         |     cls | sn_head_down_legato*1
-                             opn        sws    |         |   cls   |         |         |         |     sws | sn_head_drag_new*2
-                             cls        swl    |         |   cls   |         |         |         |     swl | sn_head_drag_legato*2
+                             opn        opn    |         |   cls   |         |         |         |     opn | sn_brush_down_new
+                             cls        cls    |         |   cls   |         |         |         |     cls | sn_brush_down_legato*1
+                             opn        sws    |         |   cls   |         |         |         |     sws | sn_brush_drag_new*2
+                             cls        swl    |         |   cls   |         |         |         |     swl | sn_brush_drag_legato*2
                              rms        rms    |         |   cls   |         |         |         |     opn | sn_rim / sn_xtk
-                                        swc    |         |         |         |         |         |     swc | -
-                                        swu    |         |         |         |         |         |     swu | -
+                                        swc    |         |         |         |         |         |     swc | sn_brush_drag_cirular
+                                        swu    |         |         |         |         |         |     swu | sn_brush_drag_under
 
 
-*1: sn_head_down_legato:
+*1: sn_brush_down_legato:
     cls may have clsrls (bop, rock/w) to be triggered when the brush leaves the head
     or, where no clsrls, end=-1 sample=*silence
 
-*2: sn_head_drag_new, sn_head_drag_legato:
+*2: sn_brush_drag_new, sn_brush_drag_legato:
     swl/sws may have swlrpt/swsrpt (swl/sws: bop/w; sws: rock/w) to be triggered for repeated strokes
     or, where no swlrpt/swsrpt, swl/sws
 
@@ -148,12 +152,12 @@ stx
 # Where index exceeds articulations for snare, use "-".
 # Start at MIDI note 001 (value + 1) for each snare - mk_kits.sh overrides these; mk_sfz.sh does not
 declare -A triggermap=(
-	[keys]="head xtk rim rms rmh prs e2c rol brush_down_new brush_down_legato brush_down_legato_rls brush_drag_new brush_drag_new_rpt brush_drag_legato brush_drag_legato_rpt swc swu"
+	[keys]="head xtk rim rms rmh prs e2c rol brush_down_new brush_down_legato brush_down_legato_rls brush_drag_new brush_drag_new_rpt brush_drag_legato brush_drag_legato_rpt brush_drag_cirular brush_drag_under"
 	[head]=0 [xtk]=1 [rim]=2 [rms]=3 [rmh]=4
 	[prs]=5 [e2c]=6 [rol]=7
 	[brush_down_new]=8 [brush_down_legato]=9 [brush_down_legato_rls]=10
 	[brush_drag_new]=11 [brush_drag_new_rpt]=12 [brush_drag_legato]=13 [brush_drag_legato_rpt]=14
-	[swc]=15 [swu]=16
+	[brush_drag_cirular]=15 [brush_drag_under]=16
 )
 
 declare -A articulations=(
@@ -172,7 +176,7 @@ declare -A articulations=(
 	[sn12_bop_on_stx_muted]=" ord xtk rim rms rmh prs e2c rol"
 	[sn12_bop_on_stx_open]="  ord xtk rms rms rmh prs e2c rol"
 	[sn12_dead_on_stx]="      ord rms rms rms rms prs"
-	[sn12_funk_on_brs]="      -   cls cls -   -   -   -   -   cls cls cls    cls cls    cls cls    -   -"
+	[sn12_funk_on_brs]="      -   cls cls -   -   -   -   -   cls cls -      cls cls    cls cls    -   -"
 	[sn12_funk_on_stx]="      ord xtk rms rms rmh prs e2c rol"
 	[sn12_orleans_on_stx]="   ord xtk rms rms rmh prs -   rol"
 	[sn12_tight_on_stx]="     ord xtk rms rms rmh prs e2c rol"
@@ -207,8 +211,8 @@ function get_articulations () {
 
 function get_articulation () {
 	local trigger=$1; shift || { echo "get_art_ref: Missing trigger" >&2; exit 1; }
-	local -n _arts_ref=$1; shift || { echo "get_art_ref: Missing articulations reference" >&2; exit 1; }
-	local -n _art_ref=$1; shift || { echo "get_art_ref: Missing articulation array reference" >&2; exit 1; }
+	local -n _arts_ref=$1; shift || { echo "get_art_ref: Missing articulations array reference" >&2; exit 1; }
+	local -n _art_ref=$1; shift || { echo "get_art_ref: Missing articulation reference" >&2; exit 1; }
 	[[ $# -eq 0 ]] || { echo "get_art_ref: Unexpected trailing parameters: [$@]" >&2; exit 1; }
 
 	[[ -v triggermap["$trigger"] ]] || { echo "get_art_ref: Invalid trigger {$trigger}" >&2; exit 1; }
@@ -304,7 +308,7 @@ function do_articulation () {
 	[[ -f "kit_pieces/snares/${sfz_file}.sfzh" ]] || { echo "do_articulation: new kit piece ${sfz_file} not found" >&2; exit 1; }
 	[[ -f "../snares/${sfz_file}.sfz" ]] || { echo "do_articulation: old kit piece ${sfz_file} not found" >&2; exit 1; }
 
-	[[ $articulation == rol ]] || get_durations kit_pieces/snares/${sfz_file}.sfzh max_duration || { echo "do_articulation: get_durations failed" >&2; exit 1; }
+	[[ $articulation =~ ^rol|swc$ ]] || get_durations kit_pieces/snares/${sfz_file}.sfzh max_duration || { echo "do_articulation: get_durations failed" >&2; exit 1; }
 
 	echo "<group>"
 	echo " key=\$sn_${trigger}"
@@ -314,6 +318,7 @@ function do_articulation () {
 		echo " lorand=${lohirand[0]} hirand=${lohirand[1]}"
 	fi
 	echo "#include \"kit_pieces/snares/${sfz_file}.sfzh\""
+#echo >&2 "articulation {$articulation}; max_duration {$max_duration}"
 }
 
 rm -rf triggers/*/snares
@@ -326,13 +331,13 @@ do
 		do
 			for beater in $(echo ${beaters["keys"]})
 			do
-				if [[ "$beater" == "stx" && "$tuning" == bop ]]
+				if [[ "$beater" == "stx" && "$tuning" == "bop" ]]
 				then
 					_mutes=(muted open)
 				else
 					_mutes=(-)
 				fi
-				for mute in ${_mutes[@]}
+				for mute in "${_mutes[@]}"
 				do
 
 					arts=()
@@ -392,9 +397,9 @@ do
 							fi
 						done
 						echo ""
-						#echo '<group>'
-						#echo '<region> key=000 end=-1 sample=*silence'
-						#echo ""
+						# echo '<group>'
+						# echo '<region> key=000 end=-1 sample=*silence'
+						# echo ""
 						echo "#include \"triggers/${beater}/snares/${file}\""
 					} > "triggers/${beater}/${file}"
 
