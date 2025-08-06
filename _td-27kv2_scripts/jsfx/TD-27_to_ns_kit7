@@ -131,15 +131,15 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   slider1 = msg1;
   slider2 = msg2;
   slider3 = msg3;
-  
+
   cmd = msg1 & 0xF0;
   passthru = 1;
-  
+
   slider4 = ((msg1 & 0xF0) / 16) - 8;
   (cmd != 0xF0) ? (
     slider5 = 1 + (msg1 & 0x0F);
   );
-  
+
   (cmd == noteOff) ? (
     slider6 = msg2;
     slider7 = msg3;
@@ -177,8 +177,8 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   // b10 left (0) to right (127)
   (cmd == noteOff || cmd == noteOn || cmd == polyAft) ? (
     (msg2 == kick) ? (
-    0;
-  
+      0;
+
     ) : (msg2 == snareHead) ? (
       // snareCC for Head seems to run across the inner zone then switch.
       // Oh well.  "Inner" and "Outer" rather than "rim"...
@@ -189,10 +189,10 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     ) : (msg2 == snareBrush) ? (
       // snareBrush is snareHead with the "brush" option on the module
       // we will be adding magic for brush kits so we keep this unscathed.
-    0;
+      0;
     ) : (msg2 == snareXstick) ? (
-    0;
-  
+      0;
+
     ) : (msg2 == tom1Head) ? (
       msg2 = (tomAuxCC > 95) ? tom1HeadAlt : msg2;
     ) : (msg2 == tom1Rim) ? (
@@ -205,10 +205,9 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       msg2 = (tomAuxCC > 95) ? tom3HeadAlt : msg2;
     ) : (msg2 == tom3Rim) ? (
       msg2 = (tomAuxCC > 95) ? tom3RimAlt : msg2;
-  
+
     ) : (msg2 == hiHatOpenBow) ? (
-      msg2 = 
-      (hihatLRCC < 48) ? hiHatOpenBowL : (
+      msg2 = (hihatLRCC < 48) ? hiHatOpenBowL : (
         (hihatLRCC > 79) ? hiHatOpenBowR : (
           (hihatCC < 8) ? hiHatOpenBowAlt : msg2
         )
@@ -219,43 +218,43 @@ while (midirecv(offset, msg1, msg2, msg3)) (
           (hihatCC < 8) ? hiHatCloseBowAlt : msg2
         )
       );
-  
+
     ) : (msg2 == hiHatOpenEdge) ? (
       msg2 = (hihatLRCC < 48) ? hiHatOpenEdgeL : ((hihatLRCC > 79) ? hiHatOpenEdgeR : msg2);
     ) : (msg2 == hiHatCloseEdge) ? (
       msg2 = (hihatLRCC < 48) ? hiHatCloseEdgeL : ((hihatLRCC > 79) ? hiHatCloseEdgeR : msg2);
     ) : (msg2 == hiHatPedal) ? (
-    0;
-  
+      0;
+
     ) : (msg2 == crash1Bow) ? (
-    0;
+      0;
     ) : (msg2 == crash1Edge) ? (
-    0;
+      0;
     ) : (msg2 == crash2Bow) ? (
-    0;
+      0;
     ) : (msg2 == crash2Edge) ? (
-    0;
-  
+      0;
+
     ) : (msg2 == rideBow) ? (
       msg2 = (rideCC > 95) ? rideBowAlt : msg2;
-  
+
     ) : (msg2 == rideEdge) ? (
-    0;
+      0;
     ) : (msg2 == rideBell) ? (
-    0;
-  
+      0;
+
     ) : (msg2 == aux1Head) ? (
-    1;
+      1;
     ) : (msg2 == aux1Rim) ? (
-    1;
+      1;
     ) : (msg2 == aux2Head) ? (
-    1;
+      1;
     ) : (msg2 == aux2Rim) ? (
-    1;
+      1;
     ) : (msg2 == aux3Head) ? (
-    1;
+      1;
     ) : (msg2 == aux3Rim) ? (
-    1;
+      1;
     );
     result = msg2;
   ) : (
