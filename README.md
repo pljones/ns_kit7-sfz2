@@ -10,7 +10,7 @@ Also not included are the sample mappings...  Read on...
 
 # So why on earth would I want this?
 
-If you don't use Kontakt (full version) or Halion and you like the idea of a bunch of scripts that run on Linux
+If you don't use Kontakt (full version) or Halion and you like the idea of a bunch of bash scripts that run on Linux
 creating a bunch of files you can load into a free sampler, this may be of some interest.
 
 You can [get the sampler, Sforzando, here](https://www.plogue.com/products/sforzando.html).
