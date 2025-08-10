@@ -30,6 +30,8 @@ slider22:0<0,127,1>Controller XX Number 22
 slider23:0<0,127,1>Controller XX Value 23
 
 @init
+ext_noinit=1.0;
+
 // Channel Voice messages (low half-byte = channel; 0x0 to 0xF = "1" to "16")
 noteOff = 0x80; // note No; off velocity
 noteOn  = 0x90; // note No; on velocity

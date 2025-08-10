@@ -3,6 +3,7 @@ slider1:cc_num=4<0,127,1>-CC Number to track
 slider2:expiry_reset=4<1,10,1>-Number of audio blocks for MIDI expiry
 
 @init
+ext_noinit=1.0;
 // Initialize arrays to -1, as note number 0 is valid
 i = 0;
 loop(128,

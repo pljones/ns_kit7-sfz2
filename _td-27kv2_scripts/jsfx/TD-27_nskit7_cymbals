@@ -17,6 +17,7 @@ slider11:aux2=0<0,1,1{Muted cowbell,Open cowbell}>Aux 2
 slider12:aux3=0<0,1,1{Muted cowbell,Open cowbell}>Aux 3
 
 @init
+ext_noinit=1.0;
 cymbal_offset     =  1; // offset cr1/cr2/cy18dr slider to Reaper track stx_cy8_splash
 hihat_offset      = 11; // offset vh14d slider (times two) to Reaper track stx_hh13_invcc4
 pedspl_offset     = 16; // offset vh14d slider (times two) to Reaper track ped_hh13_invcc4
