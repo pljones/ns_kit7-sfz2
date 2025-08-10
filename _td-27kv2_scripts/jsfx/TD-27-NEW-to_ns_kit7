@@ -24,13 +24,26 @@ slider12:aux3rim=1<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,co
 
 slider13:brushKit=0<0,1,1{off,on}>Brush Kit Mode
 
+slider14:dgbSnareVal=0<0,127,1>snareCCVal
+slider15:dgbRideVal=0<0,127,1>rideCCVal
+slider16:dgbTomAuxVal=0<0,127,1>tomAuxCCVal
+slider17:dgbHihatVal=0<0,127,1>hihatCCVal
+slider18:dgbHihatLRVal=0<0,127,1>hihatLRCCVal
+slider19:dgbHiresVelVal=0<0,127,1>hiresVelCCVal
 
-slider14:dbgNoteOn=0<0,127,1>Note On note (msg2)
-slider15:dbgMappedNote=-1<-1,127,1>noteMap[msg2]
-slider16:dgbPolyAftVal=-1<-1,127,1>polyAftVal[msg2]
+slider20:dgbNoteOffNote=0<0,127,1>noteOff note (msg2)
+slider21:dgbNoteOffVal=0<0,127,1>noteOff val (msg3)
+slider22:dbgNoteOn=0<0,127,1>Note On note (msg2)
+slider23:dbgMappedNote=-1<-1,127,1>noteMap[msg2]
+slider24:dgbPolyAftNote=0<0,127,1>polyAft note (msg2)
+slider25:dgbPolyAftVal=0<0,127,1>polyAft val (msg3)
+
+slider26:dgbPassthru=0<0,1,1{off,on}>passthru
 
 
 @init
+ext_noinit=1.0;
+
 nextFree = 0;
 function malloc(val, size) (
   ptr = nextFree;
@@ -247,6 +260,7 @@ gp5CCVal     = 0;
 gp6CCVal     = 0;
 gp7CCVal     = 0;
 hihatLRCCVal = 0;
+hiresVelVal  = 0;
 
 // Track note mapping for noteOn so noteOff and polyAft match
 // (Set noteMap[note] to ns_kit7 trigger note number plus zone offset on noteOn;
@@ -261,27 +275,17 @@ polyAftVal = malloc(-1, 128);
 blocksSinceLastBrush = -1;
 isBrushDrag = 0;
 
-// Remaining count of blocks before phantom note expiry
-// (I could have 128 of these and check for any note number needing a phanom note off...)
-rlsExpiry = -1;
-
 // Count blocks since last kick to decide whether to use opn or cls kick note
 blocksSinceLastKick = -1;
+
+// Count of note offs before phantom note expiry
+noteOffsSinceLegatoRelease = -1;
 
 @block
 while (midirecv(offset, msg1, msg2, msg3)) (
 
   cmd = msg1 & 0xF0;
   passthru = 1;
-
-  // count on channel message so we can use channel number
-  (msg1 < 0xF0 && rlsExpiry >= 0) ? (
-    rlsExpiry = rlsExpiry - 1;
-    (rlsExpiry == -1) ? (
-      // Release phantom note
-      midisend(offset, (msg1 & 0x0F | noteOff) & 0xFF, trigger_snare + zone_sn_brush_down_legato_rls, 0);
-    );
-  );
 
 
   // Let's say a block is 64 samples at 48KHz, so 64/48000 = 0.001333333 seconds per block, 750 blocks = 1 second.
@@ -307,89 +311,33 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   );
 
 
-  (cmd == cc) ?  (
-    (msg2 == snareCC) ? (
-      snareCCVal = msg3;
-      passthru = 0;
-    ) :
-    (msg2 == rideCC) ? (
-      rideCCVal = msg3;
-      passthru = 0;
-    ) :
-    (msg2 == tomAuxCC) ? (
-      tomAuxCCVal = msg3;
-      passthru = 0;
-    ) :
-    (msg2 == hihatCC) ? (
-      hihatCCVal = msg3;
-      passthru = 0;
-    ) :
-    //(msg2 == gp5CC) ? (
-    //  gp5CCVal = msg3;
-    //  passthru = 0;
-    //) :
-    //(msg2 == gp6CC) ? (
-    //  gp6CCVal = msg3;
-    //  passthru = 0;
-    //) :
-    //(msg2 == gp7CC) ? (
-    //  gp7CCVal = msg3;
-    //  passthru = 0;
-    //) :
-    (msg2 == hihatLRCC) ? (
-      hihatLRCCVal = msg3;
-      passthru = 0;
-    )
-
-
-  ) : (cmd == polyAft) ? (
-    (msg2 == noteHiHatCloseEdge) ||
-    (msg2 == noteSnareBrush)     ||
-    (msg2 == noteHiHatOpenEdge)  ||
-    (msg2 == noteAux1Head)       ||
-    (msg2 == noteAux1Rim)        ||
-    (msg2 == noteAux2Head)       ||
-    (msg2 == noteAux2Rim)        ||
-    (msg2 == noteAux3Head)       ||
-    (msg2 == noteAux3Rim)        ||
-    (msg2 == noteKick)           ||
-    (msg2 == noteSnareXStick)    ||
-    (msg2 == noteSnareHead)      ||
-    (msg2 == noteSnareRim)       ||
-    (msg2 == noteHiHatCloseBow)  ||
-    (msg2 == noteTom3Head)       ||
-    (msg2 == noteHiHatPedal)     ||
-    (msg2 == noteTom2Head)       ||
-    (msg2 == noteHiHatOpenBow)   ||
-    (msg2 == noteTom2Rim)        ||
-    (msg2 == noteTom1Head)       ||
-    (msg2 == noteCrash1Bow)      ||
-    (msg2 == noteTom1Rim)        ||
-    (msg2 == noteRideBow)        ||
-    (msg2 == noteCrash2Edge)     ||
-    (msg2 == noteRideBell)       ||
-    (msg2 == noteCrash1Edge)     ||
-    (msg2 == noteCrash2Bow)      ||
-    (msg2 == noteTom3Rim)        ||
-    (msg2 == noteRideEdge)       ? (
-      polyAftVal[msg2] = msg3;
-      passthru = 0;
-    )
-
-
-  ) : (cmd == noteOff) ? (
-    noteMap[msg2] >= 0 ? (
-      brushKit ? (
-        // Some magic happens on noteOff.
-        noteMap[msg2] == trigger_snare + zone_sn_brush_down_legato && rlsExpiry == -1 ? (
-          midisend(offset, (msg1 & 0x0F | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 0);
-          rlsExpiry = 4; // 4 blocks until noteOff for brush down legato release
+  // Magic brush kit legato release
+  (brushKit) ? (
+    ((cmd == noteOff) || ((cmd == noteOn) && (msg3 == 0))) ? (
+      (noteOffsSinceLegatoRelease == -1) ? (
+        ((noteMap[msg2] == trigger_snare + zone_sn_brush_down_legato)) ? (
+          // maybe sending the release wants delaying?
+          midisend(offset, (msg1 & 0x0F | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, msg3);
+          noteOffsSinceLegatoRelease = 0; // start counting
+        )
+      ) : (
+        noteOffsSinceLegatoRelease = noteOffsSinceLegatoRelease + 1;
+        noteOffsSinceLegatoRelease > 5 ? (
+          // Release phantom note
+          midisend(offset, (msg1 & 0x0F | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 64);
+          noteOffsSinceLegatoRelease = -1; // stop counting
         );
-      );
-      midisend(offset, msg1, noteMap[msg2] & 0x7F, 0);
-      // noteMap[msg2] = 0; // reset the mapping?
-      passthru = 0;
+      )
     )
+  );
+
+  (cmd == noteOff) ? (
+    noteMap[msg2] >= 0 ? (
+      midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
+      passthru = 0;
+    );
+    dgbNoteOffNote = (noteMap[msg2] < 0) ? msg2 : (noteMap[msg2] & 0x7F);
+    dgbNoteOffVal = msg3;
 
 
   ) : (cmd == noteOn) ? (
@@ -417,43 +365,47 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     (msg2 == noteSnareHead) ? (
       brushKit ? (
         // Snare brush mode zones
-        noteMap[msg2] = trigger_snare +
-          (blocksSinceLastBrush == 0
-            ? zone_sn_brush_down_new
-            : (blocksSinceLastBrush < 10
-              ? (isBrushDrag == 0
-                ? (
-                    isBrushDrag = 1; // set brush drag mode
-                    zone_sn_brush_drag_new
-                  )
-                :
-                  zone_sn_brush_drag_new_rpt
-                )
-              : (blocksSinceLastBrush < 100
-                ? (isBrushDrag == 1
-                  ? (
-                      isBrushDrag = 2; // set brush drag legato mode
-                      zone_sn_brush_drag_legato
-                    )
-                  :
-                    zone_sn_brush_drag_legato_rpt
-                  )
-                : (
-                    isBrushDrag = 0; // reset brush drag mode
-                    zone_sn_brush_down_legato
-                  )
-                )
+        noteMap[msg2] = trigger_snare + (
+          (blocksSinceLastBrush == 0) ? (
+            zone_sn_brush_down_new
+          ) : (
+            (blocksSinceLastBrush < 10) ? (
+              (isBrushDrag == 0) ? (
+                  isBrushDrag = 1; // set brush drag mode
+                  zone_sn_brush_drag_new
+              ) : (
+                zone_sn_brush_drag_new_rpt
               )
-            );
-          blocksSinceLastBrush = 0; // reset brush block count as we just had a brush note
-      ) :
-        noteMap[msg2] = trigger_snare + zone_sn_head;
+            ) : (
+              (blocksSinceLastBrush < 100) ? (
+                (isBrushDrag == 1) ? (
+                  isBrushDrag = 2; // set brush drag legato mode
+                  zone_sn_brush_drag_legato
+                ) : (
+                  zone_sn_brush_drag_legato_rpt
+                )
+              ) : (
+                isBrushDrag = 0; // reset brush drag mode
+                zone_sn_brush_down_legato
+              )
+            )
+          )
+        );
+        blocksSinceLastBrush = 0; // reset brush block count as we just had a brush note
+      ) : (
+        noteMap[msg2] = trigger_snare + zone_sn_head
+      );
     ) :
     (msg2 == noteSnareRim) ? (
-      noteMap[msg2] = trigger_snare + brushKit ? zone_sn_rim : (
-        // Position sensing may not be that reliable but try...
-        snareCCVal == 127 ? zone_sn_rim : (
-          snareCCVal < 64 ? zone_sn_rms : zone_sn_rmh
+      noteMap[msg2] = trigger_snare + (brushKit ? (
+          zone_sn_rim
+        ) : (
+          // Position sensing may not be that reliable but try...
+          (snareCCVal == 127) ? (
+            zone_sn_rim
+          ) : (
+            snareCCVal < 64 ? zone_sn_rms : zone_sn_rmh
+          )
         )
       );
     ) :
@@ -462,21 +414,16 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     ) :
 
     // Toms
-    // zone_tm_ord_l = 0;
-    // zone_tm_ord_r = 1;
-    // zone_tm_rim = 2;
-    // zone_tm_rms_l = 3;
-    // zone_tm_rms_r = 4;
     ((msg2 == noteTom1Head) || (msg2 == noteTom1Rim)) ? (
-      noteMap[msg2] = tom_map[tom1] + (msg2 == noteTom1Head
-        ? (tomAuxCCVal < 64 ? zone_tm_ord_l : zone_tm_ord_r)
-        : (tomAuxCCVal == 127 ? zone_tm_rim : (tomAuxCCVal < 64 ? zone_tm_rms_l : zone_tm_rms_r))
+      noteMap[msg2] = tom_map[tom1] + ((msg2 == noteTom1Head)
+        ? ((tomAuxCCVal < 64) ? zone_tm_ord_l : zone_tm_ord_r)
+        : ((tomAuxCCVal == 127) ? zone_tm_rim : ((tomAuxCCVal < 64) ? zone_tm_rms_l : zone_tm_rms_r))
         );
     ) :
     ((msg2 == noteTom2Head) || (msg2 == noteTom2Rim)) ? (
-      noteMap[msg2] = tom_map[tom2] + (msg2 == noteTom2Head
-        ? (tomAuxCCVal < 64 ? zone_tm_ord_l : zone_tm_ord_r)
-        : (tomAuxCCVal == 127 ? zone_tm_rim : (tomAuxCCVal < 64 ? zone_tm_rms_l : zone_tm_rms_r))
+      noteMap[msg2] = tom_map[tom2] + ((msg2 == noteTom3Head)
+        ? ((tomAuxCCVal < 64) ? zone_tm_ord_l : zone_tm_ord_r)
+        : ((tomAuxCCVal == 127) ? zone_tm_rim : ((tomAuxCCVal < 64) ? zone_tm_rms_l : zone_tm_rms_r))
         );
     ) :
     ((msg2 == noteTom3Head) || (msg2 == noteTom3Rim)) ? (
@@ -488,8 +435,11 @@ while (midirecv(offset, msg1, msg2, msg3)) (
 
     // Hi-Hat
     // zone_hh_spl = 6; - TD-27 does not *send* a splash note nor any way to guess it
+    //((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
+    //  noteMap[msg2] = trigger_hh + (hihatCCVal < 32 ? zone_hh_bel : (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r));
+    // Due to hihatCCVal being useless, ignore it
     ((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
-      noteMap[msg2] = trigger_hh + (hihatCCVal < 32 ? zone_hh_bel : (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r));
+      noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r);
     ) :
     ((msg2 == noteHiHatOpenEdge) || (msg2 == noteHiHatCloseEdge)) ? (
       noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_rim_l : zone_hh_rim_r);
@@ -498,7 +448,8 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       noteMap[msg2] = trigger_hh + zone_hh_ped;
     ) :
 
-    // No position sensing on TD-27 crash cymbals
+    // Crash cymbals
+    // zone_cy_top_outer = 2; - No position sensing on TD-27 crash cymbals
     (msg2 == noteCrash1Bow) ? (
       noteMap[msg2] = cy_map[crash1] + zone_cy_top_inner;
     ) :
@@ -512,6 +463,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       noteMap[msg2] = cy_map[crash2] + zone_cy_rim;
     ) :
 
+    // Ride cymbal
     (msg2 == noteRideBell) ? (
       noteMap[msg2] = cy_map[ride] + zone_cy_bel;
     ) :
@@ -542,21 +494,72 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       noteMap[msg2] = pn_map[aux3rim];
     );
 
+    dbgMappedNote = noteMap[msg2];
 
     (noteMap[msg2] != -1) ? (
-      (polyAftVal[msg2] != -1) ? (
-        midisend(offset, (msg1 & 0x0F | polyAft) & 0xFF, noteMap[msg2] & 0x7F, polyAftVal[msg2]);
-        polyAftVal[msg2] = -1;
-      );
       // If we have a mapping, send the noteOn with the mapped note number and indicate no passthru
       midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
       passthru = 0;
     );
 
+
+  ) : (cmd == polyAft) ? (
+    noteMap[msg2] >= 0 ? (
+      midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
+      passthru = 0;
+    );
+    dgbPolyAftNote = (noteMap[msg2] < 0 ? msg2 : (noteMap[msg2] & 0x7F));
+    dgbPolyAftVal = msg3;
+
+
+  ) : (cmd == cc) ? (
+    (msg2 == snareCC) ? (
+      snareCCVal = msg3;
+      dgbSnareVal = snareCCVal;
+      passthru = 0;
+    ) :
+    (msg2 == rideCC) ? (
+      rideCCVal = msg3;
+      dgbRideVal = rideCCVal;
+      passthru = 0;
+    ) :
+    (msg2 == tomAuxCC) ? (
+      tomAuxCCVal = msg3;
+      dgbTomAuxVal = tomAuxCCVal;
+      passthru = 0;
+    ) :
+    (msg2 == hihatCC) ? (
+      hihatCCVal = msg3;
+      dgbHihatVal = hihatCCVal;
+      passthru = 0;
+    ) :
+    //(msg2 == gp5CC) ? (
+    //  gp5CCVal = msg3;
+    //  passthru = 0;
+    //) :
+    //(msg2 == gp6CC) ? (
+    //  gp6CCVal = msg3;
+    //  passthru = 0;
+    //) :
+    //(msg2 == gp7CC) ? (
+    //  gp7CCVal = msg3;
+    //  passthru = 0;
+    //) :
+    (msg2 == hihatLRCC) ? (
+      hihatLRCCVal = msg3;
+      dgbHihatLRVal = hihatLRCCVal;
+      passthru = 0;
+    ) :
+    (msg2 == hihatLRCC) ? (
+      hiresVelVal  = msg3;
+      dgbHiresVelVal = hiresVelCCVal;
+      passthru = 0;
+    )
+
+
   );
 
-  dgbPolyAftVal = polyAftVal[msg2];
-  dbgMappedNote = noteMap[msg2];
-
+  dgbPassthru = passthru;
   (passthru == 1) ? midisend(offset, msg1, msg2, msg3);
+
 )
