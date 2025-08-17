@@ -8,10 +8,10 @@ in_pin:none
 out_pin:none
 
 slider1:crash1=2<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Crash 1 Assign
-slider2:crash2=3<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Crash 2 Assign
+slider2:crash2=4<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Crash 2 Assign
 slider3:ride=7<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Ride Assign
-slider4:tom1=1<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 1 Assign
-slider5:tom2=3<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 2 Assign
+slider4:tom1=0<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 1 Assign
+slider5:tom2=2<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 2 Assign
 slider6:tom3=4<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 3 Assign
 
 // Treat as separate triggers
@@ -33,12 +33,13 @@ slider19:dgbHiresVelVal=0<0,127,1>hiresVelCCVal
 
 slider20:dgbNoteOffNote=0<0,127,1>noteOff note (msg2)
 slider21:dgbNoteOffVal=0<0,127,1>noteOff val (msg3)
-slider22:dbgNoteOn=0<0,127,1>Note On note (msg2)
-slider23:dbgMappedNote=-1<-1,127,1>noteMap[msg2]
-slider24:dgbPolyAftNote=0<0,127,1>polyAft note (msg2)
-slider25:dgbPolyAftVal=0<0,127,1>polyAft val (msg3)
+slider22:dgbNoteOnNote=0<0,127,1>Note On note (msg2)
+slider23:dgbNoteOnVal=0<0,127,1>Note On val (msg3)
+slider24:dbgMappedNote=-1<-1,127,1>noteMap[msg2]
+slider25:dgbPolyAftNote=0<0,127,1>polyAft note (msg2)
+slider26:dgbPolyAftVal=0<0,127,1>polyAft val (msg3)
 
-slider26:dgbPassthru=0<0,1,1{off,on}>passthru
+slider27:dgbPassthru=0<0,1,1{off,on}>passthru
 
 
 @init
@@ -73,6 +74,7 @@ noteHiHatOpenEdge  = 26;
 noteHiHatCloseBow  = 42;
 noteHiHatCloseEdge = 22;
 noteHiHatPedal     = 44;
+noteHiHatSplash    = 97;  // undocumented splash? seems to work
 noteCrash1Bow      = 49;
 noteCrash1Edge     = 55;
 noteCrash2Bow      = 57;
@@ -294,7 +296,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   // This affects the first note in a run, rather than the last note, which is what's really wanted.
   blocksSinceLastKick >= 0 ? (
     blocksSinceLastKick = blocksSinceLastKick + 1;
-    blocksSinceLastKick > 375 ? (
+    blocksSinceLastKick > 750 ? (
       blocksSinceLastKick = -1; // reset
     );
   );
@@ -311,9 +313,17 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   );
 
 
-  // Magic brush kit legato release
-  (brushKit) ? (
-    ((cmd == noteOff) || ((cmd == noteOn) && (msg3 == 0))) ? (
+  // Explicit Note Off and Note On Velocity 0
+  ((cmd == noteOff) || ((cmd == noteOn) && (msg3 == 0))) ? (
+    noteMap[msg2] >= 0 ? (
+      midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
+      passthru = 0;
+    );
+    dgbNoteOffNote = (noteMap[msg2] < 0) ? msg2 : (noteMap[msg2] & 0x7F);
+    dgbNoteOffVal = msg3;
+
+    // Magic brush kit legato release
+    brushKit ? (
       (noteOffsSinceLegatoRelease == -1) ? (
         ((noteMap[msg2] == trigger_snare + zone_sn_brush_down_legato)) ? (
           // maybe sending the release wants delaying?
@@ -327,71 +337,69 @@ while (midirecv(offset, msg1, msg2, msg3)) (
           midisend(offset, (msg1 & 0x0F | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 64);
           noteOffsSinceLegatoRelease = -1; // stop counting
         );
-      )
-    )
-  );
-
-  (cmd == noteOff) ? (
-    noteMap[msg2] >= 0 ? (
-      midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
-      passthru = 0;
+      );
     );
-    dgbNoteOffNote = (noteMap[msg2] < 0) ? msg2 : (noteMap[msg2] & 0x7F);
-    dgbNoteOffVal = msg3;
 
 
   ) : (cmd == noteOn) ? (
     // Map the note to the ns_kit7 trigger note number plus zone offset
-    dbgNoteOn = msg2;
+    dgbNoteOnNote = msg2;
+    dgbNoteOnVal = msg3;
 
     // Kick
     (msg2 == noteKick) ? (
-      noteMap[msg2] = trigger_kick + (blocksSinceLastKick == -1) ? (
-        blocksSinceLastKick = 0; // first kick in half a second or more
-        zone_kick_cls // cls on first or slow kicks (fake slow pedal release)
-      ) : (
-        zone_kick_opn // opn on subsequent fast kicks
+      noteMap[msg2] = trigger_kick + (
+        blocksSinceLastKick = 0; // start counting if we weren't
+        ((blocksSinceLastKick >= 0) && (blocksSinceLastKick < 125)) ? (
+          zone_kick_cls // cls on fast kicks
+        ) : (
+          zone_kick_opn // opn on other kicks
+        )
       );
     ) :
 
     // Snare
-    // noteSnareBrush - trigger unmapped
     // zone_sn_prs = 5; - zone unmapped
     // zone_sn_e2c = 6; - zone unmapped
     // zone_sn_rol = 7; - zone unmapped
     // zone_sn_brush_down_legato_rls = 10; - mapped in noteOff
     // zone_sn_brush_drag_cirular = 15; - zone unmapped (no exclusive off yet)
     // zone_sn_brush_drag_under = 16; - zone unmapped
-    (msg2 == noteSnareHead) ? (
+    ((msg2 == noteSnareHead) || (msg2 == noteSnareBrush)) ? (
       brushKit ? (
         // Snare brush mode zones
-        noteMap[msg2] = trigger_snare + (
-          (blocksSinceLastBrush == 0) ? (
-            zone_sn_brush_down_new
-          ) : (
-            (blocksSinceLastBrush < 10) ? (
-              (isBrushDrag == 0) ? (
-                  isBrushDrag = 1; // set brush drag mode
-                  zone_sn_brush_drag_new
-              ) : (
-                zone_sn_brush_drag_new_rpt
-              )
+        // ideally turn some of this into CCs and model more in the samples
+        // (e.g. send some with velocity, in place of these lost notes
+        // or see https://sfzformat.com/tutorials/brush_stirs)
+        // Try to ignore jittery triggering
+        (blocksSinceLastBrush < 13) ? (
+          noteMap[msg2] = 0;
+        ) : (
+          noteMap[msg2] = trigger_snare + (
+            (isBrushDrag == 0) ? (
+              isBrushDrag = 1; // set up for brush drag new mode
+              zone_sn_brush_down_new
             ) : (
-              (blocksSinceLastBrush < 100) ? (
-                (isBrushDrag == 1) ? (
-                  isBrushDrag = 2; // set brush drag legato mode
-                  zone_sn_brush_drag_legato
-                ) : (
-                  zone_sn_brush_drag_legato_rpt
-                )
+              (isBrushDrag == 1) ? (
+                isBrushDrag = 2;
+                zone_sn_brush_drag_new
               ) : (
-                isBrushDrag = 0; // reset brush drag mode
-                zone_sn_brush_down_legato
+                (blocksSinceLastBrush > 375) ? (
+                  isBrushDrag = 2;
+                  zone_sn_brush_drag_new_rpt
+                ) : (
+                  isBrushDrag = 3; // set brush drag legato mode
+                  (blocksSinceLastBrush > 100) ? (
+                    zone_sn_brush_drag_legato
+                  ) : (
+                    zone_sn_brush_drag_legato_rpt
+                  )
+                )
               )
             )
-          )
+          );
+          blocksSinceLastBrush = 0; // didn't ignore this, restart counting blocks
         );
-        blocksSinceLastBrush = 0; // reset brush block count as we just had a brush note
       ) : (
         noteMap[msg2] = trigger_snare + zone_sn_head
       );
@@ -417,35 +425,38 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     ((msg2 == noteTom1Head) || (msg2 == noteTom1Rim)) ? (
       noteMap[msg2] = tom_map[tom1] + ((msg2 == noteTom1Head)
         ? ((tomAuxCCVal < 64) ? zone_tm_ord_l : zone_tm_ord_r)
-        : ((tomAuxCCVal == 127) ? zone_tm_rim : ((tomAuxCCVal < 64) ? zone_tm_rms_l : zone_tm_rms_r))
+        : zone_tm_rms_l // ((tomAuxCCVal == 127) ? zone_tm_rim : ((tomAuxCCVal < 64) ? zone_tm_rms_l : zone_tm_rms_r))
         );
     ) :
     ((msg2 == noteTom2Head) || (msg2 == noteTom2Rim)) ? (
-      noteMap[msg2] = tom_map[tom2] + ((msg2 == noteTom3Head)
+      noteMap[msg2] = tom_map[tom2] + ((msg2 == noteTom2Head)
         ? ((tomAuxCCVal < 64) ? zone_tm_ord_l : zone_tm_ord_r)
-        : ((tomAuxCCVal == 127) ? zone_tm_rim : ((tomAuxCCVal < 64) ? zone_tm_rms_l : zone_tm_rms_r))
+        : zone_tm_rms_l // ((tomAuxCCVal == 127) ? zone_tm_rim : ((tomAuxCCVal < 64) ? zone_tm_rms_l : zone_tm_rms_r))
         );
     ) :
     ((msg2 == noteTom3Head) || (msg2 == noteTom3Rim)) ? (
-      noteMap[msg2] = tom_map[tom3] + (msg2 == noteTom3Head
-        ? (tomAuxCCVal < 64 ? zone_tm_ord_l : zone_tm_ord_r)
-        : (tomAuxCCVal == 127 ? zone_tm_rim :  (tomAuxCCVal < 64 ? zone_tm_rms_l : zone_tm_rms_r))
+      noteMap[msg2] = tom_map[tom3] + ((msg2 == noteTom3Head)
+        ? ((tomAuxCCVal < 64) ? zone_tm_ord_l : zone_tm_ord_r)
+        : zone_tm_rms_l // ((tomAuxCCVal == 127) ? zone_tm_rim : ((tomAuxCCVal < 64) ? zone_tm_rms_l : zone_tm_rms_r))
         );
     ) :
 
     // Hi-Hat
     // zone_hh_spl = 6; - TD-27 does not *send* a splash note nor any way to guess it
-    //((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
-    //  noteMap[msg2] = trigger_hh + (hihatCCVal < 32 ? zone_hh_bel : (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r));
-    // Due to hihatCCVal being useless, ignore it
     ((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
-      noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r);
+      noteMap[msg2] = trigger_hh + (hihatCCVal == 0 ? zone_hh_bel : (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r));
+    // Due to hihatCCVal being useless, ignore it
+    //((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
+    //  noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r);
     ) :
     ((msg2 == noteHiHatOpenEdge) || (msg2 == noteHiHatCloseEdge)) ? (
       noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_rim_l : zone_hh_rim_r);
     ) :
     (msg2 == noteHiHatPedal) ? (
       noteMap[msg2] = trigger_hh + zone_hh_ped;
+    ) :
+    (msg2 == noteHiHatSplash) ? (
+      noteMap[msg2] = trigger_hh + zone_hh_spl;
     ) :
 
     // Crash cymbals
