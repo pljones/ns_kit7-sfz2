@@ -1,15 +1,4 @@
 #!/bin/bash -eu
-: <<-'@EOF'
-One idea is to have one file containing an include for a kit piece trigger along with its kit piece "group" include
-for each kit piece and load each of those as separate Sforzando instances.
-
-This allows "time since note on" to be used (as "note on" is "instrument on") for things like choking.
-
-It also means putting together kits is "easier"
-- each beater type separate
-  - snare on / off separate
-- but different tunings of drums and different selections of cymbals would all be in the one "kit" for switching in and out quickly
-@EOF
 
 # kit layout (joy of ASCII art) for ns_kit7 generic
 
@@ -23,102 +12,16 @@ It also means putting together kits is "easier"
 
 # kit layout for TD-27KV2
 
-#           (CR1)          (CR2)
-#                (T1)  (T2)       (DR)
-#                              (T3)
-#            (HH)       (KICK)
-#                  (SN)
+#                  (CR1)          (CR2)
+#                        (T1) (T2)
+#                     (HH)     (KICK) (DR)
+#                        (SN)     (T3)
 
-# TD-27KV2 default cymbal MIDI assignments
-
-# AUX 1 as a cymbal:  BOW 31, EDGE 32; position AUX1CC tbc (?? Note: 27, 28)
-# AUX 2 as a cymbal:  BOW 33, EDGE 34; position AUX2CC tbc (?? Note: 29, 30)
-
-# splash_8 (sws/ord/rol grb bel)
-#        brs hnd mlt stx
-#    BOW sws ord rol ord - $AUXnCC < 16 for stx-bel
-#   EDGE ord ord ord ord - AT > 64 for grb
-
-# splash_9 (sws/ord/rol grb)
-#        brs hnd mlt stx
-#    BOW sws ord rol ord
-#   EDGE ord ord ord ord - AT > 64 for grb
-
-# china_19 (sws/ord/rol/top grb)
-#        brs hnd mlt stx
-#    BOW sws ord rol top
-#   EDGE ord ord ord ord - AT > 64 for grb
-
-# splash_12 (sws/ord/rol/top grb bel rim)
-#        brs hnd mlt stx
-#    BOW sws ord rol top - $AUXnCC < 16 for stx-bel - if AT > 64 stx-rim
-#   EDGE ord ord ord ord - AT > 64 for grb
-
-# CRASH 1: BOW 49, EDGE 55; position $CR1CC (to be defined)
-# crash_15 (sws/ord/rol/top grb bel rim)
-#        brs hnd mlt stx
-#    BOW sws ord rol top - $CR1CC < 16 for stx-bel - if AT > 64 stx-rim
-#   EDGE ord ord ord ord - AT > 64 for grb
-
-# CRASH 2: BOW 57, EDGE 52; position $CR2CC (to be defined)
-# crash_18 (sws/ord/rol/top grb bel rim)
-#        brs hnd mlt stx
-#    BOW sws ord rol top - $CR2CC < 16 for stx-bel - if AT > 64 stx-rim
-#   EDGE ord ord ord ord - AT > 64 for grb
-
-
-# RIDE: BELL 53, BOW 51, EDGE 59; position CC17
-# ride_19 (sws/ord/rol/top bel crs elv, grb/grc/grt rim)
-#        brs hnd mlt stx
-#   BELL bel ord bel bel - AT > 64 for stx-rim
-#    BOW sws ord rol ord - AT > 64 for stx-grt - $RDPCC > 96 for stx-elv
-#   EDGE ord ord ord crs - AT > 64 for grb/stx-grc
-
-# ride_20 (sws/ord/rol/top bel elv, grb rim)
-#        brs hnd mlt stx
-#   BELL bel ord bel bel - AT > 64 for stx-rim
-#    BOW sws ord rol ord - $RDPCC > 96 for stx-elv
-#   EDGE ord ord ord rim - AT > 64 for grb
-
-# sizzle_19 (sws/ord/rol/top bel elv, grb)
-#        brs hnd mlt stx
-#   BELL bel ord bel bel
-#    BOW sws ord ord ord - $RDPCC > 96 for stx-elv
-#   EDGE ord ord ord crs - AT > 64 for grb
-
-# Selector AUX1/CR1: crash_18; ride_19; sizzle_19; splash_8
-# Selector AUX2/CR2: splash_9; china_19; splash_12
-# Selector DR:       ride_20; (l/r) ride_19; (l/r) sizzle_19
-
-# So, TD-27KV2 cymbal triggers:
-# #define $cy_aux1_top 27
-# #define $cy_aux1_rim 28
-# #define $cy_aux2_top 29
-# #define $cy_aux2_rim 30
-# #define $cy_cr1_top  49
-# #define $cy_cr1_rim  55
-# #define $cy_cr2_top  57
-# #define $cy_cr2_rim  52
-# #define $cy_dr_bel   53
-# #define $cy_dr_top   51
-# #define $cy_dr_rim   59
-# #define $cy_aux1_sel tbc
-# #define $cy_aux2_sel tbc
-# #define $cy_cr1_sel  tbc
-# #define $cy_cr2_sel  tbc
-# #define $cy_dr_sel   017
-# <control>
-#  set_cc$cy_aux1_CC=064  label_cc$cy_aux1_CC=AUX1 posn  (cc$cy_aux1_CC)
-#  set_cc$cy_aux2_CC=064  label_cc$cy_aux2_CC=AUX2 posn  (cc$cy_aux2_CC)
-#  set_cc$cy_cr1_CC=064   label_cc$cy_cr1_CC=CR1 posn   (cc$cy_cr1_CC)
-#  set_cc$cy_cr2_CC=064   label_cc$cy_cr2_CC=CR2 posn   (cc$cy_cr2_CC)
-#  set_cc$cy_dr_CC=064    label_cc$cy_dr_CC=Ride posn  (cc$cy_dr_CC)
 
 function override_defines () {
 	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
 	local -n key_ref=$1  ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
 
-	echo ''
 	mapfile -t triggers < "${trigger_file}"
 	i=0
 	while [[ $i -lt ${#triggers[@]} ]]
@@ -131,6 +34,7 @@ function override_defines () {
 		}
 	done
 	grep -v '^\(#define\|$\)' "${trigger_file}"
+	echo ''
 }
 
 rm -rf _kits
@@ -160,6 +64,19 @@ tm_dry=(tm10 tm10 tm12 tm14 tm14)
 tm_noreso=(tm10 tm10 tm12 tm14 tm14)
 tm_rock=(tm8 tm10 tm12 tm14 tm16)
 
+# OK, so stuff "natural studio" dynamics... these should have fader onccXX assignments
+declare -A cy_volume=([brs-cy8_splash]="10" [brs-cy9_splash]="5" [brs-cy12_splash]="10" [brs-cy15_crash]="10" [brs-cy18_crash]="10" [brs-cy19_china]="17.5" [brs-cy20_ride]="15" [brs-cy19_ride]="15" [brs-cy19_sizzle]="15" [hnd-cy8_splash]="12" [hnd-cy9_splash]="13" [hnd-cy12_splash]="17" [hnd-cy15_crash]="19.5" [hnd-cy18_crash]="22.5" [hnd-cy19_china]="19.5" [hnd-cy20_ride]="34.5" [hnd-cy19_ride]="13.5" [hnd-cy19_sizzle]="14" [mlt-cy8_splash]="2" [mlt-cy9_splash]="2" [mlt-cy12_splash]="4" [mlt-cy15_crash]="-1.5" [mlt-cy18_crash]="-0.5" [mlt-cy19_china]="10" [mlt-cy20_ride]="15" [mlt-cy19_ride]="4" [mlt-cy19_sizzle]="4" [stx-cy8_splash]="-2" [stx-cy9_splash]="-1.5" [stx-cy12_splash]="-1.5" [stx-cy15_crash]="-2.5" [stx-cy18_crash]="-4" [stx-cy19_china]="1.5" [stx-cy20_ride]="0.5" [stx-cy19_ride]="7.5" [stx-cy19_sizzle]="8.5")
+declare -A hh_volume=([brs-hh13]="12.5" [brs-hh14]="7.5" [hnd-hh13]="14" [hnd-hh14]="8" [mlt-hh13]="7" [mlt-hh14]="5.5" [stx-hh13]="0" [stx-hh14]="-1")
+declare -A kick_volume=([kd14_bop]="0.5" [kd20_punch]="-4.5" [kd22_noreso]="0.5" [kd22_boom]="-0.5" [kd20_full]="-0.5")
+declare -A sn_volume=([brs-sn12_bop]="7" [brs-sn12_funk]="5" [brs-sn14_rock]="7" [hnd-sn12_bop]="10" [hnd-sn10_jungle]="15" [mlt-sn12_bop]="0" [stx-sn12_bop_muted]="1" [stx-sn12_bop_open]="1" [stx-sn10_jungle]="6" [stx-sn12_funk]="-2.5" [stx-sn14_rock]="-2" [stx-sn10_piccolo]="3" [stx-sn12_orleans]="-1" [stx-sn12_tight]="-3.5" [stx-sn12_dead]="1" [stx-sn14_metal]="4")
+declare -A tm_volume=([tm8]="6.5" [tm10]="4.5" [tm12]="3" [tm14]="4.5" [tm16]="6")
+declare -A cowbell_volume=([brs]="13" [hnd]="14.5" [mlt]="11" [stx]="-1.5")
+
+: <<-@EOF
+Unfortunately I decided in the end to put these embedded in the trigger include files.
+ped hh13 +7.5, hh14 +18.5
+spl hh13 +4.5, hh14 +19
+@EOF
 
 for kit in ${kits[@]}
 do
@@ -167,6 +84,8 @@ do
 	declare -n k=$kit
 	declare -a c=(${cys[@]} ${k[cymbals]})
 	declare -n t=tm_${k[toms]}
+	the_hihat=${k[hihats]}
+
 
 	for btr in brs hnd mlt stx
 	do
@@ -198,7 +117,7 @@ do
 				then
 					x="sn${snare}_btr${btr}_toms${k[toms]}"
 #echo >&2 "f {$f}; snare {$snare}; btr {$btr}; toms {${k[toms]}}; x {$x}"
-					#echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}";
+					echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}; (x {$x})";
 					case $x in
 						snon_btrbrs_tomsbop|snon_btrstx_tomsbop|snon_btrstx_tomsnoreso)
 							actual_toms+=(${tm}_${k[toms]}_snare_off)
@@ -226,7 +145,15 @@ do
 							true
 							;;
 					esac
-					#echo ''
+					f="triggers/${btr}/${actual_toms[-1]}.sfzh"
+					if [[ ! -f "$f" ]]
+					then
+						echo ''
+						echo >&2 "Failed to replace tom: {$f} not found"
+						exit 1
+					else
+						echo " - using ${kit} ${btr} ${actual_toms[-1]} instead";
+					fi
 				else
 					actual_toms+=(${tm}_${k[toms]}_snare_${snare})
 				fi
@@ -253,42 +180,45 @@ do
 // The DAW will need to map incoming MIDI notes to the triggers for the kit.
 // The default note assignments in the module are:
 //
-// Kick note               36
-// Snare head note         38
-// Snare rim note          40
-// Snare brush note        23
-// Snare xstick note       37
-// Tom 1 head note         48
-// Tom 1 rim note          50
-// Tom 2 head note         45
-// Tom 2 rim note          47
-// Tom 3 head note         43
-// Tom 3 rim note          58
-// Hi-hat open bow note    46
-// Hi-hat open edge note   26
-// Hi-hat close bow note   42
-// Hi-hat close edge note  22
-// Hi-hat pedal note       44
-// Crash 1 bow note        49
-// Crash 1 edge note       55
-// Crash 2 bow note        57
-// Crash 2 edge note       52
-// Ride bow note           51
-// Ride edge note          59
-// Ride bell note          53
-// Aux 1 head note         27
-// Aux 1 rim note          28
-// Aux 2 head note         29
-// Aux 2 rim note          30
-// Aux 3 head note         31
-// Aux 3 rim note          32
+// Kick note                36
+// Snare head note          38
+// Snare rim note           40
+// Snare brush note         23
+// Snare xstick note        37
+// Tom 1 head note          48
+// Tom 1 rim note           50
+// Tom 2 head note          45
+// Tom 2 rim note           47
+// Tom 3 head note          43
+// Tom 3 rim note           58
+// Hi-hat open bow note     46
+// Hi-hat open edge note    26
+// Hi-hat close bow note    42
+// Hi-hat close edge note   22
+// Hi-hat pedal note        44
+// Hi-hat pedal splash note 97 (undocumented)
+// Crash 1 bow note         49
+// Crash 1 edge note        55
+// Crash 2 bow note         57
+// Crash 2 edge note        52
+// Ride bow note            51
+// Ride edge note           59
+// Ride bell note           53
+// Aux 1 head note          27
+// Aux 1 rim note           28
+// Aux 2 head note          29
+// Aux 2 rim note           30
+// Aux 3 head note          31
+// Aux 3 rim note           32
 //
 // --------------------------------------
 
 <control>
  // hint_ram_based=1
  octave_offset=0
- set_cc7=127  set_cc10=64
+ set_cc7=127
+ set_cc10=64
+
 @EOF
 				if [[ "${hh}" == "-" ]]
 				then
@@ -296,47 +226,102 @@ do
 				else
 					echo ' set_cc4=127  label_cc4=Pedal (cc4)'
 				fi
-				cat <<-'@EOF'
- set_cc16=0   label_cc16=snarePos   (cc16)
- set_cc17=0   label_cc17=ridePos    (cc17)
- set_cc18=0   label_cc18=tomAuxPos  (cc18)
- set_cc19=0   label_cc19=hihatPos   (cc19)
- set_cc80=0   label_cc80=GP5        (cc80)
- set_cc81=0   label_cc81=GP6        (cc81)
- set_cc82=0   label_cc82=GP7        (cc82)
- set_cc83=0   label_cc83=hihatLRPos (cc83)
- set_cc88=0   label_cc88=hiresVel   (cc88)
+				# Mixer controls
+				# volume_oncc<CC> assignments and labels for each kit piece
+				# start at CC14 ("undefined")
+				cc=14
+				echo " set_cc${cc}=0   label_cc${cc}=Vol Ctrls follow"
+				((cc++))
+				declare -A volume_oncc
+				for cy in ${cys[@]} ${k[cymbals]}
+				do
+					echo " set_cc${cc}=0   label_cc${cc}=$(sed -e 's/cy\([^_]*\)_/\1" /' <<<"${cy}") (cc${cc})"
+					volume_oncc[${cy}]=${cc}
+					((cc++))
+				done
+				echo " set_cc${cc}=0   label_cc${cc}=hihat (cc${cc})"
+				volume_oncc[hihat]=${cc}
+				((cc++))
+				echo " set_cc${cc}=0   label_cc${cc}=kick (cc${cc})"
+				volume_oncc[kick]=${cc}
+				((cc++))
+				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
+				do
+					tm=${t[$ti]}
+					echo " set_cc${cc}=0   label_cc${cc}=$(sed -e 's/tm\(.*\)/\1" tom/' <<<"${tm}") (cc${cc})"
+					volume_oncc[${tm}]=${cc}
+					((cc++))
+				done
+				echo " set_cc${cc}=0   label_cc${cc}=cowbell (cc${cc})"
+				volume_oncc["cowbell"]=${cc}
+				((cc++))
+				echo " set_cc${cc}=0   label_cc${cc}=tambourine (cc${cc})"
+				volume_oncc["tambourine"]=${cc}
+				((cc++))
 
-  
+				cat <<-'@EOF'
 <global>
- loop_mode=one_shot off_mode=normal
- volume_cc7=0 pan_cc10=0
- ampeg_release=.2
+ // disable volume and pan controllers
+ gain_cc7=0
+ pan_oncc10=0
+
+ // play samples in full, ignoring note off
+ loop_mode=one_shot
+
+ // when sample release is triggered by an off_by group, set a noticable release for ambience
+ off_mode=normal
+ ampeg_release=.5
 
 @EOF
 				key=1
 				for cy in ${cys[@]} ${k[cymbals]}
 				do
+					echo '<master>'
+					echo " volume=${cy_volume[${btr}-${cy}]}"
+					echo " gain_cc${volume_oncc[$cy]}=24"
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
+
+				echo '<master>'
+				echo " volume=${hh_volume[${btr}-${the_hihat}]}"
+				echo " gain_cc${volume_oncc[hihat]}=24"
 				if [[ $hh == - ]]
 				then
 					override_defines "triggers/${btr}/${k[hihats]}.sfzh" key
 				else
 					override_defines "triggers/${btr}/${k[hihats]}_invcc4.sfzh" key
 				fi
+
+				echo '<master>'
+				kick=${k[kicks]}
+				[[ -v kick_volume[$kick] ]] || { echo >&2 "kick_volume[$kick] not set {${!kick_volume[@]}}"; exit 1; }
+				echo " volume=${kick_volume[$kick]}"
+				echo " gain_cc${volume_oncc[kick]}=24"
 				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
+
+				echo '<master>'
+				sn=${k[snares]}
+				echo " volume=${sn_volume[${btr}-${sn}]}"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
-				for tm in ${actual_toms[@]}
+
+				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
 				do
+					tm=${actual_toms[$ti]}
+					tt=${t[$ti]}
+					echo '<master>'
+					echo " volume=${tm_volume[$tt]}"
+					echo " gain_cc${volume_oncc[$tt]}=24"
 					override_defines "triggers/${btr}/${tm}.sfzh" key
 				done
-				if [[ -f "triggers/${btr}/pn8_cowbell.sfzh" ]]
-				then
-					override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
-				else
-					override_defines "triggers/stx/pn8_cowbell.sfzh" key
-				fi
+
+				echo '<master>'
+				echo " volume=${cowbell_volume[$btr]}"
+				echo " gain_cc${volume_oncc[cowbell]}=24"
+				override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
+
+				echo '<master>'
+				echo ' volume=-1'
+				echo " gain_cc${volume_oncc[tambourine]}=24"
 				if [[ -f "triggers/${btr}/pn9_tambourine.sfzh" ]]
 				then
 					override_defines "triggers/${btr}/pn9_tambourine.sfzh" key
