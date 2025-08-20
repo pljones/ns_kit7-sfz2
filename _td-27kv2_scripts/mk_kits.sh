@@ -227,43 +227,44 @@ do
 					echo ' set_cc4=127  label_cc4=Pedal (cc4)'
 				fi
 				# Mixer controls
-				# volume_oncc<CC> assignments and labels for each kit piece
+				# volume_cc<CC> assignments and labels for each kit piece
 				# start at CC14 ("undefined")
-				cc=14
-				echo " set_cc${cc}=0   label_cc${cc}=Vol Ctrls follow"
+				cc=13
+				echo " set_hdcc${cc}=0.5   label_cc${cc}=Vol Ctrls follow"
+				echo " // ... hat for inches ... because double-quote blows up ..."
 				((cc++))
-				declare -A volume_oncc
+				declare -A volume_cc
 				for cy in ${cys[@]} ${k[cymbals]}
 				do
-					echo " set_cc${cc}=0   label_cc${cc}=$(sed -e 's/cy\([^_]*\)_/\1" /' <<<"${cy}") (cc${cc})"
-					volume_oncc[${cy}]=${cc}
+					echo " set_hdcc${cc}=0.5   label_cc${cc}=$(sed -e 's/cy\([^_]*\)_/\1” /' <<<"${cy}") (cc${cc})"
+					volume_cc[${cy}]=${cc}
 					((cc++))
 				done
-				echo " set_cc${cc}=0   label_cc${cc}=hihat (cc${cc})"
-				volume_oncc[hihat]=${cc}
+				echo " set_hdcc${cc}=0.5   label_cc${cc}=hihat (cc${cc})"
+				volume_cc[hihat]=${cc}
 				((cc++))
-				echo " set_cc${cc}=0   label_cc${cc}=kick (cc${cc})"
-				volume_oncc[kick]=${cc}
+				echo " set_hdcc${cc}=0.5   label_cc${cc}=kick (cc${cc})"
+				volume_cc[kick]=${cc}
 				((cc++))
 				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
 				do
 					tm=${t[$ti]}
-					echo " set_cc${cc}=0   label_cc${cc}=$(sed -e 's/tm\(.*\)/\1" tom/' <<<"${tm}") (cc${cc})"
-					volume_oncc[${tm}]=${cc}
+					echo " set_hdcc${cc}=0.5   label_cc${cc}=$(sed -e 's/tm\(.*\)/\1” tom/' <<<"${tm}") (cc${cc})"
+					volume_cc[${tm}]=${cc}
 					((cc++))
 				done
-				echo " set_cc${cc}=0   label_cc${cc}=cowbell (cc${cc})"
-				volume_oncc["cowbell"]=${cc}
+				echo " set_hdcc${cc}=0.5   label_cc${cc}=cowbell (cc${cc})"
+				volume_cc["cowbell"]=${cc}
 				((cc++))
-				echo " set_cc${cc}=0   label_cc${cc}=tambourine (cc${cc})"
-				volume_oncc["tambourine"]=${cc}
+				echo " set_hdcc${cc}=0.5   label_cc${cc}=tambourine (cc${cc})"
+				volume_cc["tambourine"]=${cc}
 				((cc++))
 
 				cat <<-'@EOF'
 <global>
  // disable volume and pan controllers
- gain_cc7=0
- pan_oncc10=0
+ volume_cc7=0
+ pan_cc10=0
 
  // play samples in full, ignoring note off
  loop_mode=one_shot
@@ -278,13 +279,13 @@ do
 				do
 					echo '<master>'
 					echo " volume=${cy_volume[${btr}-${cy}]}"
-					echo " gain_cc${volume_oncc[$cy]}=24"
+					echo " volume_cc${volume_cc[$cy]}=24 volume_curvecc${volume_cc[$cy]}=1"
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
 				echo '<master>'
 				echo " volume=${hh_volume[${btr}-${the_hihat}]}"
-				echo " gain_cc${volume_oncc[hihat]}=24"
+				echo " volume_cc${volume_cc[hihat]}=24 volume_curvecc${volume_cc[hihat]}=1"
 				if [[ $hh == - ]]
 				then
 					override_defines "triggers/${btr}/${k[hihats]}.sfzh" key
@@ -296,7 +297,7 @@ do
 				kick=${k[kicks]}
 				[[ -v kick_volume[$kick] ]] || { echo >&2 "kick_volume[$kick] not set {${!kick_volume[@]}}"; exit 1; }
 				echo " volume=${kick_volume[$kick]}"
-				echo " gain_cc${volume_oncc[kick]}=24"
+				echo " volume_cc${volume_cc[kick]}=24 volume_curvecc${volume_cc[kick]}=1"
 				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
 
 				echo '<master>'
@@ -310,18 +311,18 @@ do
 					tt=${t[$ti]}
 					echo '<master>'
 					echo " volume=${tm_volume[$tt]}"
-					echo " gain_cc${volume_oncc[$tt]}=24"
+					echo " volume_cc${volume_cc[$tt]}=24 volume_curvecc${volume_cc[$tt]}=1"
 					override_defines "triggers/${btr}/${tm}.sfzh" key
 				done
 
 				echo '<master>'
 				echo " volume=${cowbell_volume[$btr]}"
-				echo " gain_cc${volume_oncc[cowbell]}=24"
+				echo " volume_cc${volume_cc[cowbell]}=24 volume_curvecc${volume_cc[cowbell]}=1"
 				override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
 
 				echo '<master>'
 				echo ' volume=-1'
-				echo " gain_cc${volume_oncc[tambourine]}=24"
+				echo " volume_cc${volume_cc[tambourine]}=24 volume_curvecc${volume_cc[tambourine]}=1"
 				if [[ -f "triggers/${btr}/pn9_tambourine.sfzh" ]]
 				then
 					override_defines "triggers/${btr}/pn9_tambourine.sfzh" key
