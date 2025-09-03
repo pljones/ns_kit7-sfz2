@@ -40,6 +40,7 @@ slider25:dgbPolyAftNote=0<0,127,1>polyAft note (msg2)
 slider26:dgbPolyAftVal=0<0,127,1>polyAft val (msg3)
 
 slider27:dgbPassthru=0<0,1,1{off,on}>passthru
+slider28:dgbBrush=0<0,5,1{No Drag,New Drag,New Drag Repeat,Legato Drag,Legato Drag Repeat}>Brush state
 
 
 @init
@@ -384,13 +385,14 @@ while (midirecv(offset, msg1, msg2, msg3)) (
                 zone_sn_brush_drag_new
               ) : (
                 (blocksSinceLastBrush > 375) ? (
-                  isBrushDrag = 2;
+                  isBrushDrag = 3;
                   zone_sn_brush_drag_new_rpt
                 ) : (
-                  isBrushDrag = 3; // set brush drag legato mode
                   (blocksSinceLastBrush > 100) ? (
+                    isBrushDrag = 4;
                     zone_sn_brush_drag_legato
                   ) : (
+                    isBrushDrag = 5;
                     zone_sn_brush_drag_legato_rpt
                   )
                 )
@@ -571,4 +573,5 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   dgbPassthru = passthru;
   (passthru == 1) ? midisend(offset, msg1, msg2, msg3);
 
+  dgbBrush=isBrushDrag;
 )
