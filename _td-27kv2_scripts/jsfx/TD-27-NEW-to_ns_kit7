@@ -384,7 +384,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
                 isBrushDrag = 2;
                 zone_sn_brush_drag_new
               ) : (
-                (blocksSinceLastBrush > 375) ? (
+                (blocksSinceLastBrush > 500) ? (
                   isBrushDrag = 3;
                   zone_sn_brush_drag_new_rpt
                 ) : (
