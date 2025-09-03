@@ -373,6 +373,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
         (blocksSinceLastBrush < 13) ? (
           noteMap[msg2] = 0;
         ) : (
+          (blocksSinceLastBrush < 0) ? blocksSinceLastBrush = 0; // start counting blocks
           noteMap[msg2] = trigger_snare + (
             (isBrushDrag == 0) ? (
               isBrushDrag = 1; // set up for brush drag new mode
@@ -396,7 +397,6 @@ while (midirecv(offset, msg1, msg2, msg3)) (
               )
             )
           );
-          blocksSinceLastBrush = 0; // didn't ignore this, restart counting blocks
         );
       ) : (
         noteMap[msg2] = trigger_snare + zone_sn_head
