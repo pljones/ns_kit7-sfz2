@@ -23,6 +23,11 @@ do
 			max_duration=0
 			for mishit in '' 'x'
 			do
+				if [ "$mishit" == "x" ]
+				then
+					# Skip if mishit - messes up trigger counts
+					continue
+				fi
 				for pos in cls opn
 				do
 					for rr in '' a b
