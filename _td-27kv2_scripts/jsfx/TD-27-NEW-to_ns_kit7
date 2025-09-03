@@ -277,41 +277,39 @@ polyAftVal = malloc(-1, 128);
 blocksSinceLastBrush = -1;
 isBrushDrag = 0;
 
-// Count blocks since last kick to decide whether to use opn or cls kick note
-blocksSinceLastKick = -1;
-
 // Count of note offs before phantom note expiry
 noteOffsSinceLegatoRelease = -1;
 
+// Count blocks since last kick to decide whether to use opn or cls kick note
+blocksSinceLastKick = -1;
+
+// Let's say a block is 64 samples at 48KHz, so 64/48000 = 0.001333333 seconds per block, 750 blocks = 1 second.
+
 @block
+// Blocks since last brush note - needs to allow up to 3.465250 seconds for brush note: or at least the attack.
+// 3.465250 seconds / 0.001333333 seconds per block = 2600.4375 blocks.
+// Let's allow 1 second before expiring a drag.
+blocksSinceLastBrush >= 0 ? (
+  blocksSinceLastBrush = blocksSinceLastBrush + 1;
+  blocksSinceLastBrush > 750 ? (
+    blocksSinceLastBrush = -1; // reset
+    isBrushDrag = 0; // reset brush drag mode
+  );
+);
+
+// Blocks since last kick note.
+// This affects the first note in a run, rather than the last note, which is what's really wanted.
+blocksSinceLastKick >= 0 ? (
+  blocksSinceLastKick = blocksSinceLastKick + 1;
+  blocksSinceLastKick > 750 ? (
+    blocksSinceLastKick = -1; // reset
+  );
+);
+
 while (midirecv(offset, msg1, msg2, msg3)) (
 
   cmd = msg1 & 0xF0;
   passthru = 1;
-
-
-  // Let's say a block is 64 samples at 48KHz, so 64/48000 = 0.001333333 seconds per block, 750 blocks = 1 second.
-
-  // Blocks since last kick note.
-  // This affects the first note in a run, rather than the last note, which is what's really wanted.
-  blocksSinceLastKick >= 0 ? (
-    blocksSinceLastKick = blocksSinceLastKick + 1;
-    blocksSinceLastKick > 750 ? (
-      blocksSinceLastKick = -1; // reset
-    );
-  );
-
-  // Blocks since last brush note - needs to allow up to 3.465250 seconds for brush note: or at least the attack.
-  // 3.465250 seconds / 0.001333333 seconds per block = 2600.4375 blocks.
-  // Let's allow 1 second before expiring a drag.
-  blocksSinceLastBrush >= 0 ? (
-    blocksSinceLastBrush = blocksSinceLastBrush + 1;
-    blocksSinceLastBrush > 750 ? (
-      blocksSinceLastBrush = -1; // reset
-      isBrushDrag = 0; // reset brush drag mode
-    );
-  );
-
 
   // Explicit Note Off and Note On Velocity 0
   ((cmd == noteOff) || ((cmd == noteOn) && (msg3 == 0))) ? (
