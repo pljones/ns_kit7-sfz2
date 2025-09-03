@@ -371,9 +371,9 @@ while (midirecv(offset, msg1, msg2, msg3)) (
         // (e.g. send some with velocity, in place of these lost notes
         // or see https://sfzformat.com/tutorials/brush_stirs)
         // Try to ignore jittery triggering
-        (blocksSinceLastBrush < 13) ? (
-          noteMap[msg2] = 0;
-        ) : (
+        //(blocksSinceLastBrush < 13) ? (
+        //  noteMap[msg2] = 0;
+        //) : (
           (blocksSinceLastBrush < 0) ? blocksSinceLastBrush = 0; // start counting blocks
           noteMap[msg2] = trigger_snare + (
             (isBrushDrag == 0) ? (
@@ -399,7 +399,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
               )
             )
           );
-        );
+        //);
       ) : (
         noteMap[msg2] = trigger_snare + zone_sn_head
       );
