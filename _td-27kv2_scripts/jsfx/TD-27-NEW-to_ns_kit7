@@ -425,19 +425,19 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     // zone_tm_ord_l, zone_tm_rms_r - no r/l triggering...
     ((msg2 == noteTom1Head) || (msg2 == noteTom1Rim)) ? (
       noteMap[msg2] = tom_map[tom1] + ((msg2 == noteTom1Head)
-        ? ((tomAuxCCVal < 96) ? zone_tm_rms_l : zone_tm_ord_r)
+        ? ((tomAuxCCVal < 96) ? zone_tm_ord_l : zone_tm_ord_r)
         : zone_tm_rim
         );
     ) :
     ((msg2 == noteTom2Head) || (msg2 == noteTom2Rim)) ? (
       noteMap[msg2] = tom_map[tom2] + ((msg2 == noteTom2Head)
-        ? ((tomAuxCCVal < 96) ? zone_tm_rms_l : zone_tm_ord_r)
+        ? ((tomAuxCCVal < 96) ? zone_tm_ord_l : zone_tm_ord_r)
         : zone_tm_rim
         );
     ) :
     ((msg2 == noteTom3Head) || (msg2 == noteTom3Rim)) ? (
       noteMap[msg2] = tom_map[tom3] + ((msg2 == noteTom3Head)
-        ? ((tomAuxCCVal < 96) ? zone_tm_rms_l : zone_tm_ord_r)
+        ? ((tomAuxCCVal < 96) ? zone_tm_ord_l : zone_tm_ord_r)
         : zone_tm_rim
         );
     ) :
