@@ -289,13 +289,13 @@ do
 				for cy in ${cys[@]} ${k[cymbals]}
 				do
 					echo '<master>'
-					echo " volume=${cy_volume[${btr}-${cy}]}"
+					echo " volume=$(dc -e "${cy_volume[${btr}-${cy}]/#-/_} 12 - p")"
 					echo " volume_cc${volume_cc[$cy]}=24 volume_curvecc${volume_cc[$cy]}=1"
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
 				echo '<master>'
-				echo " volume=${hh_volume[${btr}-${the_hihat}]}"
+				echo " volume=$(dc -e "${hh_volume[${btr}-${the_hihat}]/#-/_} 12 - p")"
 				echo " volume_cc${volume_cc[hihat]}=24 volume_curvecc${volume_cc[hihat]}=1"
 				if [[ $hh == - ]]
 				then
@@ -307,14 +307,14 @@ do
 				echo '<master>'
 				kick=${k[kicks]}
 				[[ -v kick_volume[$kick] ]] || { echo >&2 "kick_volume[$kick] not set {${!kick_volume[@]}}"; exit 1; }
-				echo " volume=${kick_volume[$kick]}"
+				echo " volume=$(dc -e "${kick_volume[$kick]/#-/_} 12 - p")"
 				echo " volume_cc${volume_cc[kick]}=24 volume_curvecc${volume_cc[kick]}=1"
 				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
 
 				echo '<master>'
 				sn=${k[snares]}
 				[[ -v sn_volume["${btr}-${sn}"] ]] || { echo >&2 "sn_volume[$sn] not set {${!sn_volume[@]}}"; exit 1; }
-				echo " volume=${sn_volume[${btr}-${sn}]}"
+				echo " volume=$(dc -e "${sn_volume[${btr}-${sn}]/#-/_} 12 - p")"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 
 				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
@@ -322,13 +322,13 @@ do
 					tm=${actual_toms[$ti]}
 					tt=${t[$ti]}
 					echo '<master>'
-					echo " volume=${tm_volume[$tt]}"
+					echo " volume=$(dc -e "${tm_volume[$tt]/#-/_} 12 - p")"
 					echo " volume_cc${volume_cc[$tt]}=24 volume_curvecc${volume_cc[$tt]}=1"
 					override_defines "triggers/${btr}/${tm}.sfzh" key
 				done
 
 				echo '<master>'
-				echo " volume=${cowbell_volume[$btr]}"
+				echo " volume=$(dc -e "${cowbell_volume[$btr]/#-/_} 12 - p")"
 				echo " volume_cc${volume_cc[cowbell]}=24 volume_curvecc${volume_cc[cowbell]}=1"
 				override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
 
