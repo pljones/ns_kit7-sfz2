@@ -65,10 +65,18 @@ tm_noreso=(tm10 tm10 tm12 tm14 tm14)
 tm_rock=(tm8 tm10 tm12 tm14 tm16)
 
 # OK, so stuff "natural studio" dynamics... these should have fader onccXX assignments
-declare -A cy_volume=([brs-cy8_splash]="10" [brs-cy9_splash]="5" [brs-cy12_splash]="10" [brs-cy15_crash]="10" [brs-cy18_crash]="10" [brs-cy19_china]="17.5" [brs-cy20_ride]="15" [brs-cy19_ride]="15" [brs-cy19_sizzle]="15" [hnd-cy8_splash]="12" [hnd-cy9_splash]="13" [hnd-cy12_splash]="17" [hnd-cy15_crash]="19.5" [hnd-cy18_crash]="22.5" [hnd-cy19_china]="19.5" [hnd-cy20_ride]="34.5" [hnd-cy19_ride]="13.5" [hnd-cy19_sizzle]="14" [mlt-cy8_splash]="2" [mlt-cy9_splash]="2" [mlt-cy12_splash]="4" [mlt-cy15_crash]="-1.5" [mlt-cy18_crash]="-0.5" [mlt-cy19_china]="10" [mlt-cy20_ride]="15" [mlt-cy19_ride]="4" [mlt-cy19_sizzle]="4" [stx-cy8_splash]="-2" [stx-cy9_splash]="-1.5" [stx-cy12_splash]="-1.5" [stx-cy15_crash]="-2.5" [stx-cy18_crash]="-4" [stx-cy19_china]="1.5" [stx-cy20_ride]="0.5" [stx-cy19_ride]="7.5" [stx-cy19_sizzle]="8.5")
+declare -A cy_volume=()
+cy_volume+=([brs-cy8_splash]="10" [brs-cy9_splash]="5" [brs-cy12_splash]="10" [brs-cy15_crash]="10" [brs-cy18_crash]="10" [brs-cy19_china]="17.5" [brs-cy20_ride]="15" [brs-cy19_ride]="15" [brs-cy19_sizzle]="15")
+cy_volume+=([hnd-cy8_splash]="12" [hnd-cy9_splash]="13" [hnd-cy12_splash]="17" [hnd-cy15_crash]="19.5" [hnd-cy18_crash]="22.5" [hnd-cy19_china]="19.5" [hnd-cy20_ride]="34.5" [hnd-cy19_ride]="13.5" [hnd-cy19_sizzle]="14")
+cy_volume+=([mlt-cy8_splash]="2" [mlt-cy9_splash]="2" [mlt-cy12_splash]="4" [mlt-cy15_crash]="-1.5" [mlt-cy18_crash]="-0.5" [mlt-cy19_china]="10" [mlt-cy20_ride]="15" [mlt-cy19_ride]="4" [mlt-cy19_sizzle]="4")
+cy_volume+=([stx-cy8_splash]="-2" [stx-cy9_splash]="-1.5" [stx-cy12_splash]="-1.5" [stx-cy15_crash]="-2.5" [stx-cy18_crash]="-4" [stx-cy19_china]="1.5" [stx-cy20_ride]="0.5" [stx-cy19_ride]="7.5" [stx-cy19_sizzle]="8.5")
 declare -A hh_volume=([brs-hh13]="12.5" [brs-hh14]="7.5" [hnd-hh13]="14" [hnd-hh14]="8" [mlt-hh13]="7" [mlt-hh14]="5.5" [stx-hh13]="0" [stx-hh14]="-1")
 declare -A kick_volume=([kd14_bop]="0.5" [kd20_punch]="-4.5" [kd22_noreso]="0.5" [kd22_boom]="-0.5" [kd20_full]="-0.5")
-declare -A sn_volume=([brs-sn12_bop]="7" [brs-sn12_funk]="5" [brs-sn14_rock]="7" [hnd-sn12_bop]="10" [hnd-sn10_jungle]="15" [mlt-sn12_bop]="0" [stx-sn12_bop_muted]="1" [stx-sn12_bop_open]="1" [stx-sn10_jungle]="6" [stx-sn12_funk]="-2.5" [stx-sn14_rock]="-2" [stx-sn10_piccolo]="3" [stx-sn12_orleans]="-1" [stx-sn12_tight]="-3.5" [stx-sn12_dead]="1" [stx-sn14_metal]="4")
+declare -A sn_volume=()
+sn_volume+=([brs-sn12_bop]="7" [brs-sn12_funk]="5" [brs-sn14_rock]="7")
+sn_volume+=([hnd-sn12_bop]="10" [hnd-sn10_jungle]="15")
+sn_volume+=([mlt-sn12_bop]="0")
+sn_volume+=([stx-sn12_bop_muted]="1" [stx-sn12_bop_open]="1" [stx-sn10_jungle]="6" [stx-sn12_funk]="-2.5" [stx-sn14_rock]="-2" [stx-sn10_piccolo]="3" [stx-sn12_orleans]="-1" [stx-sn12_tight]="-3.5" [stx-sn12_dead]="1" [stx-sn14_metal]="4")
 declare -A tm_volume=([tm8]="6.5" [tm10]="4.5" [tm12]="3" [tm14]="4.5" [tm16]="6")
 declare -A cowbell_volume=([brs]="13" [hnd]="14.5" [mlt]="11" [stx]="-1.5")
 
@@ -246,6 +254,9 @@ do
 				echo " set_hdcc${cc}=0.5   label_cc${cc}=kick (cc${cc})"
 				volume_cc[kick]=${cc}
 				((cc++))
+				echo " set_hdcc${cc}=0.5   label_cc${cc}=snare (cc${cc})"
+				volume_cc[snare]=${cc}
+				((cc++))
 				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
 				do
 					tm=${t[$ti]}
@@ -302,6 +313,7 @@ do
 
 				echo '<master>'
 				sn=${k[snares]}
+				[[ -v sn_volume["${btr}-${sn}"] ]] || { echo >&2 "sn_volume[$sn] not set {${!sn_volume[@]}}"; exit 1; }
 				echo " volume=${sn_volume[${btr}-${sn}]}"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 
