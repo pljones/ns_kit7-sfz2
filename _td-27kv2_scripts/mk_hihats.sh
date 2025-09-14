@@ -2,6 +2,9 @@
 
 . utils.sh
 
+# off_by group 601yyy000
+# trigger group 501xxxyyy
+
 # ns_kit7 hi-hats
 
 mkdir -p triggers

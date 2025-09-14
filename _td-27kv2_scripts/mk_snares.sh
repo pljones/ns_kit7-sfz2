@@ -2,6 +2,9 @@
 
 . utils.sh
 
+# off_by group 602yyy000
+# trigger group 502xxxyyy
+
 declare -A beaters=(
 	[keys]="brs hnd mlt stx"
 	[brs]="brushes"
@@ -160,6 +163,65 @@ declare -A triggermap=(
 	[brush_drag_cirular]=15 [brush_drag_under]=16
 )
 
+# TODO:
+
+# brush_down_new ("opn") needs to be muted by brush_down_legato ("cls"), brush_drag_new ("sws")
+# off_by group 602("opn")000 <- ("cls"), ("sws")
+# trigger group 502xxx("opn")
+
+# brush_drag_new ("sws") needs to be muted by brush_drag_legato ("swl"), brush_drag_new_rpt ("swsrpt")
+# off_by group 602("sws")000 <- ("swl"), ("swsrpt")
+# trigger group 502xxx("sws")
+
+# brush_drag_cirular ("swc") needs to be muted by brush_down_new ("opn"), brush_drag_new ("sws")
+# off_by group 602("swc")000 <- ("opn"), ("sws")
+# trigger group 502xxx("swc")
+
+# Need "opn", "sws", "swc" to have group and off_by
+# Need "cls" to trigger 602("opn")000
+# Need "sws" to trigger 602("opn")000, 602("swc")000
+# Need "swl" to trigger 602("sws")000
+# Need "swsrpt" to trigger 602("sws")000
+# Need "opn" to trigger 602("swc")000
+
+declare -A trigger_group=()
+trigger_group+=(["opn_idx"]=1 ["opn_fmt"]="502%03d001" ["opn_off"]="602001000")
+trigger_group+=(["sws_idx"]=1 ["sws_fmt"]="502%03d002" ["sws_off"]="602002000")
+trigger_group+=(["swc_idx"]=1 ["swc_fmt"]="502%03d003" ["swc_off"]="602003000")
+function do_trigger_group () {
+	local articulation=$1; shift || { echo "do_trigger_group: Missing articulation" >&2; exit 1; }
+	if [[ ! -v trigger_group[${articulation}_idx] ]]
+	then
+		return
+	fi
+
+	local idx="${articulation}_idx"
+	local fmt="${articulation}_fmt"
+	local off_by="${articulation}_off"
+	echo " group=$(printf "${trigger_group[$fmt]}" ${trigger_group[$idx]}) off_by=${trigger_group[$off_by]}"
+	(( trigger_group[$idx]+=1 ))
+}
+
+declare -A off_by_map=(["cls"]="opn" ["sws"]="opn swc" ["swl"]="sws" ["swsrpt"]="sws" ["opn"]="swc")
+function do_off_by_group () {
+	local articulation=$1; shift || { echo "do_trigger_group: Missing articulation" >&2; exit 1; }
+	local key=$1; shift || { echo "do_trigger_group: Missing key" >&2; exit 1; }
+	if [[ ! -v off_by_map[$articulation] ]]
+	then
+		return
+	fi
+
+	local target
+	local off_by
+	for target in $(echo ${off_by_map[$articulation]})
+	do
+		off_by="${target}_off"
+		[[ -v trigger_group[$off_by] ]] || continue
+		echo "<group>"
+		echo "<region> group=${trigger_group[$off_by]} key=$key end=-1 sample=*silence"
+	done
+}
+
 declare -A articulations=(
 	[sn10_jungle_off_hnd]="   ord slp rms rms rms"
 	[sn10_jungle_off_stx]="   ord xtk rim rms rmh prs"
@@ -176,7 +238,7 @@ declare -A articulations=(
 	[sn12_bop_on_stx_muted]=" ord xtk rim rms rmh prs e2c rol"
 	[sn12_bop_on_stx_open]="  ord xtk rms rms rmh prs e2c rol"
 	[sn12_dead_on_stx]="      ord rms rms rms rms prs"
-	[sn12_funk_on_brs]="      -   cls cls -   -   -   -   -   cls cls -      cls cls    cls cls    cls cls"
+	[sn12_funk_on_brs]="      -   cls cls -   -   -   -   -   cls cls cls    cls cls    cls cls    cls cls"
 	[sn12_funk_on_stx]="      ord xtk rms rms rmh prs e2c rol"
 	[sn12_orleans_on_stx]="   ord xtk rms rms rmh prs -   rol"
 	[sn12_tight_on_stx]="     ord xtk rms rms rmh prs e2c rol"
@@ -317,6 +379,7 @@ function do_articulation () {
 		local -a lohirand=($rr_range)
 		echo " lorand=${lohirand[0]} hirand=${lohirand[1]}"
 	fi
+	do_trigger_group $articulation
 	echo "#include \"kit_pieces/snares/${sfz_file}.sfzh\""
 #echo >&2 "articulation {$articulation}; max_duration {$max_duration}"
 }
@@ -382,6 +445,7 @@ do
 							else
 								do_articulation $drum $tuning $_sn $beater $mute $trigger $articulation - - || { echo "do_articulation failed" >&2; exit 1; }
 							fi
+							do_off_by_group $articulation "\$sn_${trigger}"
 						} >> "triggers/${beater}/snares/${file}"
 					done
 

@@ -2,6 +2,9 @@
 
 . utils.sh
 
+# off_by group 600xxxyyy
+# trigger group 500xxxyyy
+
 # ns_kit7 cymbals
 
 # trigger = (cymbal)_(articulation)(|_inner|_outer)_(free|held)
