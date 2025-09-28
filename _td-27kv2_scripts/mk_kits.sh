@@ -34,7 +34,6 @@ function override_defines () {
 		}
 	done
 	grep -v '^\(#define\|$\)' "${trigger_file}"
-	echo ''
 }
 
 rm -rf _kits
@@ -64,27 +63,34 @@ tm_dry=(tm10 tm10 tm12 tm14 tm14)
 tm_noreso=(tm10 tm10 tm12 tm14 tm14)
 tm_rock=(tm8 tm10 tm12 tm14 tm16)
 
-# OK, so stuff "natural studio" dynamics... these should have fader onccXX assignments
-declare -A cy_volume=()
-cy_volume+=([brs-cy8_splash]="10" [brs-cy9_splash]="5" [brs-cy12_splash]="10" [brs-cy15_crash]="10" [brs-cy18_crash]="10" [brs-cy19_china]="17.5" [brs-cy20_ride]="15" [brs-cy19_ride]="15" [brs-cy19_sizzle]="15")
-cy_volume+=([hnd-cy8_splash]="12" [hnd-cy9_splash]="13" [hnd-cy12_splash]="17" [hnd-cy15_crash]="19.5" [hnd-cy18_crash]="22.5" [hnd-cy19_china]="19.5" [hnd-cy20_ride]="34.5" [hnd-cy19_ride]="13.5" [hnd-cy19_sizzle]="14")
-cy_volume+=([mlt-cy8_splash]="2" [mlt-cy9_splash]="2" [mlt-cy12_splash]="4" [mlt-cy15_crash]="-1.5" [mlt-cy18_crash]="-0.5" [mlt-cy19_china]="10" [mlt-cy20_ride]="15" [mlt-cy19_ride]="4" [mlt-cy19_sizzle]="4")
-cy_volume+=([stx-cy8_splash]="-2" [stx-cy9_splash]="-1.5" [stx-cy12_splash]="-1.5" [stx-cy15_crash]="-2.5" [stx-cy18_crash]="-4" [stx-cy19_china]="1.5" [stx-cy20_ride]="0.5" [stx-cy19_ride]="7.5" [stx-cy19_sizzle]="8.5")
-declare -A hh_volume=([brs-hh13]="12.5" [brs-hh14]="7.5" [hnd-hh13]="14" [hnd-hh14]="8" [mlt-hh13]="7" [mlt-hh14]="5.5" [stx-hh13]="0" [stx-hh14]="-1")
-declare -A kick_volume=([kd14_bop]="0.5" [kd20_punch]="-4.5" [kd22_noreso]="0.5" [kd22_boom]="-0.5" [kd20_full]="-0.5")
-declare -A sn_volume=()
-sn_volume+=([brs-sn12_bop]="7" [brs-sn12_funk]="5" [brs-sn14_rock]="7")
-sn_volume+=([hnd-sn12_bop]="10" [hnd-sn10_jungle]="15")
-sn_volume+=([mlt-sn12_bop]="0")
-sn_volume+=([stx-sn12_bop_muted]="1" [stx-sn12_bop_open]="1" [stx-sn10_jungle]="6" [stx-sn12_funk]="-2.5" [stx-sn14_rock]="-2" [stx-sn10_piccolo]="3" [stx-sn12_orleans]="-1" [stx-sn12_tight]="-3.5" [stx-sn12_dead]="1" [stx-sn14_metal]="4")
-declare -A tm_volume=([tm8]="6.5" [tm10]="4.5" [tm12]="3" [tm14]="4.5" [tm16]="6")
-declare -A cowbell_volume=([brs]="13" [hnd]="14.5" [mlt]="11" [stx]="-1.5")
-
+# Crank each "mic group" up to 0dB, allow tweaking using faders (on CCs)
+declare -A cy_volume  ;# left, centre and right groups
+cy_volume+=([brs-cy8_splash]="12.3" [brs-cy9_splash]="12.3" [brs-cy15_crash]="12.3" [brs-cy18_crash]="12.3" [brs-cy19_ride]="12.3" [brs-cy19_sizzle]="12.3" [brs-cy12_splash]="12.3" [brs-cy19_china]="12.3" [brs-cy20_ride]="12.3")
+cy_volume+=([hnd-cy8_splash]="12.8" [hnd-cy9_splash]="12.8" [hnd-cy15_crash]="12.8" [hnd-cy18_crash]="12.8" [hnd-cy19_ride]="12.8" [hnd-cy19_sizzle]="12.8" [hnd-cy12_splash]="12.8" [hnd-cy19_china]="12.8" [hnd-cy20_ride]="12.8")
+cy_volume+=([mlt-cy8_splash]="1.82" [mlt-cy9_splash]="1.82" [mlt-cy15_crash]="1.82" [mlt-cy18_crash]="1.82" [mlt-cy19_ride]="1.82" [mlt-cy19_sizzle]="1.82" [mlt-cy12_splash]="1.82" [mlt-cy19_china]="1.82" [mlt-cy20_ride]="1.82")
+cy_volume+=([stx-cy8_splash]="0.00" [stx-cy9_splash]="0.00" [stx-cy15_crash]="0.00" [stx-cy18_crash]="0.00" [stx-cy19_ride]="0.00" [stx-cy19_sizzle]="0.00" [stx-cy12_splash]="0.00" [stx-cy19_china]="0.00" [stx-cy20_ride]="0.00")
+declare -A hh_volume
+hh_volume+=([brs-hh13]="12.3" [brs-hh14]="12.3")
+hh_volume+=([hnd-hh13]="12.8" [hnd-hh14]="12.8")
+hh_volume+=([mlt-hh13]="1.82" [mlt-hh14]="1.82")
+hh_volume+=([stx-hh13]="0.00" [stx-hh14]="0.00")
 : <<-@EOF
 Unfortunately I decided in the end to put these embedded in the trigger include files.
 ped hh13 +7.5, hh14 +18.5
 spl hh13 +4.5, hh14 +19
 @EOF
+declare -A kick_volume=([kd14_bop]="12.3" [kd20_punch]="12.3" [kd22_noreso]="12.3" [kd22_boom]="12.3" [kd20_full]="12.3")
+declare -A sn_volume
+sn_volume+=([brs-sn12_bop]="12.3" [brs-sn12_funk]="12.3" [brs-sn14_rock]="12.3")
+sn_volume+=([hnd-sn12_bop]="12.8" [hnd-sn10_jungle]="12.8")
+sn_volume+=([mlt-sn12_bop]="1.82")
+sn_volume+=([stx-sn12_bop_muted]="0.00" [stx-sn12_bop_open]="0.00" [stx-sn10_jungle]="0.00" [stx-sn12_funk]="0.00" [stx-sn14_rock]="0.00" [stx-sn10_piccolo]="0.00" [stx-sn12_orleans]="0.00" [stx-sn12_tight]="0.00" [stx-sn12_dead]="0.00" [stx-sn14_metal]="0.00")
+declare -A tm_volume ;# mounted and floor groups
+tm_volume+=([brs-tm8]="12.3" [brs-tm10]="12.3" [brs-tm12]="12.3" [brs-tm14]="12.3" [brs-tm16]="12.3")
+tm_volume+=([hnd-tm8]="12.8" [hnd-tm10]="12.8" [hnd-tm12]="12.8" [hnd-tm14]="12.8" [hnd-tm16]="12.8")
+tm_volume+=([mlt-tm8]="1.82" [mlt-tm10]="1.82" [mlt-tm12]="1.82" [mlt-tm14]="1.82" [mlt-tm16]="1.82")
+tm_volume+=([stx-tm8]="0.00" [stx-tm10]="0.00" [stx-tm12]="0.00" [stx-tm14]="0.00" [stx-tm16]="0.00")
+declare -A cowbell_volume=([brs]="12.3" [hnd]="12.8" [mlt]="1.82" [stx]="0.00")
 
 for kit in ${kits[@]}
 do
@@ -234,12 +240,12 @@ do
 				else
 					echo ' set_cc4=127  label_cc4=Pedal (cc4)'
 				fi
+
 				# Mixer controls
 				# volume_cc<CC> assignments and labels for each kit piece
 				# start at CC14 ("undefined")
 				cc=13
 				echo " set_hdcc${cc}=0.5   label_cc${cc}=Vol Ctrls follow"
-				echo " // ... hat for inches ... because double-quote blows up ..."
 				((cc++))
 				declare -A volume_cc
 				for cy in ${cys[@]} ${k[cymbals]}
@@ -272,6 +278,7 @@ do
 				((cc++))
 
 				cat <<-'@EOF'
+
 <global>
  // disable volume and pan controllers
  volume_cc7=0
@@ -283,17 +290,18 @@ do
  // when sample release is triggered by an off_by group, set a noticable release for ambience
  off_mode=normal
  ampeg_release=.5
-
 @EOF
 				key=1
 				for cy in ${cys[@]} ${k[cymbals]}
 				do
+					echo ''
 					echo '<master>'
 					echo " volume=$(dc -e "${cy_volume[${btr}-${cy}]/#-/_} 12 - p")"
 					echo " volume_cc${volume_cc[$cy]}=24 volume_curvecc${volume_cc[$cy]}=1"
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
+				echo ''
 				echo '<master>'
 				echo " volume=$(dc -e "${hh_volume[${btr}-${the_hihat}]/#-/_} 12 - p")"
 				echo " volume_cc${volume_cc[hihat]}=24 volume_curvecc${volume_cc[hihat]}=1"
@@ -304,6 +312,7 @@ do
 					override_defines "triggers/${btr}/${k[hihats]}_invcc4.sfzh" key
 				fi
 
+				echo ''
 				echo '<master>'
 				kick=${k[kicks]}
 				[[ -v kick_volume[$kick] ]] || { echo >&2 "kick_volume[$kick] not set {${!kick_volume[@]}}"; exit 1; }
@@ -311,6 +320,7 @@ do
 				echo " volume_cc${volume_cc[kick]}=24 volume_curvecc${volume_cc[kick]}=1"
 				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
 
+				echo ''
 				echo '<master>'
 				sn=${k[snares]}
 				[[ -v sn_volume["${btr}-${sn}"] ]] || { echo >&2 "sn_volume[$sn] not set {${!sn_volume[@]}}"; exit 1; }
@@ -321,19 +331,22 @@ do
 				do
 					tm=${actual_toms[$ti]}
 					tt=${t[$ti]}
+					echo ''
 					echo '<master>'
-					echo " volume=$(dc -e "${tm_volume[$tt]/#-/_} 12 - p")"
+					echo " volume=$(dc -e "${tm_volume[${btr}-$tt]/#-/_} 12 - p")"
 					echo " volume_cc${volume_cc[$tt]}=24 volume_curvecc${volume_cc[$tt]}=1"
 					override_defines "triggers/${btr}/${tm}.sfzh" key
 				done
 
+				echo ''
 				echo '<master>'
 				echo " volume=$(dc -e "${cowbell_volume[$btr]/#-/_} 12 - p")"
 				echo " volume_cc${volume_cc[cowbell]}=24 volume_curvecc${volume_cc[cowbell]}=1"
 				override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
 
+				echo ''
 				echo '<master>'
-				echo ' volume=-1'
+				echo " volume=-19" ;# about the same as hand tm8 ord
 				echo " volume_cc${volume_cc[tambourine]}=24 volume_curvecc${volume_cc[tambourine]}=1"
 				if [[ -f "triggers/${btr}/pn9_tambourine.sfzh" ]]
 				then

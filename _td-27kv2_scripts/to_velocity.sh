@@ -107,6 +107,8 @@ do
 		case "${split[1]:0:2}" in
 			cy) instrument=cymbals; split=( "${split[@]:1}" ) ;;
 			sn) instrument=snares; split=( "${split[@]:1}" ) ;;
+			pr) echo "pre-roll: $base_path" >&2; continue;;
+			hh) echo "hi-hat 't'? $base_path" >&2; continue;;
 			*)
 				echo "Unsupported _nsmr: $base_path; this should never happen!" >&2
 				;;
