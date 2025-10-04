@@ -346,7 +346,7 @@ do
 
 				echo ''
 				echo '<master>'
-				echo " volume=-19" ;# about the same as hand tm8 ord
+				echo " volume=-19"
 				echo " volume_cc${volume_cc[tambourine]}=24 volume_curvecc${volume_cc[tambourine]}=1"
 				if [[ -f "triggers/${btr}/pn9_tambourine.sfzh" ]]
 				then
