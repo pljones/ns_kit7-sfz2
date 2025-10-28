@@ -313,7 +313,7 @@ do
 					echo ''
 					echo '<master>'
 					echo " volume=$(dc -e "${cy_volume[${btr}-${cy}]/#-/_} 12 - p")"
-					echo " gain_cc${gain_cc[$cy]}=24 gain_curvecc${gain_cc[$cy]}=1"
+					echo " gain_cc${gain_cc[$cy]}=24 volume_curvecc${gain_cc[$cy]}=1"
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
@@ -323,7 +323,7 @@ do
 					echo ''
 					echo '<master>'
 					echo " volume=$(dc -e "${hh_volume[${the_hihat_beater}-${the_hihat}]/#-/_} 12 - p")"
-					echo " gain_cc${gain_cc[hihat]}=24 gain_curvecc${gain_cc[hihat]}=1"
+					echo " gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
 					if [[ $hh == - ]]
 					then
 						override_defines "triggers/${the_hihat_beater}/${k[hihats]}.sfzh" key
@@ -338,7 +338,7 @@ do
 				kick=${k[kicks]}
 				[[ -v kick_volume[$kick] ]] || { echo >&2 "kick_volume[$kick] not set {${!kick_volume[@]}}"; exit 1; }
 				echo " volume=$(dc -e "${kick_volume[$kick]/#-/_} 12 - p")"
-				echo " gain_cc${gain_cc[kick]}=24 gain_curvecc${gain_cc[kick]}=1"
+				echo " gain_cc${gain_cc[kick]}=24 volume_curvecc${gain_cc[kick]}=1"
 				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
 
 				echo ''
@@ -356,20 +356,20 @@ do
 					echo ''
 					echo '<master>'
 					echo " volume=$(dc -e "${tm_volume[${btr}-${tt}-${k[toms]}-${snare}]/#-/_} 12 - p")"
-					echo " gain_cc${gain_cc[$tt]}=24 gain_curvecc${gain_cc[$tt]}=1"
+					echo " gain_cc${gain_cc[$tt]}=24 volume_curvecc${gain_cc[$tt]}=1"
 					override_defines "triggers/${btr}/${tm}.sfzh" key
 				done
 
 				echo ''
 				echo '<master>'
 				echo " volume=$(dc -e "${cowbell_volume[$btr]/#-/_} 12 - p")"
-				echo " gain_cc${gain_cc[cowbell]}=24 gain_curvecc${gain_cc[cowbell]}=1"
+				echo " gain_cc${gain_cc[cowbell]}=24 volume_curvecc${gain_cc[cowbell]}=1"
 				override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
 
 				echo ''
 				echo '<master>'
 				echo " volume=-19.00"
-				echo " gain_cc${gain_cc[tambourine]}=24 gain_curvecc${gain_cc[tambourine]}=1"
+				echo " gain_cc${gain_cc[tambourine]}=24 volume_curvecc${gain_cc[tambourine]}=1"
 				if [[ -f "triggers/${btr}/pn9_tambourine.sfzh" ]]
 				then
 					override_defines "triggers/${btr}/pn9_tambourine.sfzh" key
