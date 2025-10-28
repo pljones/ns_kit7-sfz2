@@ -449,23 +449,30 @@ function write_articulations () {
 	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
 
 	local position grab hand
-
 	local _off_by_index=0
-	for position in bel top rim ped spl
-	do
 
-		get_hihat $beater $hihat $position
+	if [[ $beater =~ ^ped|spl$ ]]
+	then
+		get_hihat stx $hihat $beater
+		write_articulation stx $hihat $movement $group $beater - - _off_by_index
+	else
 
-		[[ $position =~ ^ped|spl$ ]] && grabs=(-) || grabs=(free held)
-		for grab in ${grabs[@]}
+		for position in bel top rim
 		do
-			[[ $position =~ ^ped|spl|bel$ ]] && hands=(-) || hands=(l r)
-			for hand in ${hands[@]}
+
+			get_hihat $beater $hihat $position
+
+			for grab in free held
 			do
-				write_articulation $beater $hihat $movement $group $position $grab $hand _off_by_index
+				[[ $position == bel ]] && hands=(-) || hands=(l r)
+				for hand in ${hands[@]}
+				do
+					write_articulation $beater $hihat $movement $group $position $grab $hand _off_by_index
+				done
 			done
 		done
-	done
+
+	fi
 }
 
 function write_triggers () {
@@ -496,7 +503,7 @@ function write_triggers () {
 
 declare -A triggers
 
-for beater in brs hnd mlt stx
+for beater in brs hnd mlt stx ped spl
 do
 	# {
 	mkdir -p triggers/$beater/hihats
