@@ -102,8 +102,8 @@ brs
     or, where no clsrls, end=-1 sample=*silence
 
 *2: sn_brush_drag_new, sn_brush_drag_legato:
-    swl/sws may have swlrpt/swsrpt (swl/sws: bop/w; sws: rock/w) to be triggered for repeated strokes
-    or, where no swlrpt/swsrpt, swl/sws
+    sws/swl may have swsrpt/swlrpt (sws/swl: bop/w; sws: rock/w) to be triggered for repeated strokes
+    or, where no swsrpt/swlrpt, sws/swl
 
 @EOF
 : <<-'@EOF'
@@ -164,30 +164,30 @@ declare -A triggermap=(
 )
 
 # TODO:
-
-# brush_down_new ("opn") needs to be muted by brush_down_legato ("cls"), brush_drag_new ("sws")
-# off_by group 602("opn")000 <- ("cls"), ("sws")
-# trigger group 502xxx("opn")
-
-# brush_drag_new ("sws") needs to be muted by brush_drag_legato ("swl"), brush_drag_new_rpt ("swsrpt")
-# off_by group 602("sws")000 <- ("swl"), ("swsrpt")
-# trigger group 502xxx("sws")
-
-# brush_drag_cirular ("swc") needs to be muted by brush_down_new ("opn"), brush_drag_new ("sws")
-# off_by group 602("swc")000 <- ("opn"), ("sws")
-# trigger group 502xxx("swc")
-
-# Need "opn", "sws", "swc" to have group and off_by
-# Need "cls" to trigger 602("opn")000
-# Need "sws" to trigger 602("opn")000, 602("swc")000
-# Need "swl" to trigger 602("sws")000
-# Need "swsrpt" to trigger 602("sws")000
-# Need "opn" to trigger 602("swc")000
+#
+# each <group> with a group= needs a unique group number (_idx and _fmt)
+# nothing stops itself
+# generally no point stopping short sounds, decay is likely to sound more like playing two handed
 
 declare -A trigger_group=()
-trigger_group+=(["opn_idx"]=1 ["opn_fmt"]="502%03d001" ["opn_off"]="602001000")
-trigger_group+=(["sws_idx"]=1 ["sws_fmt"]="502%03d002" ["sws_off"]="602002000")
-trigger_group+=(["swc_idx"]=1 ["swc_fmt"]="502%03d003" ["swc_off"]="602003000")
+trigger_group+=(["opn_idx"]=1    ["opn_fmt"]="502%03d001"    ["opn_off"]="602001000")
+trigger_group+=(["cls_idx"]=1    ["cls_fmt"]="502%03d002"    ["cls_off"]="602002000")
+trigger_group+=(["sws_idx"]=1    ["sws_fmt"]="502%03d003"    ["sws_off"]="602003000")
+trigger_group+=(["swsrpt_idx"]=1 ["swsrpt_fmt"]="502%03d004" ["swsrpt_off"]="602004000")
+trigger_group+=(["swl_idx"]=1    ["swl_fmt"]="502%03d005"    ["swl_off"]="602005000")
+trigger_group+=(["swlrpt_idx"]=1 ["swlrpt_fmt"]="502%03d006" ["swlrpt_off"]="602006000")
+trigger_group+=(["swc_idx"]=1    ["swc_fmt"]="502%03d007"    ["swc_off"]="602007000")
+trigger_group+=(["swu_idx"]=1    ["swu_fmt"]="502%03d008"    ["swu_off"]="602008000")
+
+declare -A off_by_map=()
+off_by_map+=(["opn"]="           swsrpt swlrpt swc swu")
+off_by_map+=(["cls"]="   opn swl swsrpt swlrpt swc swu")
+off_by_map+=(["sws"]="           swsrpt swlrpt swc swu")
+off_by_map+=(["swsrpt"]="                      swc swu")
+off_by_map+=(["swl"]="                         swc swu")
+off_by_map+=(["swlrpt"]="                      swc swu")
+
+# articulation - the triggering articulation that needs to be muted by something
 function do_trigger_group () {
 	local articulation=$1; shift || { echo "do_trigger_group: Missing articulation" >&2; exit 1; }
 	if [[ ! -v trigger_group[${articulation}_idx] ]]
@@ -202,7 +202,8 @@ function do_trigger_group () {
 	(( trigger_group[$idx]+=1 ))
 }
 
-declare -A off_by_map=(["cls"]="opn" ["sws"]="opn swc" ["swl"]="sws" ["swsrpt"]="sws" ["opn"]="swc")
+# articulation - the triggering articulation that needs to mute something
+# key          - the note triggering the articulation
 function do_off_by_group () {
 	local articulation=$1; shift || { echo "do_trigger_group: Missing articulation" >&2; exit 1; }
 	local key=$1; shift || { echo "do_trigger_group: Missing key" >&2; exit 1; }
