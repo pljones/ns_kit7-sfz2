@@ -289,10 +289,10 @@ blocksSinceLastKick = -1;
 @block
 // Blocks since last brush note - needs to allow up to 3.465250 seconds for brush note: or at least the attack.
 // 3.465250 seconds / 0.001333333 seconds per block = 2600.4375 blocks.
-// Let's allow 1 second before expiring a drag.
+// Let's allow 0.1 second before expiring a drag.
 blocksSinceLastBrush >= 0 ? (
   blocksSinceLastBrush = blocksSinceLastBrush + 1;
-  blocksSinceLastBrush > 750 ? (
+  blocksSinceLastBrush > 75 ? (
     blocksSinceLastBrush = -1; // reset
     isBrushDrag = 0; // reset brush drag mode
   );
@@ -362,7 +362,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     // zone_sn_e2c = 6; - zone unmapped
     // zone_sn_rol = 7; - zone unmapped
     // zone_sn_brush_down_legato_rls = 10; - mapped in noteOff
-    // zone_sn_brush_drag_cirular = 15; - zone unmapped (no exclusive off yet)
+    // zone_sn_brush_drag_cirular = 15; - zone unmapped (no exclusive off yet; actually it has but still unmapped)
     // zone_sn_brush_drag_under = 16; - zone unmapped
     ((msg2 == noteSnareHead) || (msg2 == noteSnareBrush)) ? (
       brushKit ? (
@@ -370,36 +370,43 @@ while (midirecv(offset, msg1, msg2, msg3)) (
         // ideally turn some of this into CCs and model more in the samples
         // (e.g. send some with velocity, in place of these lost notes
         // or see https://sfzformat.com/tutorials/brush_stirs)
+        (blocksSinceLastBrush < 0) ? blocksSinceLastBrush = 0; // start counting blocks
         // Try to ignore jittery triggering
-        //(blocksSinceLastBrush < 13) ? (
-        //  noteMap[msg2] = 0;
-        //) : (
-          (blocksSinceLastBrush < 0) ? blocksSinceLastBrush = 0; // start counting blocks
+        (blocksSinceLastBrush < 6) ? (
+          noteMap[msg2] = 0;
+        ) : (
           noteMap[msg2] = trigger_snare + (
             (isBrushDrag == 0) ? (
               isBrushDrag = 1; // set up for brush drag new mode
               zone_sn_brush_down_new
             ) : (
               (isBrushDrag == 1) ? (
+                // only the second trigger causes drag_new
                 isBrushDrag = 2;
                 zone_sn_brush_drag_new
               ) : (
-                (blocksSinceLastBrush > 500) ? (
+                // subsequent slow triggers are repeat drag_news
+                (blocksSinceLastBrush > 50) ? (
                   isBrushDrag = 3;
                   zone_sn_brush_drag_new_rpt
                 ) : (
-                  (blocksSinceLastBrush > 100) ? (
-                    isBrushDrag = 4;
-                    zone_sn_brush_drag_legato
-                  ) : (
+                  // legato.  Where have we got to?
+                  (isBrushDrag == 4 && blocksSinceLastBrush > 45) ? (
+                    // "new" legato has happened, late enough for repeat
                     isBrushDrag = 5;
                     zone_sn_brush_drag_legato_rpt
+                  ) : (
+                    // either "new" legato or too long since last new one
+                    isBrushDrag = 4;
+                    zone_sn_brush_drag_legato
                   )
                 )
               )
             )
           );
-        //);
+          // after dealing with a valid brush note, start counting again
+          blocksSinceLastBrush = 0;
+        );
       ) : (
         noteMap[msg2] = trigger_snare + zone_sn_head
       );
