@@ -78,15 +78,18 @@ hh_volume+=([ped-hh13]="13.50" [ped-hh14]="22.22")
 hh_volume+=([spl-hh13]="12.54" [spl-hh14]="26.62")
 declare -A kick_volume=([kd14_bop]="10.55" [kd20_punch]="2.59" [kd22_noreso]="11.01" [kd22_boom]="6.29" [kd20_full]="6.86")
 declare -A sn_volume
-sn_volume+=([brs-sn12_bop-off]="17.26" [brs-sn12_funk-off]="13.49" [brs-sn14_rock-off]="16.26")
-sn_volume+=([brs-sn12_bop-on]="17.25" [brs-sn12_funk-on]="13.49" [brs-sn14_rock-on]="16.26")
+# sn brs needs to be quieter
+#sn_volume+=([brs-sn12_bop-off]="17.26" [brs-sn12_funk-off]="13.49" [brs-sn14_rock-off]="16.26")
+#sn_volume+=([brs-sn12_bop-on]="17.25" [brs-sn12_funk-on]="13.49" [brs-sn14_rock-on]="16.26")
+sn_volume+=([brs-sn12_bop-off]="11.26" [brs-sn12_funk-off]="7.49" [brs-sn14_rock-off]="10.26")
+sn_volume+=([brs-sn12_bop-on]="11.25" [brs-sn12_funk-on]="7.49" [brs-sn14_rock-on]="10.26")
 sn_volume+=([hnd-sn12_bop-off]="19.40" [hnd-sn10_jungle-off]="12.85")
 sn_volume+=([hnd-sn12_bop-on]="19.67" [hnd-sn10_jungle-on]="12.85")
 sn_volume+=([mlt-sn12_bop-off]="5.32")
 sn_volume+=([mlt-sn12_bop-on]="5.38")
 sn_volume+=([stx-sn12_bop_muted-off]="7.06" [stx-sn12_bop_open-off]="5.83" [stx-sn10_jungle-off]="3.88" [stx-sn12_funk-off]="1.45" [stx-sn14_rock-off]="3.70" [stx-sn10_piccolo-off]="4.33" [stx-sn12_orleans-off]="1.38" [stx-sn12_tight-off]="0.00" [stx-sn12_dead-off]="1.56" [stx-sn14_metal-off]="0.89")
 sn_volume+=([stx-sn12_bop_muted-on]="5.42" [stx-sn12_bop_open-on]="7.34" [stx-sn10_jungle-on]="2.79" [stx-sn12_funk-on]="1.45" [stx-sn14_rock-on]="1.14" [stx-sn10_piccolo-on]="4.33" [stx-sn12_orleans-on]="1.38" [stx-sn12_tight-on]="0.00" [stx-sn12_dead-on]="1.56" [stx-sn14_metal-on]="3.65")
-declare -A tm_volume ;# mounted and floor groups
+declare -A tm_volume
 tm_volume+=([brs-tm8-bop-off]="22.16" [brs-tm10-bop-off]="20.41" [brs-tm12-bop-off]="22.74" [brs-tm14-bop-off]="23.01" [brs-tm16-bop-off]="23.90")
 tm_volume+=([brs-tm8-bop-on]="22.16" [brs-tm10-bop-on]="20.41" [brs-tm12-bop-on]="22.74" [brs-tm14-bop-on]="23.01" [brs-tm16-bop-on]="23.90")
 tm_volume+=([brs-tm8-rock-off]="16.70" [brs-tm10-rock-off]="17.12" [brs-tm12-rock-off]="16.69" [brs-tm14-rock-off]="18.80" [brs-tm16-rock-off]="19.10")
@@ -145,40 +148,14 @@ do
 				if [[ ! -f $f ]]
 				then
 					x="sn${snare}_btr${btr}_toms${k[toms]}"
-#echo >&2 "f {$f}; snare {$snare}; btr {$btr}; toms {${k[toms]}}; x {$x}"
-					echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}; (x {$x})";
-					case $x in
-						snon_btrbrs_tomsbop|snon_btrstx_tomsbop|snon_btrstx_tomsnoreso)
-							actual_toms+=(${tm}_${k[toms]}_snare_off)
-							#echo '... will use snare_off tom, then'
-							;;
-						snon_btrhnd_tomsbop)
-							if [[ $tm =~ ^(tm8|tm10)$ ]]
-							then
-								actual_toms+=(tm12_${k[toms]}_snare_${snare})
-								#echo '... will use tm12 tom, then'
-							elif [[ $tm == tm16 ]]
-							then
-								actual_toms+=(tm14_${k[toms]}_snare_${snare})
-								#echo '... will use tm14 tom, then'
-							fi
-							;;
-						snon_btrmlt_tomsbop)
-							if [[ $tm =~ ^(tm8|tm10)$ ]]
-							then
-								actual_toms+=(tm12_${k[toms]}_snare_${snare})
-								#echo '... will use tm12 tom, then'
-							fi
-							;;
-						*)
-							true
-							;;
-					esac
+					echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}; (x {$x})"
+					replacement_snare=$([[ "$snare" == "on" ]] && echo off || echo on)
+					actual_toms+=(${tm}_${k[toms]}_snare_${replacement_snare})
 					f="triggers/${btr}/${actual_toms[-1]}.sfzh"
 					if [[ ! -f "$f" ]]
 					then
 						echo ''
-						echo >&2 "Failed to replace tom: {$f} not found"
+						echo >&2 "Failed to replace tom (${snare} -> ${replacement_snare}): {$f} not found"
 						exit 1
 					else
 						echo " - using ${kit} ${btr} ${actual_toms[-1]} instead";
