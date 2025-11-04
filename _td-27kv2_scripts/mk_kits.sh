@@ -63,54 +63,64 @@ tm_dry=(tm10 tm10 tm12 tm14 tm14)
 tm_noreso=(tm10 tm10 tm12 tm14 tm14)
 tm_rock=(tm8 tm10 tm12 tm14 tm16)
 
-# Crank each kit piece up to 0dB, allow tweaking using faders (on CCs)
-declare -A cy_volume  ;# left, centre and right groups
-cy_volume+=([brs-cy8_splash]="19.97" [brs-cy9_splash]="12.61" [brs-cy15_crash]="19.10" [brs-cy18_crash]="13.34" [brs-cy19_ride]="21.37" [brs-cy19_sizzle]="20.40" [brs-cy12_splash]="12.32" [brs-cy19_china]="23.76" [brs-cy20_ride]="13.12")
-cy_volume+=([hnd-cy8_splash]="17.73" [hnd-cy9_splash]="17.76" [hnd-cy15_crash]="22.98" [hnd-cy18_crash]="22.88" [hnd-cy19_ride]="22.39" [hnd-cy19_sizzle]="21.90" [hnd-cy12_splash]="18.47" [hnd-cy19_china]="23.39" [hnd-cy20_ride]="26.38")
-cy_volume+=([mlt-cy8_splash]="9.85" [mlt-cy9_splash]="8.92" [mlt-cy15_crash]="6.66" [mlt-cy18_crash]="1.82" [mlt-cy19_ride]="12.88" [mlt-cy19_sizzle]="11.63" [mlt-cy12_splash]="2.24" [mlt-cy19_china]="15.58" [mlt-cy20_ride]="7.86")
-cy_volume+=([stx-cy8_splash]="5.69" [stx-cy9_splash]="5.95" [stx-cy15_crash]="1.61" [stx-cy18_crash]="0.08" [stx-cy19_ride]="1.11" [stx-cy19_sizzle]="1.07" [stx-cy12_splash]="1.29" [stx-cy19_china]="7.60" [stx-cy20_ride]="0.67")
+# Hm.  Default volumes are not doing it for me...
+declare -A cy_volume
 declare -A hh_volume
-hh_volume+=([brs-hh13]="16.68" [brs-hh14]="14.43")
-hh_volume+=([hnd-hh13]="20.58" [hnd-hh14]="14.17")
-hh_volume+=([mlt-hh13]="13.43" [mlt-hh14]="12.59")
-hh_volume+=([stx-hh13]="2.57" [stx-hh14]="3.08")
-hh_volume+=([ped-hh13]="13.50" [ped-hh14]="22.22")
-hh_volume+=([spl-hh13]="12.54" [spl-hh14]="26.62")
-declare -A kick_volume=([kd14_bop]="10.55" [kd20_punch]="2.59" [kd22_noreso]="11.01" [kd22_boom]="6.29" [kd20_full]="6.86")
 declare -A sn_volume
-# sn brs needs to be quieter
-#sn_volume+=([brs-sn12_bop-off]="17.26" [brs-sn12_funk-off]="13.49" [brs-sn14_rock-off]="16.26")
-#sn_volume+=([brs-sn12_bop-on]="17.25" [brs-sn12_funk-on]="13.49" [brs-sn14_rock-on]="16.26")
-sn_volume+=([brs-sn12_bop-off]="11.26" [brs-sn12_funk-off]="7.49" [brs-sn14_rock-off]="10.26")
-sn_volume+=([brs-sn12_bop-on]="11.25" [brs-sn12_funk-on]="7.49" [brs-sn14_rock-on]="10.26")
-sn_volume+=([hnd-sn12_bop-off]="19.40" [hnd-sn10_jungle-off]="12.85")
-sn_volume+=([hnd-sn12_bop-on]="19.67" [hnd-sn10_jungle-on]="12.85")
-sn_volume+=([mlt-sn12_bop-off]="5.32")
-sn_volume+=([mlt-sn12_bop-on]="5.38")
-sn_volume+=([stx-sn12_bop_muted-off]="7.06" [stx-sn12_bop_open-off]="5.83" [stx-sn10_jungle-off]="3.88" [stx-sn12_funk-off]="1.45" [stx-sn14_rock-off]="3.70" [stx-sn10_piccolo-off]="4.33" [stx-sn12_orleans-off]="1.38" [stx-sn12_tight-off]="0.00" [stx-sn12_dead-off]="1.56" [stx-sn14_metal-off]="0.89")
-sn_volume+=([stx-sn12_bop_muted-on]="5.42" [stx-sn12_bop_open-on]="7.34" [stx-sn10_jungle-on]="2.79" [stx-sn12_funk-on]="1.45" [stx-sn14_rock-on]="1.14" [stx-sn10_piccolo-on]="4.33" [stx-sn12_orleans-on]="1.38" [stx-sn12_tight-on]="0.00" [stx-sn12_dead-on]="1.56" [stx-sn14_metal-on]="3.65")
 declare -A tm_volume
+declare -A cowbell_volume
+declare -A kick_volume
+
+cy_volume+=([brs-cy8_splash]="19.97" [brs-cy9_splash]="12.61" [brs-cy15_crash]="19.10" [brs-cy18_crash]="13.34" [brs-cy19_ride]="21.37" [brs-cy19_sizzle]="20.40" [brs-cy12_splash]="12.32" [brs-cy19_china]="23.76" [brs-cy20_ride]="13.12")
+hh_volume+=([brs-hh13]="16.68" [brs-hh14]="14.43")
+sn_volume+=([brs-sn12_bop-off]="17.26" [brs-sn12_funk-off]="13.49" [brs-sn14_rock-off]="16.26")
+sn_volume+=([brs-sn12_bop-on]="17.25" [brs-sn12_funk-on]="13.49" [brs-sn14_rock-on]="16.26")
+# sn brs needs to be quieter -- maybe: check compression...
+#sn_volume+=([brs-sn12_bop-off]="11.26" [brs-sn12_funk-off]="7.49" [brs-sn14_rock-off]="10.26")
+#sn_volume+=([brs-sn12_bop-on]="11.25" [brs-sn12_funk-on]="7.49" [brs-sn14_rock-on]="10.26")
 tm_volume+=([brs-tm8-bop-off]="22.16" [brs-tm10-bop-off]="20.41" [brs-tm12-bop-off]="22.74" [brs-tm14-bop-off]="23.01" [brs-tm16-bop-off]="23.90")
 tm_volume+=([brs-tm8-bop-on]="22.16" [brs-tm10-bop-on]="20.41" [brs-tm12-bop-on]="22.74" [brs-tm14-bop-on]="23.01" [brs-tm16-bop-on]="23.90")
 tm_volume+=([brs-tm8-rock-off]="16.70" [brs-tm10-rock-off]="17.12" [brs-tm12-rock-off]="16.69" [brs-tm14-rock-off]="18.80" [brs-tm16-rock-off]="19.10")
 tm_volume+=([brs-tm8-rock-on]="17.17" [brs-tm10-rock-on]="18.10" [brs-tm12-rock-on]="16.27" [brs-tm14-rock-on]="21.15" [brs-tm16-rock-on]="19.71")
+cowbell_volume+=([brs]="29.08")
+
+cy_volume+=([hnd-cy8_splash]="17.73" [hnd-cy9_splash]="17.76" [hnd-cy15_crash]="22.98" [hnd-cy18_crash]="22.88" [hnd-cy19_ride]="22.39" [hnd-cy19_sizzle]="21.90" [hnd-cy12_splash]="18.47" [hnd-cy19_china]="23.39" [hnd-cy20_ride]="26.38")
+hh_volume+=([hnd-hh13]="20.58" [hnd-hh14]="14.17")
+sn_volume+=([hnd-sn12_bop-off]="19.40" [hnd-sn10_jungle-off]="12.85")
+sn_volume+=([hnd-sn12_bop-on]="19.67" [hnd-sn10_jungle-on]="12.85")
 tm_volume+=([hnd-tm8-bop-off]="24.99" [hnd-tm10-bop-off]="25.65" [hnd-tm12-bop-off]="23.49" [hnd-tm14-bop-off]="23.76" [hnd-tm16-bop-off]="22.38")
 tm_volume+=([hnd-tm8-bop-on]="24.99" [hnd-tm10-bop-on]="25.65" [hnd-tm12-bop-on]="24.49" [hnd-tm14-bop-on]="22.42" [hnd-tm16-bop-on]="22.38")
 tm_volume+=([hnd-tm8-rock-off]="18.92" [hnd-tm10-rock-off]="17.08" [hnd-tm12-rock-off]="17.00" [hnd-tm14-rock-off]="18.01" [hnd-tm16-rock-off]="19.34")
 tm_volume+=([hnd-tm8-rock-on]="17.97" [hnd-tm10-rock-on]="17.75" [hnd-tm12-rock-on]="17.17" [hnd-tm14-rock-on]="18.35" [hnd-tm16-rock-on]="22.29")
+cowbell_volume+=([hnd]="32.34")
+
+cy_volume+=([mlt-cy8_splash]="9.85" [mlt-cy9_splash]="8.92" [mlt-cy15_crash]="6.66" [mlt-cy18_crash]="1.82" [mlt-cy19_ride]="12.88" [mlt-cy19_sizzle]="11.63" [mlt-cy12_splash]="2.24" [mlt-cy19_china]="15.58" [mlt-cy20_ride]="7.86")
+hh_volume+=([mlt-hh13]="13.43" [mlt-hh14]="12.59")
+sn_volume+=([mlt-sn12_bop-off]="5.32")
+sn_volume+=([mlt-sn12_bop-on]="5.38")
 tm_volume+=([mlt-tm8-bop-off]="9.46" [mlt-tm10-bop-off]="10.59" [mlt-tm12-bop-off]="5.58" [mlt-tm14-bop-off]="9.12" [mlt-tm16-bop-off]="6.54")
 tm_volume+=([mlt-tm8-bop-on]="9.46" [mlt-tm10-bop-on]="10.59" [mlt-tm12-bop-on]="12.08" [mlt-tm14-bop-on]="13.47" [mlt-tm16-bop-on]="7.75")
 tm_volume+=([mlt-tm8-rock-off]="9.86" [mlt-tm10-rock-off]="12.00" [mlt-tm12-rock-off]="10.14" [mlt-tm14-rock-off]="6.97" [mlt-tm16-rock-off]="9.49")
 tm_volume+=([mlt-tm8-rock-on]="10.67" [mlt-tm10-rock-on]="11.33" [mlt-tm12-rock-on]="11.07" [mlt-tm14-rock-on]="9.89" [mlt-tm16-rock-on]="10.72")
+cowbell_volume+=([mlt]="26.39")
+
+cy_volume+=([stx-cy8_splash]="5.69" [stx-cy9_splash]="5.95" [stx-cy15_crash]="1.61" [stx-cy18_crash]="0.08" [stx-cy19_ride]="1.11" [stx-cy19_sizzle]="1.07" [stx-cy12_splash]="1.29" [stx-cy19_china]="7.60" [stx-cy20_ride]="0.67")
+hh_volume+=([stx-hh13]="2.57" [stx-hh14]="3.08")
+sn_volume+=([stx-sn12_bop_muted-off]="7.06" [stx-sn12_bop_open-off]="5.83" [stx-sn10_jungle-off]="3.88" [stx-sn12_funk-off]="1.45" [stx-sn14_rock-off]="3.70" [stx-sn10_piccolo-off]="4.33" [stx-sn12_orleans-off]="1.38" [stx-sn12_tight-off]="0.00" [stx-sn12_dead-off]="1.56" [stx-sn14_metal-off]="0.89")
+sn_volume+=([stx-sn12_bop_muted-on]="5.42" [stx-sn12_bop_open-on]="7.34" [stx-sn10_jungle-on]="2.79" [stx-sn12_funk-on]="1.45" [stx-sn14_rock-on]="1.14" [stx-sn10_piccolo-on]="4.33" [stx-sn12_orleans-on]="1.38" [stx-sn12_tight-on]="0.00" [stx-sn12_dead-on]="1.56" [stx-sn14_metal-on]="3.65")
 tm_volume+=([stx-tm8-bop-off]="5.15" [stx-tm10-bop-off]="3.93" [stx-tm12-bop-off]="11.35" [stx-tm14-bop-off]="2.38" [stx-tm16-bop-off]="5.92")
-tm_volume+=([stx-tm8-bop-on]="5.15" [stx-tm10-bop-on]="3.93" [stx-tm12-bop-on]="6.97" [stx-tm14-bop-on]="2.56" [stx-tm16-bop-on]="6.46")
 tm_volume+=([stx-tm8-dry-off]="1.53" [stx-tm10-dry-off]="1.53" [stx-tm12-dry-off]="5.75" [stx-tm14-dry-off]="4.61" [stx-tm16-dry-off]="4.61")
-tm_volume+=([stx-tm8-dry-on]="4.62" [stx-tm10-dry-on]="4.62" [stx-tm12-dry-on]="5.63" [stx-tm14-dry-on]="5.46" [stx-tm16-dry-on]="5.46")
 tm_volume+=([stx-tm8-noreso-off]="1.96" [stx-tm10-noreso-off]="1.96" [stx-tm12-noreso-off]="3.79" [stx-tm14-noreso-off]="5.90" [stx-tm16-noreso-off]="5.90")
-tm_volume+=([stx-tm8-noreso-on]="1.96" [stx-tm10-noreso-on]="1.96" [stx-tm12-noreso-on]="3.79" [stx-tm14-noreso-on]="5.90" [stx-tm16-noreso-on]="5.90")
 tm_volume+=([stx-tm8-rock-off]="4.35" [stx-tm10-rock-off]="8.19" [stx-tm12-rock-off]="7.81" [stx-tm14-rock-off]="6.00" [stx-tm16-rock-off]="7.47")
+tm_volume+=([stx-tm8-bop-on]="5.15" [stx-tm10-bop-on]="3.93" [stx-tm12-bop-on]="6.97" [stx-tm14-bop-on]="2.56" [stx-tm16-bop-on]="6.46")
+tm_volume+=([stx-tm8-dry-on]="4.62" [stx-tm10-dry-on]="4.62" [stx-tm12-dry-on]="5.63" [stx-tm14-dry-on]="5.46" [stx-tm16-dry-on]="5.46")
+tm_volume+=([stx-tm8-noreso-on]="1.96" [stx-tm10-noreso-on]="1.96" [stx-tm12-noreso-on]="3.79" [stx-tm14-noreso-on]="5.90" [stx-tm16-noreso-on]="5.90")
 tm_volume+=([stx-tm8-rock-on]="4.19" [stx-tm10-rock-on]="8.68" [stx-tm12-rock-on]="6.87" [stx-tm14-rock-on]="6.47" [stx-tm16-rock-on]="7.68")
-declare -A cowbell_volume=([brs]="29.08" [hnd]="32.34" [mlt]="26.39" [stx]="15.78")
+cowbell_volume+=([stx]="15.78")
+
+hh_volume+=([ped-hh13]="13.50" [ped-hh14]="22.22")
+hh_volume+=([spl-hh13]="12.54" [spl-hh14]="26.62")
+kick_volume+=([kd14_bop]="10.55" [kd20_punch]="2.59" [kd22_noreso]="11.01" [kd22_boom]="6.29" [kd20_full]="6.86")
 
 for kit in ${kits[@]}
 do
