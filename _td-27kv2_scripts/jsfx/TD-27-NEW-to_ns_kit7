@@ -292,7 +292,7 @@ blocksSinceLastKick = -1;
 // Let's allow 0.1 second before expiring a drag.
 blocksSinceLastBrush >= 0 ? (
   blocksSinceLastBrush = blocksSinceLastBrush + 1;
-  blocksSinceLastBrush > 75 ? (
+  blocksSinceLastBrush > 120 ? (
     blocksSinceLastBrush = -1; // reset
     isBrushDrag = 0; // reset brush drag mode
   );
@@ -372,8 +372,8 @@ while (midirecv(offset, msg1, msg2, msg3)) (
         // or see https://sfzformat.com/tutorials/brush_stirs)
         (blocksSinceLastBrush < 0) ? blocksSinceLastBrush = 0; // start counting blocks
         // Try to ignore jittery triggering
-        (blocksSinceLastBrush < 6) ? (
-          noteMap[msg2] = 0;
+        (blocksSinceLastBrush < 40) ? (
+          passthru = 0;
         ) : (
           noteMap[msg2] = trigger_snare + (
             (isBrushDrag == 0) ? (
@@ -386,12 +386,12 @@ while (midirecv(offset, msg1, msg2, msg3)) (
                 zone_sn_brush_drag_new
               ) : (
                 // subsequent slow triggers are repeat drag_news
-                (blocksSinceLastBrush > 50) ? (
+                ((isBrushDrag == 2 || isBrushDrag == 3) && blocksSinceLastBrush > 80) ? (
                   isBrushDrag = 3;
                   zone_sn_brush_drag_new_rpt
                 ) : (
                   // legato.  Where have we got to?
-                  (isBrushDrag == 4 && blocksSinceLastBrush > 45) ? (
+                  (isBrushDrag == 4 && blocksSinceLastBrush > 90) ? (
                     // "new" legato has happened, late enough for repeat
                     isBrushDrag = 5;
                     zone_sn_brush_drag_legato_rpt
