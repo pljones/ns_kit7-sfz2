@@ -163,62 +163,88 @@ declare -A triggermap=(
 	[brush_drag_cirular]=15 [brush_drag_under]=16
 )
 
-# TODO:
+# Brushes:
+# each <region> (or inherited from <group>) with an off_by= needs a group=
+# and no unique group= can have two different off_by= values
 #
-# each <group> with a group= needs a unique group number (_idx and _fmt)
 # nothing stops itself
 # generally no point stopping short sounds, decay is likely to sound more like playing two handed
 
-declare -A trigger_group=()
-trigger_group+=(["opn_idx"]=1    ["opn_fmt"]="502%03d001"    ["opn_off"]="602001000")
-trigger_group+=(["cls_idx"]=1    ["cls_fmt"]="502%03d002"    ["cls_off"]="602002000")
-trigger_group+=(["sws_idx"]=1    ["sws_fmt"]="502%03d003"    ["sws_off"]="602003000")
-trigger_group+=(["swsrpt_idx"]=1 ["swsrpt_fmt"]="502%03d004" ["swsrpt_off"]="602004000")
-trigger_group+=(["swl_idx"]=1    ["swl_fmt"]="502%03d005"    ["swl_off"]="602005000")
-trigger_group+=(["swlrpt_idx"]=1 ["swlrpt_fmt"]="502%03d006" ["swlrpt_off"]="602006000")
-trigger_group+=(["swc_idx"]=1    ["swc_fmt"]="502%03d007"    ["swc_off"]="602007000")
-trigger_group+=(["swu_idx"]=1    ["swu_fmt"]="502%03d008"    ["swu_off"]="602008000")
+# Maps an articulation to
+# - off by group    (_off)  if present, for all trigger groups for this articulation
+# - count of groups (_idx)  was used to make group number totally unique (required)
+# - group format    (_grp)  for unique group number for every group for this sample (required)
+# - poly count      (_poly) intended to restrict polyphony but it works on group, which is the unique thing... (optional)
+declare -A trigger_group
+trigger_group+=(["opn_off"]="602001000"    ["opn_idx"]=1    ["opn_grp"]="502%03d001"   )
+trigger_group+=(["cls_off"]="602002000"    ["cls_idx"]=1    ["cls_grp"]="502%03d002"   )
+trigger_group+=(["clsrls_off"]="602003000" ["clsrls_idx"]=1 ["clsrls_grp"]="502%03d003" ["clsrls_poly"]=1)
+trigger_group+=(["sws_off"]="602004000"    ["sws_idx"]=1    ["sws_grp"]="502%03d004"   )
+trigger_group+=(["swsrpt_off"]="602005000" ["swsrpt_idx"]=1 ["swsrpt_grp"]="502%03d005" ["swsrpt_poly"]=2)
+trigger_group+=(["swl_off"]="602006000"    ["swl_idx"]=1    ["swl_grp"]="502%03d006"   )
+trigger_group+=(["swlrpt_off"]="602007000" ["swlrpt_idx"]=1 ["swlrpt_grp"]="502%03d007" ["swlrpt_poly"]=2)
+trigger_group+=(["swc_off"]="602008000"    ["swc_idx"]=1    ["swc_grp"]="502%03d008"   )
+trigger_group+=(["swu_off"]="602009000"    ["swu_idx"]=1    ["swu_grp"]="502%03d009"   )
+trigger_group+=(["rms_off"]="602010000"    ["rms_idx"]=1    ["rms_grp"]="502%03d010"   )
 
-declare -A off_by_map=()
-off_by_map+=(["opn"]="           swsrpt swlrpt swc swu")
-off_by_map+=(["cls"]="   opn swl swsrpt swlrpt swc swu")
-off_by_map+=(["sws"]="           swsrpt swlrpt swc swu")
-off_by_map+=(["swsrpt"]="                      swc swu")
-off_by_map+=(["swl"]="                         swc swu")
-off_by_map+=(["swlrpt"]="                      swc swu")
+# Maps an articulation to list of articulations that mute it - anything here requires a trigger_group entry
+declare -A off_by_map
+off_by_map+=(["opn"]="   rms     cls                                     ")
+off_by_map+=(["cls"]="                                                   ")
+off_by_map+=(["clsrls"]="                                                ")
+off_by_map+=(["sws"]="   rms                               swlrpt swc swu")
+off_by_map+=(["swsrpt"]="rms opn cls                   swl        swc swu")
+off_by_map+=(["swl"]="   rms                    swsrpt            swc swu")
+off_by_map+=(["swlrpt"]="rms opn cls        sws                   swc swu")
+off_by_map+=(["swc"]="   rms opn cls        sws swsrpt swl swlrpt     swu")
+off_by_map+=(["swu"]="   rms opn cls        sws swsrpt swl swlrpt swc    ")
+off_by_map+=(["rms"]="                                                   ")
 
-# articulation - the triggering articulation that needs to be muted by something
+
+# articulation - the triggered sample articulation that needs to be muted by something
 function do_trigger_group () {
 	local articulation=$1; shift || { echo "do_trigger_group: Missing articulation" >&2; exit 1; }
-	if [[ ! -v trigger_group[${articulation}_idx] ]]
+	if [[ ! -v trigger_group[${articulation}_off] ]]
 	then
 		return
 	fi
 
-	local idx="${articulation}_idx"
-	local fmt="${articulation}_fmt"
 	local off_by="${articulation}_off"
-	echo " group=$(printf "${trigger_group[$fmt]}" ${trigger_group[$idx]}) off_by=${trigger_group[$off_by]}"
-	(( trigger_group[$idx]+=1 ))
+	local idx="${articulation}_idx"
+	local fmt="${articulation}_grp"
+	local poly=""
+	if [[ -v trigger_group[${articulation}_poly] ]]
+	then
+		poly=" polyphony=${trigger_group[${articulation}_poly]}"
+	fi
+
+	echo " // do_trigger_group: articulation ${articulation}"
+	echo " off_by=${trigger_group[$off_by]} group=$(printf "${trigger_group[$fmt]}" ${trigger_group[$idx]:-1})${poly}"
+	# maybe the unique group thing is not real...
+	#(( trigger_group[$idx]+=1 ))
 }
 
-# articulation - the triggering articulation that needs to mute something
+# articulation - the triggered sample articulation that needs to mute something
 # key          - the note triggering the articulation
 function do_off_by_group () {
-	local articulation=$1; shift || { echo "do_trigger_group: Missing articulation" >&2; exit 1; }
-	local key=$1; shift || { echo "do_trigger_group: Missing key" >&2; exit 1; }
-	if [[ ! -v off_by_map[$articulation] ]]
-	then
-		return
-	fi
+	local articulation=$1; shift || { echo "do_off_by_group: Missing articulation" >&2; exit 1; }
+	local key=$1; shift || { echo "do_off_by_group: Missing key" >&2; exit 1; }
 
 	local target
+	local target_articulations
 	local off_by
-	for target in $(echo ${off_by_map[$articulation]})
+
+	for target in ${!off_by_map[@]}
 	do
+		target_articulations="$(echo ${off_by_map[$target]})"
+#echo >&2 "do_off_by_group: articulation {$articulation}; target {$target}; target_articulations {$target_articulations}"
+		[[ $articulation =~ ^${target_articulations// /|}$ ]] || continue
 		off_by="${target}_off"
-		[[ -v trigger_group[$off_by] ]] || continue
+		[[ -v trigger_group[$off_by] ]] || { echo "do_trigger_group: Missing trigger_group[$off_by]" >&2; exit 1; }
+#echo >&2 "do_off_by_group: key {$key}; articulation {$articulation} -> mutes target {$target}; off_by group {${trigger_group[$off_by]}}"
+
 		echo "<group>"
+		echo " // key {$key} articulation ${articulation} mutes target ${target}"
 		echo "<region> group=${trigger_group[$off_by]} key=$key end=-1 sample=*silence"
 	done
 }
@@ -380,7 +406,7 @@ function do_articulation () {
 		local -a lohirand=($rr_range)
 		echo " lorand=${lohirand[0]} hirand=${lohirand[1]}"
 	fi
-	do_trigger_group $articulation
+	[[ "${beater}" == "brs" ]] && do_trigger_group $articulation
 	echo "#include \"kit_pieces/snares/${sfz_file}.sfzh\""
 #echo >&2 "articulation {$articulation}; max_duration {$max_duration}"
 }
@@ -446,7 +472,7 @@ do
 							else
 								do_articulation $drum $tuning $_sn $beater $mute $trigger $articulation - - || { echo "do_articulation failed" >&2; exit 1; }
 							fi
-							do_off_by_group $articulation "\$sn_${trigger}"
+							[[ "${beater}" == "brs" ]] && do_off_by_group $articulation "\$sn_${trigger}"
 						} >> "triggers/${beater}/snares/${file}"
 					done
 
