@@ -149,20 +149,6 @@ stx
 # Brushes, except sn_swc and sn_swu as explained above.
 @EOF
 
-# triggermap is the lookup -- "keys" is all possible triggers.
-# articulations is the mapping from trigger to kit piece for that snare.
-# "-" means play `end=-1 sample=*silence` and should generally never happen.
-# Where index exceeds articulations for snare, use "-".
-# Start at MIDI note 001 (value + 1) for each snare - mk_kits.sh overrides these; mk_sfz.sh does not
-declare -A triggermap=(
-	[keys]="head xtk rim rms rmh prs e2c rol brush_down_new brush_down_legato brush_down_legato_rls brush_drag_new brush_drag_new_rpt brush_drag_legato brush_drag_legato_rpt brush_drag_cirular brush_drag_under"
-	[head]=0 [xtk]=1 [rim]=2 [rms]=3 [rmh]=4
-	[prs]=5 [e2c]=6 [rol]=7
-	[brush_down_new]=8 [brush_down_legato]=9 [brush_down_legato_rls]=10
-	[brush_drag_new]=11 [brush_drag_new_rpt]=12 [brush_drag_legato]=13 [brush_drag_legato_rpt]=14
-	[brush_drag_cirular]=15 [brush_drag_under]=16
-)
-
 # Brushes:
 # each <region> (or inherited from <group>) with an off_by= needs a group=
 # and no unique group= can have two different off_by= values
@@ -178,27 +164,27 @@ declare -A triggermap=(
 declare -A trigger_group
 trigger_group+=(["opn_off"]="602001000"    ["opn_idx"]=1    ["opn_grp"]="502%03d001"   )
 trigger_group+=(["cls_off"]="602002000"    ["cls_idx"]=1    ["cls_grp"]="502%03d002"   )
-trigger_group+=(["clsrls_off"]="602003000" ["clsrls_idx"]=1 ["clsrls_grp"]="502%03d003" ["clsrls_poly"]=1)
-trigger_group+=(["sws_off"]="602004000"    ["sws_idx"]=1    ["sws_grp"]="502%03d004"   )
-trigger_group+=(["swsrpt_off"]="602005000" ["swsrpt_idx"]=1 ["swsrpt_grp"]="502%03d005" ["swsrpt_poly"]=2)
+trigger_group+=(["clsrls_off"]="602003000" ["clsrls_idx"]=1 ["clsrls_grp"]="502%03d003")
+trigger_group+=(["sws_off"]="602004000"    ["sws_idx"]=1    ["sws_grp"]="502%03d004"    ["sws_poly"]=2)
+trigger_group+=(["swsrpt_off"]="602005000" ["swsrpt_idx"]=1 ["swsrpt_grp"]="502%03d005")
 trigger_group+=(["swl_off"]="602006000"    ["swl_idx"]=1    ["swl_grp"]="502%03d006"   )
-trigger_group+=(["swlrpt_off"]="602007000" ["swlrpt_idx"]=1 ["swlrpt_grp"]="502%03d007" ["swlrpt_poly"]=2)
+trigger_group+=(["swlrpt_off"]="602007000" ["swlrpt_idx"]=1 ["swlrpt_grp"]="502%03d007")
 trigger_group+=(["swc_off"]="602008000"    ["swc_idx"]=1    ["swc_grp"]="502%03d008"   )
 trigger_group+=(["swu_off"]="602009000"    ["swu_idx"]=1    ["swu_grp"]="502%03d009"   )
 trigger_group+=(["rms_off"]="602010000"    ["rms_idx"]=1    ["rms_grp"]="502%03d010"   )
 
 # Maps an articulation to list of articulations that mute it - anything here requires a trigger_group entry
 declare -A off_by_map
-off_by_map+=(["opn"]="   rms     cls                                     ")
-off_by_map+=(["cls"]="                                                   ")
-off_by_map+=(["clsrls"]="                                                ")
-off_by_map+=(["sws"]="   rms                               swlrpt swc swu")
-off_by_map+=(["swsrpt"]="rms opn cls                   swl        swc swu")
-off_by_map+=(["swl"]="   rms                    swsrpt            swc swu")
-off_by_map+=(["swlrpt"]="rms opn cls        sws                   swc swu")
-off_by_map+=(["swc"]="   rms opn cls        sws swsrpt swl swlrpt     swu")
-off_by_map+=(["swu"]="   rms opn cls        sws swsrpt swl swlrpt swc    ")
-off_by_map+=(["rms"]="                                                   ")
+off_by_map+=(["rms"]="   --- --- --- ------ --- ------ --- ------ --- ---")
+off_by_map+=(["opn"]="   rms --- cls ------ --- ------ --- ------ --- ---")
+off_by_map+=(["cls"]="   rms --- --- ------ --- ------ --- ------ --- ---")
+off_by_map+=(["clsrls"]="rms opn cls ------ --- ------ --- ------ --- ---")
+off_by_map+=(["sws"]="   rms opn cls ------ --- ------ --- ------ --- ---")
+off_by_map+=(["swsrpt"]="rms opn cls ------ sws ------ swl ------ swc swu")
+off_by_map+=(["swl"]="   rms opn cls ------ sws ------ --- ------ swc swu")
+off_by_map+=(["swlrpt"]="rms opn cls ------ sws ------ swl ------ swc swu")
+off_by_map+=(["swc"]="   rms opn cls ------ sws ------ swl ------ --- swu")
+off_by_map+=(["swu"]="   rms opn cls ------ sws ------ swl ------ swc ---")
 
 
 # articulation - the triggered sample articulation that needs to be muted by something
@@ -231,14 +217,18 @@ function do_off_by_group () {
 	local key=$1; shift || { echo "do_off_by_group: Missing key" >&2; exit 1; }
 
 	local target
-	local target_articulations
+	local -A target_articulations
 	local off_by
 
 	for target in ${!off_by_map[@]}
 	do
-		target_articulations="$(echo ${off_by_map[$target]})"
-#echo >&2 "do_off_by_group: articulation {$articulation}; target {$target}; target_articulations {$target_articulations}"
-		[[ $articulation =~ ^${target_articulations// /|}$ ]] || continue
+		target_articulations=()
+		for ta in $(echo ${off_by_map[$target]})
+		do
+			[[ $ta =~ ^- ]] || target_articulations["$ta"]=1
+		done
+#echo >&2 "do_off_by_group: articulation {$articulation}; target {$target}; off_by_map[$target] (${off_by_map[$target]}); !target_articulations (${!target_articulations[@]})"
+		[[ -v target_articulations[$articulation] ]] || continue
 		off_by="${target}_off"
 		[[ -v trigger_group[$off_by] ]] || { echo "do_trigger_group: Missing trigger_group[$off_by]" >&2; exit 1; }
 #echo >&2 "do_off_by_group: key {$key}; articulation {$articulation} -> mutes target {$target}; off_by group {${trigger_group[$off_by]}}"
@@ -254,25 +244,25 @@ declare -A articulations=(
 	[sn10_jungle_off_stx]="   ord xtk rim rms rmh prs"
 	[sn10_jungle_on_stx]="    ord xtk rim rms rmh prs e2c rol"
 	[sn10_piccolo_on_stx]="   ord xtk rms rms rms prs"
-	[sn12_bop_off_brs]="      -   rms rms -   -   -   -   -   opn cls clsrls opn opn    cls cls    opn cls"
+	[sn12_bop_off_brs]="      opn rms rms cls cls -   -   -   opn cls clsrls opn opn    opn opn    opn opn"
 	[sn12_bop_off_hnd]="      ord ord ord ord ord"
 	[sn12_bop_off_mlt]="      ord ord ord ord ord"
 	[sn12_bop_off_stx_muted]="ord rms rms rms rms"
 	[sn12_bop_off_stx_open]=" ord xtk rim rms rmh prs e2c"
-	[sn12_bop_on_brs]="       -   rms rms -   -   -   -   -   opn cls clsrls sws swsrpt swl swlrpt swc swu"
+	[sn12_bop_on_brs]="       opn rms rms cls cls -   -   -   opn cls clsrls sws swsrpt swl swlrpt swc swu"
 	[sn12_bop_on_hnd]="       ord ord ord ord ord"
 	[sn12_bop_on_mlt]="       ord ord ord ord ord"
 	[sn12_bop_on_stx_muted]=" ord xtk rim rms rmh prs e2c rol"
 	[sn12_bop_on_stx_open]="  ord xtk rms rms rmh prs e2c rol"
 	[sn12_dead_on_stx]="      ord rms rms rms rms prs"
-	[sn12_funk_on_brs]="      -   cls cls -   -   -   -   -   cls cls cls    cls cls    cls cls    cls cls"
+	[sn12_funk_on_brs]="      cls cls cls cls cls -   -   -   cls cls cls    cls cls    cls cls    cls cls"
 	[sn12_funk_on_stx]="      ord xtk rms rms rmh prs e2c rol"
 	[sn12_orleans_on_stx]="   ord xtk rms rms rmh prs -   rol"
 	[sn12_tight_on_stx]="     ord xtk rms rms rmh prs e2c rol"
 	[sn14_metal_off_stx]="    ord rms rms rms rms prs"
 	[sn14_metal_on_stx]="     ord xtk rms rms rms prs"
 	[sn14_rock_off_stx]="     ord xtk rms rms rms prs"
-	[sn14_rock_on_brs]="      -   cls cls -   -   -   -   -   opn cls clsrls sws swsrpt swl swl    swc swu"
+	[sn14_rock_on_brs]="      opn cls cls cls cls -   -   -   opn cls clsrls sws swsrpt swl swl    swc swu"
 	[sn14_rock_on_stx]="      ord xtk rms rms rms prs -   rol"
 )
 
@@ -298,6 +288,20 @@ function get_articulations () {
 	fi
 }
 
+# triggermap is the lookup -- "keys" is all possible triggers.
+# articulations is the mapping from trigger to kit piece for that snare.
+# "-" means play `end=-1 sample=*silence` and should generally never happen.
+# Where index exceeds articulations for snare, use "-".
+# Start at MIDI note 001 (value + 1) for each snare - mk_kits.sh overrides these; mk_sfz.sh does not
+declare -A triggermap=(
+	[keys]="head xtk rim rms rmh prs e2c rol brush_down_new brush_down_legato brush_down_legato_rls brush_drag_new brush_drag_new_rpt brush_drag_legato brush_drag_legato_rpt brush_drag_cirular brush_drag_under"
+	[head]=0 [xtk]=1 [rim]=2 [rms]=3 [rmh]=4
+	[prs]=5 [e2c]=6 [rol]=7
+	[brush_down_new]=8 [brush_down_legato]=9 [brush_down_legato_rls]=10
+	[brush_drag_new]=11 [brush_drag_new_rpt]=12 [brush_drag_legato]=13 [brush_drag_legato_rpt]=14
+	[brush_drag_cirular]=15 [brush_drag_under]=16
+)
+
 function get_articulation () {
 	local trigger=$1; shift || { echo "get_art_ref: Missing trigger" >&2; exit 1; }
 	local -n _arts_ref=$1; shift || { echo "get_art_ref: Missing articulations array reference" >&2; exit 1; }
@@ -313,6 +317,7 @@ function get_articulation () {
 	else
 		_art_ref=${_arts_ref[$index]}
 	fi
+#echo >&2 "get_articulation: trigger {$trigger}; index {${index}}; _arts_ref[@] (${_arts_ref[@]}); _art_ref {${_art_ref}}"
 }
 
 declare -A has_rr=(
