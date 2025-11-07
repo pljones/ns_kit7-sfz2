@@ -265,6 +265,8 @@ do
 				echo " set_hdcc${cc}=0.5   label_cc${cc}=snare (cc${cc})"
 				gain_cc[snare]=${cc}
 				((cc++))
+				gain_cc[brush]=${cc}
+				((cc++))
 				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
 				do
 					tm=${t[$ti]}
@@ -333,6 +335,8 @@ do
 				sn=${k[snares]}
 				[[ -v sn_volume["${btr}-${sn}-${snare}"] ]] || { echo >&2 "sn_volume[${btr}-${sn}-${snare}] not set {${!sn_volume[@]}}"; exit 1; }
 				echo " volume=$(dc -e "${sn_volume[${btr}-${sn}-${snare}]/#-/_} 12 - p")"
+				echo " gain_cc${gain_cc[snare]}=24 volume_curvecc${gain_cc[snare]}=1"
+				[[ "${btr}" == "brs" ]] && echo " gain_cc${gain_cc[brush]}=-12 volume_curvecc${gain_cc[brush]}=4"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 
 				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
