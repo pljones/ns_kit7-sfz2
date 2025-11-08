@@ -40,7 +40,7 @@ slider25:dgbPolyAftNote=0<0,127,1>polyAft note (msg2)
 slider26:dgbPolyAftVal=0<0,127,1>polyAft val (msg3)
 
 slider27:dgbPassthru=0<0,1,1{off,on}>passthru
-slider28:dgbBrush=0<0,5,1{No Drag,New Drag,New Drag Repeat,Legato Drag,Legato Drag Repeat}>Brush state
+slider28:dbgBlocksSinceLastSnareNote=0<0,1,1>blocksSinceLastSnareNote
 
 
 @init
@@ -273,13 +273,12 @@ noteMap = malloc(-1, 128);
 // Track polyphonic aftertouch values on a per-note basis
 polyAftVal = malloc(-1, 128);
 
-// Count blocks since last snare note in brush mode.
-// Use to determine what happens next.
-blocksSinceLastBrush = -1;
-isBrushDrag = 0;
-
-// Count of note offs before phantom note expiry
-noteOffsSinceLegatoRelease = -1;
+// Brush state
+snareCCSinceBrushNote = 1;
+blocksSinceLastSnareNote = -1;
+newBlock = 0;
+sentBrushRelease = 0;
+sentBrushReleaseOff = 0;
 
 // Count blocks since last kick to decide whether to use opn or cls kick note
 blocksSinceLastKick = -1;
@@ -287,16 +286,14 @@ blocksSinceLastKick = -1;
 // Let's say a block is 64 samples at 48KHz, so 64/48000 = 0.001333333 seconds per block, 750 blocks = 1 second.
 
 @block
-// Blocks since last brush note - needs to allow up to 3.465250 seconds for brush note: or at least the attack.
-// 3.465250 seconds / 0.001333333 seconds per block = 2600.4375 blocks.
-// Let's allow 0.1 second before expiring a drag.
-blocksSinceLastBrush >= 0 ? (
-  blocksSinceLastBrush = blocksSinceLastBrush + 1;
-  blocksSinceLastBrush > 120 ? (
-    blocksSinceLastBrush = -1; // reset
-    isBrushDrag = 0; // reset brush drag mode
-  );
+newBlock = 1;
+blocksSinceLastSnareNote >= 0 ? (
+  blocksSinceLastSnareNote = blocksSinceLastSnareNote + 1;
+  blocksSinceLastSnareNote > 2000 ? (
+    blocksSinceLastSnareNote = -1;
+  )
 );
+dbgBlocksSinceLastSnareNote = blocksSinceLastSnareNote;
 
 // Blocks since last kick note.
 // This affects the first note in a run, rather than the last note, which is what's really wanted.
@@ -305,6 +302,17 @@ blocksSinceLastKick >= 0 ? (
   blocksSinceLastKick > 750 ? (
     blocksSinceLastKick = -1; // reset
   );
+);
+
+brushKit && sentBrushRelease == 1 && sentBrushReleaseOff == 0 ? (
+  sentBrushReleaseOff = 1;
+  midisend(offset, (0x0A | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 1);
+);
+brushKit && blocksSinceLastSnareNote > 1 && sentBrushRelease == 0 ? (
+  // entire block with no snare notes
+  sentBrushRelease = 1;
+  sentBrushReleaseOff = 0;
+  midisend(offset, (0x0A | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 1);
 );
 
 while (midirecv(offset, msg1, msg2, msg3)) (
@@ -316,28 +324,11 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   ((cmd == noteOff) || ((cmd == noteOn) && (msg3 == 0))) ? (
     noteMap[msg2] >= 0 ? (
       midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
-      passthru = 0;
+      0;
     );
+    (noteMap[msg2] != -1) ? passthru = 0;
     dgbNoteOffNote = (noteMap[msg2] < 0) ? msg2 : (noteMap[msg2] & 0x7F);
     dgbNoteOffVal = msg3;
-
-    // Magic brush kit legato release
-    brushKit ? (
-      (noteOffsSinceLegatoRelease == -1) ? (
-        ((noteMap[msg2] == trigger_snare + zone_sn_brush_down_legato)) ? (
-          // maybe sending the release wants delaying?
-          midisend(offset, (msg1 & 0x0F | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, msg3);
-          noteOffsSinceLegatoRelease = 0; // start counting
-        )
-      ) : (
-        noteOffsSinceLegatoRelease = noteOffsSinceLegatoRelease + 1;
-        noteOffsSinceLegatoRelease > 5 ? (
-          // Release phantom note
-          midisend(offset, (msg1 & 0x0F | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 64);
-          noteOffsSinceLegatoRelease = -1; // stop counting
-        );
-      );
-    );
 
 
   ) : (cmd == noteOn) ? (
@@ -361,54 +352,48 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     // zone_sn_prs = 5; - zone unmapped
     // zone_sn_e2c = 6; - zone unmapped
     // zone_sn_rol = 7; - zone unmapped
-    // zone_sn_brush_down_legato_rls = 10; - mapped in noteOff
-    // zone_sn_brush_drag_cirular = 15; - zone unmapped (no exclusive off yet; actually it has but still unmapped)
+    // zone_sn_brush_drag_cirular = 15; - zone unmapped
     // zone_sn_brush_drag_under = 16; - zone unmapped
     ((msg2 == noteSnareHead) || (msg2 == noteSnareBrush)) ? (
       brushKit ? (
-        // Snare brush mode zones
-        // ideally turn some of this into CCs and model more in the samples
-        // (e.g. send some with velocity, in place of these lost notes
-        // or see https://sfzformat.com/tutorials/brush_stirs)
-        (blocksSinceLastBrush < 0) ? blocksSinceLastBrush = 0; // start counting blocks
-        // Try to ignore jittery triggering
-        (blocksSinceLastBrush < 40) ? (
-          passthru = 0;
-        ) : (
-          noteMap[msg2] = trigger_snare + (
-            (isBrushDrag == 0) ? (
-              isBrushDrag = 1; // set up for brush drag new mode
-              zone_sn_brush_down_new
-            ) : (
-              (isBrushDrag == 1) ? (
-                // only the second trigger causes drag_new
-                isBrushDrag = 2;
-                zone_sn_brush_drag_new
-              ) : (
-                // subsequent slow triggers are repeat drag_news
-                ((isBrushDrag == 2 || isBrushDrag == 3) && blocksSinceLastBrush > 80) ? (
-                  isBrushDrag = 3;
-                  zone_sn_brush_drag_new_rpt
-                ) : (
-                  // legato.  Where have we got to?
-                  (isBrushDrag == 4 && blocksSinceLastBrush > 90) ? (
-                    // "new" legato has happened, late enough for repeat
-                    isBrushDrag = 5;
-                    zone_sn_brush_drag_legato_rpt
-                  ) : (
-                    // either "new" legato or too long since last new one
-                    isBrushDrag = 4;
-                    zone_sn_brush_drag_legato
-                  )
-                )
-              )
-            )
-          );
-          // after dealing with a valid brush note, start counting again
-          blocksSinceLastBrush = 0;
+        // OK, so we've gone for a simple model:
+        // - snareCCSinceBrushNote or timeout - used to trigger "first note"
+        // - blocksSinceLastSnareNote > 300   - used to trigger "subsequent note"
+        // - *all* later notes now map to polyAft
+        // can make it more complex later
+        //
+        // -> zone_sn_brush_down_new
+        // -> zone_sn_brush_down_legato
+        // -> zone_sn_brush_down_legato_rls
+        // -> zone_sn_brush_drag_new
+        // -> zone_sn_brush_drag_new_rpt
+        // -> zone_sn_brush_drag_legato
+        // -> zone_sn_brush_drag_legato_rpt
+
+        // drag legato repeat by default
+        // polyAft by default
+        noteMap[msg2] = trigger_snare + zone_sn_brush_drag_legato_rpt;
+        snareCCSinceBrushNote || blocksSinceLastSnareNote == -1 ? (
+          // First brush note since reset so drag new
+          noteMap[msg2] = trigger_snare + zone_sn_brush_drag_new;
         );
+        ( snareCCSinceBrushNote || blocksSinceLastSnareNote == -1 ) || blocksSinceLastSnareNote > 10 ? (
+          // New note
+          snareCCSinceBrushNote = 0;
+          blocksSinceLastSnareNote = 0;
+          newBlock = 0;
+        ) : (
+          // Send remaining brush notes as polyphonic aftertouch
+          //newBlock && midisend(offset, ((msg1 & 0x0F) | polyAft) & 0xFF, noteMap[msg2] & 0x7F, (128 - msg3) & 0x7F);
+          newBlock = 0;
+          // Suppress note on
+          noteMap[msg2] = -2;
+          passthru = 0;
+        );
+
+
       ) : (
-        noteMap[msg2] = trigger_snare + zone_sn_head
+        noteMap[msg2] = trigger_snare + zone_sn_head;
       );
     ) :
     (msg2 == noteSnareRim) ? (
@@ -453,10 +438,11 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     // zone_hh_spl = 6; - TD-27 does not *send* a splash note nor any way to guess it
     ((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
       noteMap[msg2] = trigger_hh + (hihatCCVal == 0 ? zone_hh_bel : (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r));
+    ) :
     // Due to hihatCCVal being useless, ignore it
     //((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
     //  noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r);
-    ) :
+    //) :
     ((msg2 == noteHiHatOpenEdge) || (msg2 == noteHiHatCloseEdge)) ? (
       noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_rim_l : zone_hh_rim_r);
     ) :
@@ -515,18 +501,20 @@ while (midirecv(offset, msg1, msg2, msg3)) (
 
     dbgMappedNote = noteMap[msg2];
 
-    (noteMap[msg2] != -1) ? (
+    (noteMap[msg2] >= 0) ? (
       // If we have a mapping, send the noteOn with the mapped note number and indicate no passthru
       midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
-      passthru = 0;
+      0;
     );
+    noteMap[msg2] != -1 ? passthru = 0;
 
 
   ) : (cmd == polyAft) ? (
     noteMap[msg2] >= 0 ? (
       midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
-      passthru = 0;
+      0;
     );
+    noteMap[msg2] != -1 ? passthru = 0;
     dgbPolyAftNote = (noteMap[msg2] < 0 ? msg2 : (noteMap[msg2] & 0x7F));
     dgbPolyAftVal = msg3;
 
@@ -535,6 +523,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     (msg2 == snareCC) ? (
       snareCCVal = msg3;
       dgbSnareVal = snareCCVal;
+      snareCCSinceBrushNote = 1;
       passthru = 0;
     ) :
     (msg2 == rideCC) ? (
@@ -579,7 +568,6 @@ while (midirecv(offset, msg1, msg2, msg3)) (
   );
 
   dgbPassthru = passthru;
-  (passthru == 1) ? midisend(offset, msg1, msg2, msg3);
+  passthru ? midisend(offset, msg1, msg2, msg3);
 
-  dgbBrush=isBrushDrag;
 )
