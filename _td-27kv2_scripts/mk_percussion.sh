@@ -44,12 +44,11 @@ do
 			mkdir -p "triggers/$beater/percussion"
 			get_durations "$f" max_duration
 
-			trigger="\$${percussion}_${articulation}_${position}"
+			trigger="${percussion}_${articulation}_${position}"
 			[[ -v keys[$trigger] ]] || { keys[$trigger]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} ${trigger}" || keys[keys]="${trigger}"; }
 [[ ! -f $t ]] && echo >&2 "$t"
 			{
-				echo "<group>"
-				echo " key=$trigger"
+				echo "<group> key=\$$trigger group_label=$trigger"
 				echo "#include \"$f\""
 				echo ""
 			} >> $t
@@ -65,7 +64,7 @@ do
 				i=1
 				for key in $(echo ${keys[keys]})
 				do
-					printf '#define %s %03d\n' ${key} $i
+					printf '#define $%s %03d\n' ${key} $i
 					(( i += 1 ))
 				done
 				echo ""
@@ -88,8 +87,7 @@ function do_rr () {
 
 	[[ $articulation == rol ]] || get_durations $f max_ref
 
-	echo "<group>"
-	echo " key=$trigger"
+	echo "<group> key=\$$trigger group_label=$trigger"
 	[[ "$lo_rr" == '' && "$hi_rr" == '' ]] || echo " lorand=${lo_rr} hirand=${hi_rr}"
 	echo "#include \"$f\""
 }
@@ -110,7 +108,7 @@ do
 	do
 		# {
 
-		trigger="\$${percussion}_${articulation}"
+		trigger="${percussion}_${articulation}"
 		[[ -v keys[$trigger] ]] || { keys[$trigger]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} ${trigger}" || keys[keys]="${trigger}"; }
 [[ ! -f $t ]] && echo >&2 "$t"
 		f="kit_pieces/percussion/tambourine_pn9_${beater}_${articulation}"
@@ -133,7 +131,7 @@ do
 			i=1
 			for key in $(echo ${keys[keys]})
 			do
-				printf '#define %s %03d\n' ${key} $i
+				printf '#define $%s %03d\n' ${key} $i
 				(( i += 1 ))
 			done
 			echo ""

@@ -40,7 +40,7 @@ function do_articulation () {
 	local articulation=$1; shift || { echo "Missing articulation" >&2; exit 1; }
 	local hand=$1;         shift || { echo "Missing hand"         >&2; exit 1; }
 
-	key="\$${tom}_${articulation}"
+	key="${tom}_${articulation}"
 	file="kit_pieces/toms/${tom}_${tuning}_${beater}_snare_${snare}_${articulation}"
 	[[ -z "$hand" ]] || {
 		key="${key}_${hand}"
@@ -53,8 +53,7 @@ function do_articulation () {
 	get_durations $file max_duration
 
 	[[ -v keys[$key] ]] || { keys[$key]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} $key" || keys[keys]=$key; }
-	echo "<group>"
-	echo " key=$key"
+	echo "<group> key=\$$key group_label=$key"
 	echo "#include \"$file\""
 }
 
@@ -99,7 +98,7 @@ echo >&2 triggers/$beater/toms/$t
 					i=1
 					for key in $(echo ${keys[keys]})
 					do
-						printf '#define %s %03d\n' ${key} $i
+						printf '#define $%s %03d\n' ${key} $i
 						(( i += 1 ))
 					done | sort -k2,2n
 					echo ""

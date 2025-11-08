@@ -156,27 +156,29 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 					# ignore rolls
 					[[ $articulation == rol ]] || get_durations kit_pieces/cymbals/${f}.sfzh max_duration
 
-					key="\$${cymbal}_${position}$([[ $zone == - ]] || echo "_${zone}")"
+					key="${cymbal}_${position}$([[ $zone == - ]] || echo "_${zone}")"
 					group=$(printf "%03d\n" $c)
 					[[ -v keys[$key] ]] || { keys[$key]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} $key" || keys[keys]=$key; }
 
-					echo "<group> key=${key}"
 					if $is_grab
 					then
+						group_no="600${group}$(printf "%03d\n" $i)"
+						echo "<group> key=\$${key} group=${group_no} group_label=${key}_grab"
 						echo " lopolyaft=064 hipolyaft=127"
-						echo " group=600${group}$(printf "%03d\n" $i)"
 					else
+						group_no="500${group}$(printf "%03d\n" $i)"
+						echo "<group> key=\$${key} group=${group_no} group_label=${key}_${articulation}"
+						echo " off_by=600${group}$(printf "%03d\n" $i)"
 						echo " lopolyaft=000 hipolyaft=063"
-						echo " group=500${group}$(printf "%03d\n" $i) off_by=600${group}$(printf "%03d\n" $i)"
 					fi
 					echo "#include \"kit_pieces/cymbals/${f}.sfzh\""
 
 					if ! $is_grab
 					then
-						echo "<group> <region> key=-1 end=-1"
-						echo " on_locc130=001 on_hicc130=127 locc133=${key} hicc133=${key}"
-						echo " group=600${group}$(printf "%03d\n" $i)"
-						echo " sample=*silence"
+						group_no="600${group}$(printf "%03d\n" $i)"
+						echo "<group> key=-1 group=${group_no} group_label=${key}_mute"
+						echo " on_locc130=001 on_hicc130=127 locc133=\$${key} hicc133=\$${key}"
+						echo "<region> end=-1 sample=*silence"
 					fi
 
 					echo ""
@@ -197,7 +199,7 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 			i=1
 			for key in $(echo ${keys[keys]})
 			do
-				printf '#define %s %03d\n' ${key} $i
+				printf '#define $%s %03d\n' ${key} $i
 				(( i += 1 ))
 			done
 			echo ""

@@ -34,7 +34,7 @@ do
 					do
 						f="kit_pieces/kicks/${kick}_snare_${snare}_${pos}$([[ -z $rr ]] && echo '' || echo '_'$rr)$([[ -z $mishit ]] && echo '' || echo '_'$mishit).sfzh"
 						[[ -f "$f" ]] || continue
-						trigger=\$"${kick}_$pos$([[ -z $mishit ]] && echo '' || echo '_'$mishit)"
+						trigger="${kick}_$pos$([[ -z $mishit ]] && echo '' || echo '_'$mishit)"
 						[[ -v keys[$trigger] ]] || {
 							keys[$trigger]=1
 							[[ -v keys[keys] ]] \
@@ -44,8 +44,7 @@ do
 						get_durations $f max_duration
 [[ -f "$t" ]] || echo >&2 "$t"
 						{
-						echo "<group>"
-						echo " key=$trigger"
+						echo "<group> key=\$$trigger group_label=$trigger"
 						[[ "$rr" == "a" ]] && echo " lorand=0.00 hirand=0.50"
 						[[ "$rr" == "b" ]] && echo " lorand=0.50 hirand=1.00"
 						echo "#include \"$f\""
@@ -64,7 +63,7 @@ do
 					i=1
 					for key in $(echo ${keys[keys]})
 					do
-						printf '#define %s %03d\n' ${key} $i
+						printf '#define $%s %03d\n' ${key} $i
 						(( i += 1 ))
 					done
 					echo ""

@@ -51,24 +51,32 @@ Some triggers always mute: pedal, splash and grab; plus any polyphonic aftertouc
 @COMMENT
 
 cat > triggers/hihat-grab-mutes.sfzh <<-'@EOF'
-<region> key=$hh_bel      locc130=64    hicc130=127                                     sample=*silence
-<region> key=$hh_top_l    locc130=64    hicc130=127                                     sample=*silence
-<region> key=$hh_top_r    locc130=64    hicc130=127                                     sample=*silence
-<region> key=$hh_rim_l    locc130=64    hicc130=127                                     sample=*silence
-<region> key=$hh_rim_r    locc130=64    hicc130=127                                     sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel   sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l sample=*silence
-<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r sample=*silence
+<region> key=$hh_bel      locc130=64    hicc130=127
+<region> key=$hh_top_l    locc130=64    hicc130=127
+<region> key=$hh_top_r    locc130=64    hicc130=127
+<region> key=$hh_rim_l    locc130=64    hicc130=127
+<region> key=$hh_rim_r    locc130=64    hicc130=127
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_bel   hicc133=$hh_bel
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_l hicc133=$hh_top_l
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_top_r hicc133=$hh_top_r
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_l hicc133=$hh_rim_l
+<region> key=-1        on_locc130=1  on_hicc130=127 locc133=$hh_rim_r hicc133=$hh_rim_r
 @EOF
-cat > triggers/hihat-pedal-mutes.sfzh <<-'@EOF'
-<region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4      sample=*silence
-<region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
-<region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
-<region> key=$hh_rim_l                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
-<region> key=$hh_rim_r                              locc4=$LOCC4      hicc4=$HICC4      sample=*silence
+function do_grab_mutes() {
+	echo '#include "triggers/hihat-grab-mutes.sfzh"'
+}
+
+function do_pedal_mutes() {
+	local locc4=$1; shift || { echo "No locc4 supplied" >&1; exit 1; }
+	local hicc4=$1; shift || { echo "No hicc4 supplied" >&1; exit 1; }
+	sed -e 's/\$LOCC4/'$locc4'/g' -e 's/\$HICC4/'$hicc4'/g' <<-'@EOF'
+<region> key=$hh_bel                                locc4=$LOCC4      hicc4=$HICC4
+<region> key=$hh_top_l                              locc4=$LOCC4      hicc4=$HICC4
+<region> key=$hh_top_r                              locc4=$LOCC4      hicc4=$HICC4
+<region> key=$hh_rim_l                              locc4=$LOCC4      hicc4=$HICC4
+<region> key=$hh_rim_r                              locc4=$LOCC4      hicc4=$HICC4
 @EOF
+}
 
 # Map hihat/beater/position/grab/hand to an "articulation" and return the available opennesses for that articulation.
 # (This is all the messy logic.)
@@ -231,15 +239,17 @@ function do_group () {
 	local lo=$1;           shift || { echo "Missing lo"        >&2; exit 1; }
 	local hi=$1;           shift || { echo "Missing hi"        >&2; exit 1; }
 	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
-	local off_group=$(printf '%s%s%s' $(( 100 + $group )) ${trigger} ${off_by})
+	local group_no="${group}\$${trigger}${off_by}"
+	local off_group=$(printf '%s$%s%s' $(( 100 + $group )) ${trigger} ${off_by})
 
 	[[ -f "kit_pieces/hihats/${f}_${a_o}.sfzh" ]] || { echo "new $f not found" >&2; exit 1; }
 	[[ -f "../hihats/${f}_${a_o}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
 	get_durations kit_pieces/hihats/${f}_${a_o}.sfzh max_duration
 
-	echo "<group>"
-	echo " group=${group}${trigger}${off_by} off_by=${off_group}"
-	echo " key=$trigger"
+	local group_label="$f"
+	[[ $lo != "000" || $hi != "127" ]] && group_label+="_${lo}_${hi}"
+	echo "<group> key=\$$trigger group=${group_no} group_label=${group_label}"
+	echo " off_by=${off_group}"
 	[[ $grab == free ]] && echo " lopolyaft=000 hipolyaft=063"
 	[[ $grab == held ]] && echo " lopolyaft=064 hipolyaft=127"
 	if [[ $lo != "000" || $hi != "127" ]]
@@ -264,30 +274,29 @@ function do_off_by () {
 	local lo=$1;      shift || { echo "Missing lo"      >&2; exit 1; }
 	local hi=$1;      shift || { echo "Missing hi"      >&2; exit 1; }
 	[[ $# -eq 0 ]] || { echo "Unexpected trailing parameters: [$@]" >&2; exit 1; }
-	local off_group=$(printf '%s%s%s' $(( 100 + $group )) ${trigger} ${off_by})
+	local off_group=$(printf '%s$%s%s' $(( 100 + $group )) ${trigger} ${off_by})
 
-	echo "<group> group=${off_group} end=-1"
+	local group_label="${trigger}"
+	[[ $lo != "000" || $hi != "127" ]] && group_label+="_${lo}_${hi}"
+	[[ $grab == free ]]                && group_label+="_grab"
+	group_label+="_mute"
+	echo "<group> group=${off_group} group_label=${group_label}"
+	echo ' end=-1 sample=*silence'
 	if [[ $trigger != '$hh_ped' ]]
 	then
-		cat <<-'@EOF'
-<region> key=$hh_ped sample=*silence
-@EOF
+		echo '<region> key=$hh_ped'
 	fi
 	if [[ $trigger != '$hh_spl' ]]
 	then
-		cat <<-'@EOF'
-<region> key=$hh_spl sample=*silence
-@EOF
+		echo '<region> key=$hh_spl'
 	fi
 	if [[ $lo != "000" || $hi != "127" ]]
 	then
-		echo "#define \$LOCC4 $lo"
-		echo "#define \$HICC4 $hi"
-		echo "#include \"triggers/hihat-pedal-mutes.sfzh\""
+		do_pedal_mutes $lo $hi
 	fi
 	if [[ $grab == free ]]
 	then
-		echo "#include \"triggers/hihat-grab-mutes.sfzh\""
+		do_grab_mutes
 	fi
 }
 
@@ -327,10 +336,10 @@ function write_articulation () {
 	if [[ $articulation =~ ^ped|spl$ ]]
 	then
 		f="${hihat}_${articulation}"
-		trigger="\$hh_${articulation}"
+		trigger="hh_${articulation}"
 	else
 		f="${hihat}_${beater}_${articulation}"
-		trigger="\$hh_${position}$([[ $hand == - ]] || echo "_$hand")"
+		trigger="hh_${position}$([[ $hand == - ]] || echo "_$hand")"
 	fi
 
 	if [[ ! -v triggers[$trigger] ]]
@@ -493,7 +502,7 @@ function write_triggers () {
 	midi_note=1
 	for key in $(echo ${_keys[keys]})
 	do
-		printf '#define %s %03d\n' ${key} ${midi_note}
+		printf '#define $%s %03d\n' ${key} ${midi_note}
 		(( midi_note += 1 ))
 	done
 
