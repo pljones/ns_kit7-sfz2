@@ -49,8 +49,8 @@ Overall timer (sample counter) needs to check whether we've had a Note On recent
 
 Flow A - Note On following Snare Position CC without intervening Note On
 - Flow A1 - Timer has expired
-  - if we last sent sn_brush_drag_new, send sn_brush_drag_new_rpt
-  - else if we last sent sn_brush_down_legato, send sn_brush_down_legato_rls
+  - if we last sent sn_brush_drag_new, send sn_brush_drag_rpt_new
+  - else if we last sent sn_brush_down_legato, send sn_brush_down_rls_legato
   - else sn_brush_down_new
 - Flow A2 - Timer has not expired
   - sn_brush_down_legato
@@ -59,18 +59,18 @@ Flow B - Note On following Note On without intervening Snare Position CC (i.e. n
   - if we last sent sn_brush_drag_legato, send sn_brush_drag_legato
   - else sn_brush_drag_new
 - Flow B2 - Timer has not expired
-  - if we last sent sn_brush_drag_legato, send sn_brush_drag_legato_rpt
+  - if we last sent sn_brush_drag_legato, send sn_brush_drag_rpt_legato
   - else sn_brush_drag_legato
 
 We do NOT get a valid position from Snare Position CC for brush notes
 
 sn_brush_down_new:        opn
 sn_brush_down_legato:     cls
-sn_brush_down_legato_rls: clsrls or end=-1 sample=*silence
+sn_brush_down_rls_legato: clsrls or end=-1 sample=*silence
 sn_brush_drag_new:        sws
-sn_brush_drag_new_rpt:    swsrpt or sws
+sn_brush_drag_rpt_new:    swsrpt or sws
 sn_brush_drag_legato:     swl
-sn_brush_drag_legato_rpt: swlrpt or swl
+sn_brush_drag_rpt_legato: swlrpt or swl
 sn_brush_drag_cirular:    swc
 sn_brush_drag_under:      swu
 sn_xtk:                   xtk
@@ -80,7 +80,7 @@ sn_rim:                   rim
 cls may have clsrls (bop, rock/w) to be triggered when the brush leaves the head
 swl/sws may have swlrpt/swsrpt (swl/sws: bop/w; sws: rock/w) to be triggered when continuing the sweep
 
-swc, cirular sweep, and swu, sweep under, are not supported.
+swc, cirular sweep, and swu, sweep under, are not supported.  (swu is "the other hand" so does not mute anything.)
 
    |------- sn10 ------|----------------------------- sn12 ----------------------------|------- sn14 ------|
      jungle  | piccolo |           bop         |   dead  |  funk   | orleans |  tight  | metal   |  rock   | trigger
@@ -103,7 +103,7 @@ brs
 
 *2: sn_brush_drag_new, sn_brush_drag_legato:
     sws/swl may have swsrpt/swlrpt (sws/swl: bop/w; sws: rock/w) to be triggered for repeated strokes
-    or, where no swsrpt/swlrpt, sws/swl
+    or, where no swsrpt/swlrpt, clsrls or end=-1 sample=*silence
 
 @EOF
 : <<-'@EOF'
@@ -167,24 +167,24 @@ trigger_group+=(["cls_off"]="606002000"    ["cls_idx"]=1    ["cls_grp"]="506%03d
 trigger_group+=(["clsrls_off"]="606003000" ["clsrls_idx"]=1 ["clsrls_grp"]="506%03d003")
 trigger_group+=(["sws_off"]="606004000"    ["sws_idx"]=1    ["sws_grp"]="506%03d004"    ["sws_poly"]=2)
 trigger_group+=(["swsrpt_off"]="606005000" ["swsrpt_idx"]=1 ["swsrpt_grp"]="506%03d005")
-trigger_group+=(["swl_off"]="606006000"    ["swl_idx"]=1    ["swl_grp"]="506%03d006"   )
+trigger_group+=(["swl_off"]="606006000"    ["swl_idx"]=1    ["swl_grp"]="506%03d006"    ["swl_poly"]=2)
 trigger_group+=(["swlrpt_off"]="606007000" ["swlrpt_idx"]=1 ["swlrpt_grp"]="506%03d007")
-trigger_group+=(["swc_off"]="606008000"    ["swc_idx"]=1    ["swc_grp"]="506%03d008"   )
+trigger_group+=(["swc_off"]="606008000"    ["swc_idx"]=1    ["swc_grp"]="506%03d008"    ["swc_poly"]=2)
 trigger_group+=(["swu_off"]="606009000"    ["swu_idx"]=1    ["swu_grp"]="506%03d009"   )
 trigger_group+=(["rms_off"]="606010000"    ["rms_idx"]=1    ["rms_grp"]="506%03d010"   )
 
 # Maps an articulation to list of articulations that mute it - anything here requires a trigger_group entry
 declare -A off_by_map
 off_by_map+=(["rms"]="   --- --- --- ------ --- ------ --- ------ --- ---")
-off_by_map+=(["opn"]="   rms --- cls ------ --- ------ --- ------ --- ---")
+off_by_map+=(["opn"]="   rms --- cls clsrls --- ------ --- ------ --- ---")
 off_by_map+=(["cls"]="   rms --- --- ------ --- ------ --- ------ --- ---")
 off_by_map+=(["clsrls"]="rms opn cls ------ --- ------ --- ------ --- ---")
 off_by_map+=(["sws"]="   rms opn cls ------ --- ------ --- ------ --- ---")
-off_by_map+=(["swsrpt"]="rms opn cls ------ sws ------ swl ------ swc swu")
-off_by_map+=(["swl"]="   rms opn cls ------ sws ------ --- ------ swc swu")
-off_by_map+=(["swlrpt"]="rms opn cls ------ sws ------ swl ------ swc swu")
-off_by_map+=(["swc"]="   rms opn cls ------ sws ------ swl ------ --- swu")
-off_by_map+=(["swu"]="   rms opn cls ------ sws ------ swl ------ swc ---")
+off_by_map+=(["swsrpt"]="rms opn cls clsrls sws ------ swl ------ swc ---")
+off_by_map+=(["swl"]="   rms opn cls clsrls sws swsrpt --- swlrpt swc ---")
+off_by_map+=(["swlrpt"]="rms opn cls clsrls sws swsrpt swl ------ swc ---")
+off_by_map+=(["swc"]="   rms opn cls clsrls sws swsrpt swl swlrpt --- ---")
+off_by_map+=(["swu"]="   rms opn cls clsrls --- ------ --- ------ --- ---")
 
 
 # articulation - the triggered sample articulation that needs to be muted by something
@@ -204,7 +204,7 @@ function do_brush_group () {
 	local poly=""
 	if [[ -v trigger_group[${articulation}_poly] ]]
 	then
-		poly=" polyphony=${trigger_group[${articulation}_poly]}"
+		poly=" note_polyphony=${trigger_group[${articulation}_poly]}"
 	fi
 
 	echo "<group> key=\$sn_${trigger} group=${group_no} group_label=sn_${trigger}_${articulation}"
@@ -248,7 +248,7 @@ declare -A articulations=(
 	[sn10_jungle_off_stx]="   ord xtk rim rms rmh prs"
 	[sn10_jungle_on_stx]="    ord xtk rim rms rmh prs e2c rol"
 	[sn10_piccolo_on_stx]="   ord xtk rms rms rms prs"
-	[sn12_bop_off_brs]="      opn rms rms cls cls -   -   -   opn cls clsrls opn opn    opn opn    opn opn"
+	[sn12_bop_off_brs]="      opn rms rms cls cls -   -   -   opn cls clsrls opn clsrls opn clsrls opn opn"
 	[sn12_bop_off_hnd]="      ord ord ord ord ord"
 	[sn12_bop_off_mlt]="      ord ord ord ord ord"
 	[sn12_bop_off_stx_muted]="ord rms rms rms rms"
@@ -266,7 +266,7 @@ declare -A articulations=(
 	[sn14_metal_off_stx]="    ord rms rms rms rms prs"
 	[sn14_metal_on_stx]="     ord xtk rms rms rms prs"
 	[sn14_rock_off_stx]="     ord xtk rms rms rms prs"
-	[sn14_rock_on_brs]="      opn cls cls cls cls -   -   -   opn cls clsrls sws swsrpt swl swl    swc swu"
+	[sn14_rock_on_brs]="      opn cls cls cls cls -   -   -   opn cls clsrls sws swsrpt swl clsrls swc swu"
 	[sn14_rock_on_stx]="      ord xtk rms rms rms prs -   rol"
 )
 

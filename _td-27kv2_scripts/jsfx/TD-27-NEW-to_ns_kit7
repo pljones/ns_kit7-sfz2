@@ -169,11 +169,11 @@ zone_sn_rol  = 7;
 // Snare brush mode zones
 zone_sn_brush_down_new        = 8;
 zone_sn_brush_down_legato     = 9;
-zone_sn_brush_down_legato_rls = 10;
+zone_sn_brush_down_rls_legato = 10;
 zone_sn_brush_drag_new        = 11;
-zone_sn_brush_drag_new_rpt    = 12;
+zone_sn_brush_drag_rpt_new    = 12;
 zone_sn_brush_drag_legato     = 13;
-zone_sn_brush_drag_legato_rpt = 14;
+zone_sn_brush_drag_rpt_legato = 14;
 zone_sn_brush_drag_cirular    = 15;
 zone_sn_brush_drag_under      = 16;
 
@@ -289,7 +289,7 @@ blocksSinceLastKick = -1;
 newBlock = 1;
 blocksSinceLastSnareNote >= 0 ? (
   blocksSinceLastSnareNote = blocksSinceLastSnareNote + 1;
-  blocksSinceLastSnareNote > 2000 ? (
+  blocksSinceLastSnareNote > 160 ? (
     blocksSinceLastSnareNote = -1;
   )
 );
@@ -306,13 +306,13 @@ blocksSinceLastKick >= 0 ? (
 
 brushKit && sentBrushRelease == 1 && sentBrushReleaseOff == 0 ? (
   sentBrushReleaseOff = 1;
-  midisend(offset, (0x0A | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 1);
+  midisend(offset, (0x0A | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
 );
-brushKit && blocksSinceLastSnareNote > 1 && sentBrushRelease == 0 ? (
-  // entire block with no snare notes
+brushKit && blocksSinceLastSnareNote > 150 && sentBrushRelease == 0 ? (
+  // brushes stopped
   sentBrushRelease = 1;
   sentBrushReleaseOff = 0;
-  midisend(offset, (0x0A | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_legato_rls) & 0x7F, 1);
+  midisend(offset, (0x0A | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
 );
 
 while (midirecv(offset, msg1, msg2, msg3)) (
@@ -358,30 +358,29 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       brushKit ? (
         // OK, so we've gone for a simple model:
         // - snareCCSinceBrushNote or timeout - used to trigger "first note"
-        // - blocksSinceLastSnareNote > 300   - used to trigger "subsequent note"
+        // - blocksSinceLastSnareNote >= 3    - used to trigger "subsequent note"
         // - *all* later notes now map to polyAft
         // can make it more complex later
         //
         // -> zone_sn_brush_down_new
         // -> zone_sn_brush_down_legato
-        // -> zone_sn_brush_down_legato_rls
+        // -> zone_sn_brush_down_rls_legato -- when brush stops moving
         // -> zone_sn_brush_drag_new
-        // -> zone_sn_brush_drag_new_rpt
+        // -> zone_sn_brush_drag_rpt_new
         // -> zone_sn_brush_drag_legato
-        // -> zone_sn_brush_drag_legato_rpt
+        // -> zone_sn_brush_drag_rpt_legato
 
-        // drag legato repeat by default
-        // polyAft by default
-        noteMap[msg2] = trigger_snare + zone_sn_brush_drag_legato_rpt;
-        snareCCSinceBrushNote || blocksSinceLastSnareNote == -1 ? (
+        noteMap[msg2] = trigger_snare + zone_sn_brush_drag_legato;
+        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) && blocksSinceLastSnareNote <= 50 ? (
           // First brush note since reset so drag new
-          noteMap[msg2] = trigger_snare + zone_sn_brush_drag_new;
+          noteMap[msg2] = trigger_snare + zone_sn_brush_down_legato;
         );
-        ( snareCCSinceBrushNote || blocksSinceLastSnareNote == -1 ) || blocksSinceLastSnareNote > 10 ? (
+        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) || (newBlock && blocksSinceLastSnareNote > 50) ? (
           // New note
           snareCCSinceBrushNote = 0;
           blocksSinceLastSnareNote = 0;
           newBlock = 0;
+          sentBrushRelease = 0;
         ) : (
           // Send remaining brush notes as polyphonic aftertouch
           //newBlock && midisend(offset, ((msg1 & 0x0F) | polyAft) & 0xFF, noteMap[msg2] & 0x7F, (128 - msg3) & 0x7F);
