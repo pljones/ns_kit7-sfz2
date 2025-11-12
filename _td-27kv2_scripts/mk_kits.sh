@@ -43,6 +43,20 @@ function override_defines () {
 	grep -v '^\(#define\|$\)' "${trigger_file}"
 }
 
+# Function to calculate and format volume adjustment
+# Usage: emit_volume_line array_name key
+# Takes a value from the associative array, subtracts 12, and emits formatted volume line
+function emit_volume_line() {
+    local -n arr_ref=$1; shift || { echo "emit_volume_line: Missing arr_ref" >&2; exit 1; }
+    local key=$1; shift || { echo "emit_volume_line: Missing key" >&2; exit 1; }
+	[[ -v arr_ref[$key] ]] || { echo "No {$key} in (${!arr_ref[@]})"; exit 1; }
+    local value=${arr_ref[$key]}
+
+    awk -v val="$value" 'BEGIN {
+        printf " volume=%.2f\n", (val - 12)
+    }'
+}
+
 rm -rf _kits
 mkdir _kits
 
@@ -308,7 +322,7 @@ do
 				do
 					echo ''
 					echo '<master>'
-					echo " volume=$(dc -e "${cy_volume[${btr}-${cy}]/#-/_} 12 - p")"
+					emit_volume_line cy_volume "${btr}-${cy}"
 					echo " gain_cc${gain_cc[$cy]}=24 volume_curvecc${gain_cc[$cy]}=1"
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
@@ -318,7 +332,7 @@ do
 
 					echo ''
 					echo '<master>'
-					echo " volume=$(dc -e "${hh_volume[${the_hihat_beater}-${the_hihat}]/#-/_} 12 - p")"
+					emit_volume_line hh_volume "${the_hihat_beater}-${the_hihat}"
 					echo " gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
 					if [[ $hh == - ]]
 					then
@@ -331,36 +345,30 @@ do
 
 				echo ''
 				echo '<master>'
-				kick=${k[kicks]}
-				[[ -v kick_volume[$kick] ]] || { echo >&2 "kick_volume[$kick] not set {${!kick_volume[@]}}"; exit 1; }
-				echo " volume=$(dc -e "${kick_volume[$kick]/#-/_} 12 - p")"
+				emit_volume_line kick_volume "${k[kicks]}"
 				echo " gain_cc${gain_cc[kick]}=24 volume_curvecc${gain_cc[kick]}=1"
 				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
 
 				echo ''
 				echo '<master>'
-				sn=${k[snares]}
-				[[ -v sn_volume["${btr}-${sn}-${snare}"] ]] || { echo >&2 "sn_volume[${btr}-${sn}-${snare}] not set {${!sn_volume[@]}}"; exit 1; }
-				echo " volume=$(dc -e "${sn_volume[${btr}-${sn}-${snare}]/#-/_} 12 - p")"
+				emit_volume_line sn_volume "${btr}-${k[snares]}-${snare}"
 				echo " gain_cc${gain_cc[snare]}=24 volume_curvecc${gain_cc[snare]}=1"
 				[[ "${btr}" == "brs" ]] && echo " gain_cc${gain_cc[brush]}=-12 volume_curvecc${gain_cc[brush]}=4"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 
 				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
 				do
-					tm=${actual_toms[$ti]}
 					tt=${t[$ti]}
-					[[ -v tm_volume[${btr}-${tt}-${k[toms]}-${snare}] ]] || { echo >&2 "tm_volume[${btr}-${tt}-${k[toms]}-${snare}] not set {${!tm_volume[@]}}"; exit 1; }
 					echo ''
 					echo '<master>'
-					echo " volume=$(dc -e "${tm_volume[${btr}-${tt}-${k[toms]}-${snare}]/#-/_} 12 - p")"
+					emit_volume_line tm_volume "${btr}-${tt}-${k[toms]}-${snare}"
 					echo " gain_cc${gain_cc[$tt]}=24 volume_curvecc${gain_cc[$tt]}=1"
-					override_defines "triggers/${btr}/${tm}.sfzh" key
+					override_defines "triggers/${btr}/${actual_toms[$ti]}.sfzh" key
 				done
 
 				echo ''
 				echo '<master>'
-				echo " volume=$(dc -e "${cowbell_volume[$btr]/#-/_} 12 - p")"
+				emit_volume_line cowbell_volume "$btr"
 				echo " gain_cc${gain_cc[cowbell]}=24 volume_curvecc${gain_cc[cowbell]}=1"
 				override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
 
