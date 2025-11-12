@@ -1,4 +1,11 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Require bash >= 4.3 for declare -n and namerefs
+if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3) )); then
+  echo "This script requires bash >= 4.3" >&2
+  exit 1
+fi
 #
 # The problem here is it doesn't take ???[a-z].wav into account properly
 #
