@@ -34,7 +34,9 @@ Then run `to_velocity.sh` (here) to create `kit_pieces` from scratch:
 ```
 
 Once the kit pieces are there (in fact, once the ranges are there), `mk_kits.sh` can have the
-"mic group" levels set.  This is a manual process...  Each mic group is checked by running a command like this:
+"mic group" levels set.  This is a manual process... and it's still evolving...
+
+Each mic group is checked by running a command like this:
 ```bash
 grep 'cymbals/' ns_kits7-all_samples-db_ranges.txt | sort -t\; -k1n | grep stx/ | grep 'cy12\|cy19c\|cy20'
 ```
