@@ -60,7 +60,7 @@ function emit_volume_line() {
 rm -rf _kits
 mkdir _kits
 
-kits=(funk orleans bop bop_muted bop_open rock jungle tight piccolo dead metal)
+kits=(bop bop_muted bop_open dead funk jungle metal orleans piccolo rock tight)
 for kit in ${kits[@]}
 do
 	declare -A $kit
@@ -68,14 +68,14 @@ done
 bop=(      [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop       [toms]=bop)
 bop_muted=([cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_muted [toms]=bop)
 bop_open=( [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_open  [toms]=bop)
-jungle=(   [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn10_jungle    [toms]=bop)
-funk=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn12_funk      [toms]=rock)
-rock=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=rock)
-piccolo=(  [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=dry)
-orleans=(  [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd22_boom   [snares]=sn12_orleans   [toms]=rock)
-tight=(    [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=rock)
 dead=(     [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd22_noreso [snares]=sn12_dead      [toms]=dry)
+funk=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn12_funk      [toms]=rock)
+jungle=(   [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn10_jungle    [toms]=bop)
 metal=(    [cymbals]=cy19_sizzle [hihats]=hh13 [kicks]=kd22_boom   [snares]=sn14_metal     [toms]=noreso)
+orleans=(  [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd22_boom   [snares]=sn12_orleans   [toms]=rock)
+piccolo=(  [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=dry)
+rock=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=rock)
+tight=(    [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=rock)
 
 cys=(cy8_splash cy9_splash cy12_splash cy15_crash cy18_crash cy19_china cy20_ride)
 
