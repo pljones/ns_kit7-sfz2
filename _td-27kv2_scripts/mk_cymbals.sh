@@ -27,8 +27,8 @@ fi
 # brs
 #         china_19 crash_15 crash_18 ride_19 ride_20 sizzle_19 splash_8 splash_9 splash_12
 #            ord      ord      ord     bel     bel      bel       ord      ord      ord      trigger: bel (or fake, PAT<64)
-#            ord      ord      ord     ord     ord      ord       ord      ord      ord      trigger: top (PAT<64)
-#            sws      sws      sws     sws     sws      sws       sws      sws      sws      trigger: rim (PAT<64)
+#            sws      sws      sws     sws     sws      sws       sws      sws      sws      trigger: top (PAT<64)
+#            ord      ord      ord     ord     ord      ord       ord      ord      ord      trigger: rim (PAT<64)
 #            grb      grb      grb     grb     grb      grb       grb      grb      grb      trigger: *** (PAT>=64)
 
 # hnd
@@ -92,7 +92,7 @@ function make_articulation () {
 		if [[ $beater == brs && $cymbal =~ ^cy19_ride|cy20_ride|cy19_sizzle$ && $position == bel ]]
 		then
 			_art_ref=bel
-		elif [[ $beater == brs && $position == rim ]]
+		elif [[ $beater == brs && $position == top ]]
 		then
 			_art_ref=sws
 		elif [[ $beater == mlt && $cymbal != cy19_sizzle && $position == rim ]]
