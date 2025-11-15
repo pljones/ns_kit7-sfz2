@@ -17,19 +17,22 @@ ranges=$1; shift || { echo "Missing ranges" >&2; exit 1; }
 samples=$1; shift || { echo "Missing samples" >&2; exit 1; }
 
 # SFZ uses the following as the default method of determining dB adjustment based on velocity:
-#     dB = -20 * log(127^2 / Velocity^2)
+#     dB = -20 * log10(127^2 / Velocity^2)  (note: base-10 logarithm)
 # The aim here is to determine, for a given sample, what the "best" velocity to trigger it would be.
 # I start by reversing the calculation:
-#     dB / -20 = log(127^2 / Velocity^2)              -- divide through by "-20"
-#     dB / -20 = log(127^2) - log(Velocity^2)         -- split the division inside the log function to subtraction of two logs
-#     dB / -20 + log(Velocity^2) = log(127^2)         -- add through by "log(Velocity^2)" 
-#     log(Velocity^2) = log(127^2) - (dB / -20)       -- subtract through by "dB / -20"
-#     Velocity^2 = exp(log(127^2) - (dB / -20))       -- apply through by exponent
-#     Velocity = sqrt(exp(log(127^2) - (dB / -20)))   -- apply through by square root
+#     dB / -20 = log10(127^2 / Velocity^2)             -- divide through by "-20"
+#     dB / -20 = log10(127^2) - log10(Velocity^2)      -- split the division inside the log function
+#     log10(Velocity^2) = log10(127^2) - (dB / -20)    -- add through by log10(Velocity^2), subtract through by (dB / -20)
+#     Velocity^2 = 10^(log10(127^2) - (dB / -20))      -- exponentiate (base 10)
+#     Velocity^2 = 127^2 / 10^(dB / -20)               -- simplify
+#     Velocity = 127 / 10^(dB / -40)                   -- take square root
 #
 # The idea then is to
 # - for each "dB path" matching "base_path"
-#   - sqrt(10^(( (dB - hi_dB) / -20) - log(127^2))) = Velocity
+#   - dB_hi     is the group high dB level
+#   - dB_sample is the dB level for the individual sample in the group
+#
+#   - return: Velocity = 127 / 10^((dB_sample - dB_hi) / -40)
 #
 # That gives a _velocity_ range from "lovel" to 127.
 # To spread the available samples over the full range, the "spread_velocity" function:
@@ -46,7 +49,9 @@ function velocity() {
 	local dB_lo=$1; shift || { echo "Missing dB_lo" >&2; return 1; }
 
 	awk '{
-		f=sqrt( exp( log(127^2) - (($2 - $1) / -20) ) );
+		# SFZ curve: dB = -20 * log10(127^2 / Velocity^2)
+		# Solving for Velocity: Velocity = 127 / 10^(dB / -40)
+		f = 127 / (10 ^ (($2 - $1) / -40));
 		printf("%d\n", f + 0.5);
 	}' <<<"$dB_hi $dB_lo"
 }
@@ -208,10 +213,11 @@ do
 		read dB_sample sample_path <<<"${group[$i]}"
 		vel=$(velocity $dB_hi $dB_sample) || exit 1
 		[[ $vel_min -eq 0 || $vel_min -gt $vel ]] && vel_min=$vel || true ;# catch the lowest velocity
-		[[ $vel -le 127 ]] || {
+		if [[ $vel -gt 127 ]]
+		then
 			echo "{$dB_sample} converted to out of range velocity {$vel}" >&2
 			exit 1
-		}
+		fi
 		group_vels+=("$dB_sample $sample_path $vel")
 	done
 	[[ ${#group_vels[@]} -eq ${#group[@]} ]] || {
@@ -248,7 +254,7 @@ do
 	i=${#spread_vels[@]}
 	while [[ $i -gt 0 ]]
 	do
-		(( i-=1 ))
+		i=$(( i - 1 ))
 		group_desc+=("${spread_vels[$i]}")
 	done
 	[[ ${#group_desc[@]} -eq ${#spread_vels[@]} ]] || {
@@ -261,7 +267,7 @@ do
 	hi_vel=127  ;# because this is first in descending order
 	for i in ${!group_desc[@]}
 	do
-		(( i+=1 ))
+		i=$((i + 1 ))
 		[[ $i -lt ${#group_desc[@]} ]] || break
 		read n_dB_sample n_sample_path n_vel n_hi_vel n_amp_veltrack <<<"${group_desc[$i]}"
 
@@ -282,7 +288,7 @@ do
 	i=${#spread_vels[@]}
 	while [[ $i -gt 0 ]]
 	do
-		(( i-=1 ))
+		i=$(( i - 1 ))
 		group_asc+=("${with_lovel[$i]}")
 	done
 	[[ ${#group_asc[@]} -eq ${#with_lovel[@]} ]] || {
@@ -298,13 +304,13 @@ do
 		read dB_sample sample_path vel hi_vel amp_veltrack lo_vel <<<"${group_asc[$i]}"
 
 		# Get a list of all samples with the same hivel
-		(( i+=1 ))
+		i=$((i + 1 ))
 		while [[ $i -lt ${#group_asc[@]} ]]
 		do
 			read n_dB_sample n_sample_path n_vel n_hi_vel n_amp_veltrack n_lo_vel <<<"${group_asc[$i]}"
 			[[ $n_hi_vel == $hi_vel ]] || break
 			rr_g+=($i)
-			(( i+=1 ))
+			i=$(( i + 1 ))
 		done
 
 		# All use the same lovel
@@ -315,7 +321,7 @@ do
 			read s_dB_sample s_sample_path s_vel s_hi_vel s_amp_veltrack s_lo_vel <<<"${group_asc[$r]}"
 			group_seq+=("$s_dB_sample $s_sample_path $s_vel $s_hi_vel $s_amp_veltrack $l_lo_vel $(( $r_i + 1 )) ${#rr_g[@]}")
 		done
-		read dB_sample sample_path vel hi_vel amp_veltrack lo_vel <<<"${group_asc[$i]}"
+		read dB_sample sample_path vel hi_vel amp_veltrack lo_vel <<<""
 		rr_g=()
 	done
 	[[ ${#group_seq[@]} -eq ${#group_asc[@]} ]] || {
