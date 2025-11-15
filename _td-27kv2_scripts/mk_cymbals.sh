@@ -89,13 +89,13 @@ function make_articulation () {
 			_art_ref=grb
 		fi
 	else
-		if [[ $beater == brs && $cymbal =~ ^cy19_ride|cy20_ride|cy19_sizzle$ && $position == bel ]]
+		if [[ $beater == brs && $position == bel && $cymbal =~ ^cy19_ride|cy20_ride|cy19_sizzle$ ]]
 		then
 			_art_ref=bel
 		elif [[ $beater == brs && $position == top ]]
 		then
 			_art_ref=sws
-		elif [[ $beater == mlt && $cymbal != cy19_sizzle && $position == rim ]]
+		elif [[ $beater == mlt && $position == rim && $cymbal != cy19_sizzle ]]
 		then
 			_art_ref=rol
 		elif [[ $beater == stx && $position == bel && $cymbal != cy19_china && $cymbal != cy9_splash ]]
