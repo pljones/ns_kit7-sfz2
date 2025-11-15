@@ -289,11 +289,22 @@ blocksSinceLastKick = -1;
 newBlock = 1;
 blocksSinceLastSnareNote >= 0 ? (
   blocksSinceLastSnareNote = blocksSinceLastSnareNote + 1;
-  blocksSinceLastSnareNote > 160 ? (
+  blocksSinceLastSnareNote > 350 ? (
     blocksSinceLastSnareNote = -1;
   )
 );
 dbgBlocksSinceLastSnareNote = blocksSinceLastSnareNote;
+
+brushKit && sentBrushRelease == 1 && sentBrushReleaseOff == 0 ? (
+  sentBrushReleaseOff = 1;
+  midisend(offset, (0x09 | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
+);
+brushKit && blocksSinceLastSnareNote > 400 && sentBrushRelease == 0 ? (
+  // brushes stopped
+  sentBrushRelease = 1;
+  sentBrushReleaseOff = 0;
+  midisend(offset, (0x09 | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
+);
 
 // Blocks since last kick note.
 // This affects the first note in a run, rather than the last note, which is what's really wanted.
@@ -302,17 +313,6 @@ blocksSinceLastKick >= 0 ? (
   blocksSinceLastKick > 750 ? (
     blocksSinceLastKick = -1; // reset
   );
-);
-
-brushKit && sentBrushRelease == 1 && sentBrushReleaseOff == 0 ? (
-  sentBrushReleaseOff = 1;
-  midisend(offset, (0x0A | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
-);
-brushKit && blocksSinceLastSnareNote > 150 && sentBrushRelease == 0 ? (
-  // brushes stopped
-  sentBrushRelease = 1;
-  sentBrushReleaseOff = 0;
-  midisend(offset, (0x0A | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
 );
 
 while (midirecv(offset, msg1, msg2, msg3)) (
@@ -371,11 +371,11 @@ while (midirecv(offset, msg1, msg2, msg3)) (
         // -> zone_sn_brush_drag_rpt_legato
 
         noteMap[msg2] = trigger_snare + zone_sn_brush_drag_legato;
-        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) && blocksSinceLastSnareNote <= 50 ? (
+        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) && blocksSinceLastSnareNote <= 200 ? (
           // First brush note since reset so drag new
           noteMap[msg2] = trigger_snare + zone_sn_brush_down_legato;
         );
-        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) || (newBlock && blocksSinceLastSnareNote > 50) ? (
+        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) || (newBlock && blocksSinceLastSnareNote > 200) ? (
           // New note
           snareCCSinceBrushNote = 0;
           blocksSinceLastSnareNote = 0;
@@ -383,7 +383,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
           sentBrushRelease = 0;
         ) : (
           // Send remaining brush notes as polyphonic aftertouch
-          //newBlock && midisend(offset, ((msg1 & 0x0F) | polyAft) & 0xFF, noteMap[msg2] & 0x7F, (128 - msg3) & 0x7F);
+          newBlock && midisend(offset, ((msg1 & 0x0F) | polyAft) & 0xFF, noteMap[msg2] & 0x7F, (128 - msg3) & 0x7F);
           newBlock = 0;
           // Suppress note on
           noteMap[msg2] = -2;
