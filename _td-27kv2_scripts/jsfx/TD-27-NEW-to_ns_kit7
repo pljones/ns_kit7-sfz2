@@ -460,14 +460,9 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     ) :
 
     // Hi-Hat
-    // zone_hh_spl = 6; - TD-27 does not *send* a splash note nor any way to guess it
     ((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
       noteMap[msg2] = trigger_hh + (hihatCCVal == 0 ? zone_hh_bel : (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r));
     ) :
-    // Due to hihatCCVal being useless, ignore it
-    //((msg2 == noteHiHatOpenBow) || (msg2 == noteHiHatCloseBow)) ? (
-    //  noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_top_l : zone_hh_top_r);
-    //) :
     ((msg2 == noteHiHatOpenEdge) || (msg2 == noteHiHatCloseEdge)) ? (
       noteMap[msg2] = trigger_hh + (hihatLRCCVal < 64 ? zone_hh_rim_l : zone_hh_rim_r);
     ) :
