@@ -400,22 +400,27 @@ while (midirecv(offset, msg1, msg2, msg3)) (
           passthru = 0;
         );
 
-
       ) : (
-        noteMap[msg2] = trigger_snare + zone_sn_head;
+
+        noteMap[msg2] = trigger_snare + (snareCCVal < 120
+          ? zone_sn_head
+          : snareCCVal < 126
+            ? zone_sn_rmh
+            : zone_sn_rms
+          );
+
       );
     ) :
     (msg2 == noteSnareRim) ? (
-      noteMap[msg2] = trigger_snare + (brushKit ? (
+      noteMap[msg2] = trigger_snare + (brushKit
+        ? zone_sn_rim
+        : // Position sensing may not be that reliable but try... no, too poor...
+          // snareCCVal == 127
+          //  ? zone_sn_rim
+          //  : snareCCVal < 64
+          //    ? zone_sn_rms
+          //    : zone_sn_rmh
           zone_sn_rim
-        ) : (
-          // Position sensing may not be that reliable but try...
-          (snareCCVal == 127) ? (
-            zone_sn_rim
-          ) : (
-            snareCCVal < 64 ? zone_sn_rms : zone_sn_rmh
-          )
-        )
       );
     ) :
     (msg2 == noteSnareXStick) ? (
