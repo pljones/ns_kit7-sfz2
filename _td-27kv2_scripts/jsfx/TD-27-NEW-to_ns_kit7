@@ -290,6 +290,9 @@ blocksSinceLastKick = -1;
 // Half a second threshold for brush release
 brushRate = (srate / samplesblock) / 6;
 
+// Fast kick threshold is 12 a second
+kickRate = (srate / samplesblock) / 12;
+
 @block
 newBlock = 1;
 
@@ -314,7 +317,7 @@ blocksSinceLastSnareNote > (4 * brushRate) ? (
 // This affects the first note in a run, rather than the last note, which is what's really wanted.
 blocksSinceLastKick >= 0 ? (
   blocksSinceLastKick = blocksSinceLastKick + 1;
-  blocksSinceLastKick > 750 ? (
+  blocksSinceLastKick > (12 * kickRate) ? (
     blocksSinceLastKick = -1; // reset
   );
 );
@@ -344,7 +347,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     (msg2 == noteKick) ? (
       noteMap[msg2] = trigger_kick + (
         blocksSinceLastKick = 0; // start counting if we weren't
-        ((blocksSinceLastKick >= 0) && (blocksSinceLastKick < 125)) ? (
+        ((blocksSinceLastKick >= 0) && (blocksSinceLastKick < kickRate)) ? (
           zone_kick_cls // cls on fast kicks
         ) : (
           zone_kick_opn // opn on other kicks
