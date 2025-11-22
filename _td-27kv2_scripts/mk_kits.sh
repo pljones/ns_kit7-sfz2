@@ -250,7 +250,7 @@ do
 				do
 					echo ''
 					echo '<master>'
-					echo " volume=-12.00 gain_cc${gain_cc[$cy]}=24 volume_curvecc${gain_cc[$cy]}=1"
+					echo " volume=-6.00 gain_cc${gain_cc[$cy]}=24 volume_curvecc${gain_cc[$cy]}=1"
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
@@ -259,7 +259,12 @@ do
 
 					echo ''
 					echo '<master>'
-					echo " volume=-12.00 gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
+					echo " volume=$(
+						case "${the_hihat_beater}" in
+							"spl") echo '9.00'  ;;
+							"ped") echo '3.00'  ;;
+							*)     echo '-6.00' ;;
+						esac) gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
 					if [[ $hh == - ]]
 					then
 						override_defines "triggers/${the_hihat_beater}/${k[hihats]}.sfzh" key
@@ -271,12 +276,12 @@ do
 
 				echo ''
 				echo '<master>'
-				echo " volume=-12.00 gain_cc${gain_cc[kick]}=24 volume_curvecc${gain_cc[kick]}=1"
+				echo " volume=-6.00 gain_cc${gain_cc[kick]}=24 volume_curvecc${gain_cc[kick]}=1"
 				override_defines "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" key
 
 				echo ''
 				echo '<master>'
-				echo " volume=-12.00 gain_cc${gain_cc[snare]}=24 volume_curvecc${gain_cc[snare]}=1"
+				echo " volume=-6.00 gain_cc${gain_cc[snare]}=24 volume_curvecc${gain_cc[snare]}=1"
 				[[ "${btr}" == "brs" ]] && echo " gain_cc${gain_cc[brush]}=-12 volume_curvecc${gain_cc[brush]}=4"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 
@@ -285,18 +290,18 @@ do
 					tt=${t[$ti]}
 					echo ''
 					echo '<master>'
-					echo " volume=-12.00 gain_cc${gain_cc[$tt]}=24 volume_curvecc${gain_cc[$tt]}=1"
+					echo " volume=-6.00 gain_cc${gain_cc[$tt]}=24 volume_curvecc${gain_cc[$tt]}=1"
 					override_defines "triggers/${btr}/${actual_toms[$ti]}.sfzh" key
 				done
 
 				echo ''
 				echo '<master>'
-				echo " volume=-12.00 gain_cc${gain_cc[cowbell]}=24 volume_curvecc${gain_cc[cowbell]}=1"
+				echo " volume=-6.00 gain_cc${gain_cc[cowbell]}=24 volume_curvecc${gain_cc[cowbell]}=1"
 				override_defines "triggers/${btr}/pn8_cowbell.sfzh" key
 
 				echo ''
 				echo '<master>'
-				echo " volume=-12.00 gain_cc${gain_cc[tambourine]}=24 volume_curvecc${gain_cc[tambourine]}=1"
+				echo " volume=-6.00 gain_cc${gain_cc[tambourine]}=24 volume_curvecc${gain_cc[tambourine]}=1"
 				if [[ -f "triggers/${btr}/pn9_tambourine.sfzh" ]]
 				then
 					override_defines "triggers/${btr}/pn9_tambourine.sfzh" key
