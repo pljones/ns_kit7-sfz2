@@ -33,7 +33,6 @@ toms=(\
 	[stx_rock_on]="    tm8 tm10 tm12 tm14 tm16"\
 )
 
-articulations=(ord rim rms)
 declare -A is_handed
 is_handed=([ord]=1 [rms]=1)
 
@@ -48,14 +47,34 @@ function do_articulation () {
 	local hand=$1;         shift || { echo "Missing hand"         >&2; exit 1; }
 
 	key="${tom}_${articulation}"
-	file="kit_pieces/toms/${tom}_${tuning}_${beater}_snare_${snare}_${articulation}"
 	[[ -z "$hand" ]] || {
 		key="${key}_${hand}"
+	}
+
+	if [[ "$beater" != "stx" || ! "$tuning" =~ ^bop|rock$ ]]
+	then
+		articulation="ord"
+		if [[ "$hand" == "" ]]
+		then
+			hand="r"
+		fi
+	fi
+
+	if [[ "$articulation" == "rim" ]]
+	then
+		snare="off"
+	fi
+
+	if [[ "$tom" =~ ^tm1[46]$ && "$articulation" == "rms" ]]
+	then
+		hand="r"
+	fi
+
+	file="kit_pieces/toms/${tom}_${tuning}_${beater}_snare_${snare}_${articulation}"
+	[[ -z "$hand" ]] || {
 		file="${file}_${hand}"
 	}
 	file="${file}.sfzh"
-	[[ -f $file ]] || file=${file/_rim/_ord_r}
-	[[ -f $file ]] || file=${file/_rms/_ord}
 	[[ -f $file ]] || { echo "${tom}_${tuning}_${beater}_snare_${snare}_${articulation} / hand {$hand} - file {$file} not found" >&2; exit 1; }
 	get_durations $file max_duration
 
@@ -86,7 +105,7 @@ do
 echo >&2 triggers/$beater/toms/$t
 
 				keys=()
-				for articulation in ${articulations[@]}
+				for articulation in ord rms rim
 				do
 					# {
 					if [[ -v is_handed[$articulation] ]]

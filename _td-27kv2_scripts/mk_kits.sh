@@ -53,8 +53,12 @@ function override_defines () {
 	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
 	local -n key_ref=$1  ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
 
+	# the <master> line was done by the call, we take care of defines and includes
+	grep -v '^\(#define\|<master>\|#include\|$\)' "${trigger_file}" || :
+
+	# slurp the existing file
 	mapfile -t triggers < "${trigger_file}"
-	grep -v '^\(#define\|<master>\|$\)' "${trigger_file}"
+
 	i=0
 	while [[ $i -lt ${#triggers[@]} ]]
 	do
@@ -66,6 +70,9 @@ function override_defines () {
 			(( key_ref += 1 ))
 		fi
 	done
+
+	# make sure the include line follows the defines
+	grep '^#include' "${trigger_file}"
 }
 
 rm -rf _kits
