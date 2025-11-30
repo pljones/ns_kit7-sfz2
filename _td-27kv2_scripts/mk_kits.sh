@@ -54,7 +54,7 @@ function override_defines () {
 	local -n key_ref=$1  ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
 
 	# the <master> line was done by the call, we take care of defines and includes
-	grep -v '^\(#define\|<master>\|#include\|$\)' "${trigger_file}" || :
+	grep -v '^\(#define\|<master>\|#include\|//\|$\)' "${trigger_file}" || :
 
 	# slurp the existing file
 	mapfile -t triggers < "${trigger_file}"

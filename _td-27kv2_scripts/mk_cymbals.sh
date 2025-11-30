@@ -166,8 +166,12 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 					f="$(echo $cymbal | sed -e 's/\(cy[^_]*\)_\(.*\)$/\2_\1/')_${beater}_${articulation}"
 					[[ -f "kit_pieces/cymbals/${f}.sfzh" ]] || { echo "new $f not found" >&2; exit 1; }
 					[[ -f "../cymbals/${f}.sfz" ]] || { echo "existing $f not found" >&2; exit 1; }
-					# ignore rolls
-					[[ $articulation == rol ]] || get_durations kit_pieces/cymbals/${f}.sfzh max_duration
+
+					# process only gr[bct] grabs
+					if [[ $articulation =~ ^gr[bct]$ ]]
+					then
+						get_durations kit_pieces/cymbals/${f}.sfzh max_duration
+					fi
 
 					key="${cymbal}_${position}$([[ $zone == - ]] || echo "_${zone}")"
 					group=$(printf "%03d\n" $c)
@@ -203,10 +207,10 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 		{
 			# TODO: get the release time controlled by CC130 but stay at 0.2s if not muting by polyphonic aftertouch
 			release=$(awk 'BEGIN { print '$max_duration' / 2; }' <&-)
-			# echo "// Max duration $max_duration"
-			# echo "//<master>"
-			# echo "// ampeg_release=$release"
-			# echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
+			echo "// Max duration $max_duration"
+			echo "//<master>"
+			echo "// ampeg_release=$release"
+			echo "// ampeg_releasecc130=$(awk 'BEGIN { print ('$release' > 0.4) ? '$release' - 0.2 : 0.2; }' <&-) ampeg_release_curvecc130=6"
 			# echo
 
 			# Start at MIDI note 001 for each cymbal -- mk_kits.sh overrides these; mk_sfz.sh does not
