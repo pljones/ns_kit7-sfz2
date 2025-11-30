@@ -9,7 +9,7 @@ fi
 
 . utils.sh
 
-# off_by group 600xxxyyy
+# off_by group 600xxx000
 # trigger group 500xxxyyy
 
 # ns_kit7 cymbals
@@ -17,9 +17,15 @@ fi
 # trigger = (cymbal)_(articulation)(|_inner|_outer)_(free|held)
 # <group>
 #   ..trigger definition..
-#   group=(trigger group or trigger grab group)
-#   off_by=(if not trigger grab, trigger grab group)
+#   group=500(cymbal group)(articulation group) group_label=(cymbal)_(articulation)
+#   off_by=600(cymbal group)000
 # #include (from the tables)
+#
+# and then for those triggers that mute
+# <group>
+#  ..trigger definition..
+#  group=600(cymbal group)000 group_label=(cymbal)_mute
+#
 
 # beater will be brs|hnd|mlt|stx
 # trigger will be bel|top|rim
@@ -169,21 +175,22 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 
 					if $is_grab
 					then
-						group_no="600${group}$(printf "%03d\n" $i)"
-						echo "<group> key=\$${key} group=${group_no} group_label=${key}_grab"
+						group_no="600${group}000"
+						echo "<group> key=\$${key} group=${group_no} group_label=${cymbal}_mute"
 						echo " lopolyaft=064 hipolyaft=127"
 					else
 						group_no="500${group}$(printf "%03d\n" $i)"
 						echo "<group> key=\$${key} group=${group_no} group_label=${key}_${articulation}"
-						echo " off_by=600${group}$(printf "%03d\n" $i)"
+						echo " off_by=600${group}000"
 						echo " lopolyaft=000 hipolyaft=063"
 					fi
 					echo "#include \"kit_pieces/cymbals/${f}.sfzh\""
 
 					if ! $is_grab
 					then
-						group_no="600${group}$(printf "%03d\n" $i)"
-						echo "<group> key=-1 group=${group_no} group_label=${key}_mute"
+						echo ""
+						group_no="600${group}000"
+						echo "<group> key=-1 group=${group_no} group_label=${cymbal}_mute"
 						echo " on_locc130=001 on_hicc130=127 locc133=\$${key} hicc133=\$${key}"
 						echo "<region> end=-1 sample=*silence"
 					fi
