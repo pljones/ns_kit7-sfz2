@@ -17,13 +17,13 @@ slider4:dbg_cc=-1<0,127,1>Incoming CC Number
 while (midirecv(offset, msg1, msg2, msg3)) (
   status = msg1 & $xF0;      // Extract message type
   channel = msg1 & $x0F;
-  status == $xB0 ? (       // Is it a controller event?
+  status == $xB0 ? (         // Is it a controller event?
     dbg_cc = msg2;
-    msg2 == cc_number ? (   // Is it the right CC?
+    msg2 == cc_number ? (    // Is it the right CC?
       msg1 = ($xA0 | channel)  & $xFF;            // Polyphonic Aftertouch
       msg2 = note_number & $x7F;                  // Set note number
       msg3 = (invert ? (128 - msg3) : msg3) & $x7F;   // Move CC value to PA value
-    );  
+    );
     midisend(offset, msg1, msg2, msg3); // pass through
   ) : (
     midisend(offset, msg1, msg2, msg3); // pass through
