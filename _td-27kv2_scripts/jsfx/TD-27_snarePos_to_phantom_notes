@@ -1,4 +1,8 @@
 desc:MIDI Map TD-27 Snare Position CC to phantom note numbers (pljones)
+
+in_pin:none
+out_pin:none
+
 slider1:cc_num=4<0,127,1>-CC Number to track
 slider2:expiry_reset=4<1,10,1>-Number of audio blocks for MIDI expiry
 
