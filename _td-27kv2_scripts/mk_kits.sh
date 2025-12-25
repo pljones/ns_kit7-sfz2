@@ -93,16 +93,30 @@ do
 
 		for cy in "${c[@]}"
 		do
-			[[ -f "triggers/${btr}/${cy}.sfzh" ]] || { echo "${kit} ${btr} snare ${snare} has no ${cy}"; continue; }
+			if [[ ! -f "triggers/${btr}/${cy}.sfzh" ]]
+			then
+				echo "${kit} ${btr} has no ${cy} cymbal" >&2
+				exit 1
+			fi
 		done
-		[[ -f "triggers/${btr}/${k[hihats]}.sfzh" ]] || { echo "${kit} ${btr} snare ${snare} has no ${k[hihats]}"; continue; }
+
+		if [[ ! -f "triggers/${btr}/${k[hihats]}.sfzh" ]]
+		then
+			echo "${kit} ${btr} has no ${k[hihats]} hihat" >&2
+			exit 1
+		fi
+
 		for snare in off on
 		do
 			[[ -f "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" ]] || {
-				# echo "${kit} ${btr} snare ${snare} has no ${k[snares]}";
-				continue;
+				continue
 			}
-			[[ -f "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" ]] || { echo "${kit} snare ${snare} has no ${k[kicks]}"; continue; }
+
+			if [[ ! -f "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" ]]
+			then
+				 echo "${kit} snare ${snare} has no ${k[kicks]} kick" >&2
+				 exit 1
+			fi
 
 			# Available toms for this beater, tuning, snare
 			actual_toms=()
