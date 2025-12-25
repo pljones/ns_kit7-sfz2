@@ -44,10 +44,8 @@ tight=(    [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12
 
 cys=(cy8_splash cy9_splash cy12_splash cy15_crash cy18_crash cy19_china cy20_ride)
 
-tm_bop=(tm8 tm10 tm12 tm14 tm16)
-tm_dry=(tm10 tm10 tm12 tm14 tm14)
-tm_noreso=(tm10 tm10 tm12 tm14 tm14)
-tm_rock=(tm8 tm10 tm12 tm14 tm16)
+declare -A actual_toms
+tms=(tm8 tm10 tm12 tm14 tm16)
 
 function override_defines () {
 	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
@@ -83,7 +81,6 @@ do
 	echo --- $kit ---
 	declare -n k=$kit
 	declare -a c=(${cys[@]} ${k[cymbals]})
-	declare -n t=tm_${k[toms]}
 	the_hihat=${k[hihats]}
 
 
@@ -106,29 +103,80 @@ do
 				continue;
 			}
 			[[ -f "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" ]] || { echo "${kit} snare ${snare} has no ${k[kicks]}"; continue; }
+
+			# Available toms for this beater, tuning, snare
 			actual_toms=()
 			# tm12_rock_snare_off.sfzh
-			for tm in "${t[@]}"
+			for tm in "${tms[@]}"
 			do
 				f="triggers/${btr}/${tm}_${k[toms]}_snare_${snare}.sfzh"
-				if [[ ! -f $f ]]
+				if [[ -f "$f" ]]
 				then
-					x="sn${snare}_btr${btr}_toms${k[toms]}"
-					echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}; (x {$x})"
-					replacement_snare=$([[ "$snare" == "on" ]] && echo off || echo on)
-					actual_toms+=(${tm}_${k[toms]}_snare_${replacement_snare})
-					f="triggers/${btr}/${actual_toms[-1]}.sfzh"
-					if [[ ! -f "$f" ]]
-					then
-						echo ''
-						echo >&2 "Failed to replace tom (${snare} -> ${replacement_snare}): {$f} not found"
-						exit 1
-					else
-						echo " - using ${kit} ${btr} ${actual_toms[-1]} instead";
-					fi
-				else
-					actual_toms+=(${tm}_${k[toms]}_snare_${snare})
+					actual_toms[${tm}]="${tm}_${k[toms]}_snare_${snare}"
+					continue
 				fi
+
+				echo -n "${kit}: ${btr} (${k[toms]}) snare ${snare} has no ${tm}"
+
+				# try the opposite snare state
+				replacement_snare=$([[ "$snare" == "on" ]] && echo off || echo on)
+				f="triggers/${btr}/${tm}_${k[toms]}_snare_${replacement_snare}.sfzh"
+				if [[ -f "$f" ]]
+				then
+					actual_toms[${tm}]="${tm}_${k[toms]}_snare_${replacement_snare}"
+					echo " - replacing with opposite snare {${actual_toms[${tm}]}}"
+					continue
+				fi
+
+				# fall back to the last tom we found (or the next if none yet)
+				if [[ "${#actual_toms[@]}" -gt 0 ]]
+				then
+					replacement_tom="${tms[$((${#actual_toms[@]} - 1))]}"
+					actual_toms[${tm}]="${actual_toms[${replacement_tom}]}"  # duplicate last found tom
+					echo " - replacing with previous tom {${actual_toms[${tm}]}}"
+					continue
+				fi
+
+				# look ahead for the next tom that exists
+				# - find the index of current tom in tms array
+				current_index=0
+				while [[ $current_index -lt ${#tms[@]} && "${tms[$current_index]}" != "$tm" ]]
+				do
+					((current_index++))
+				done
+
+				replacement_tom=""
+				# - check each tom after current one
+				for ((i=current_index+1; i<${#tms[@]}; i++))
+				do
+					later_tm=${tms[$i]}
+
+					f="triggers/${btr}/${later_tm}_${k[toms]}_snare_${snare}.sfzh"
+					if [[ -f "$f" ]]
+					then
+						replacement_tom="${later_tm}_${k[toms]}_snare_${snare}"
+						break
+					fi
+					# also try opposite snare state
+					f="triggers/${btr}/${later_tm}_${k[toms]}_snare_${replacement_snare}.sfzh"
+					if [[ -f "$f" ]]
+					then
+						replacement_tom="${later_tm}_${k[toms]}_snare_${replacement_snare}"
+						break
+					fi
+					# ... continue looking
+				done
+
+				if [[ -n "$replacement_tom" ]]
+				then
+					actual_toms[${tm}]="$replacement_tom"
+					echo " - replacing with next available tom {${actual_toms[${tm}]}}"
+				else
+					echo ''
+					echo "${kit} ${btr} snare ${snare} has no ${tm} tom" >&2
+					exit 1
+				fi
+
 			done
 
 			for hh in - invcc4
@@ -223,9 +271,8 @@ do
 				((cc++))
 				gain_cc[brush]=${cc}
 				((cc++))
-				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
+				for tm in "${tms[@]}"
 				do
-					tm=${t[$ti]}
 					echo " set_hdcc${cc}=0.5   label_cc${cc}=$(sed -e 's/tm\(.*\)/\1” tom/' <<<"${tm}") (cc${cc})"
 					gain_cc[${tm}]=${cc}
 					((cc++))
@@ -292,13 +339,13 @@ do
 				[[ "${btr}" == "brs" ]] && echo " gain_cc${gain_cc[brush]}=-12 volume_curvecc${gain_cc[brush]}=4"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 
-				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
+				for tm in "${tms[@]}"
 				do
-					tt=${t[$ti]}
+					atm="${actual_toms[$tm]}"
 					echo ''
 					echo '<master>'
-					echo " volume=-6.00 gain_cc${gain_cc[$tt]}=24 volume_curvecc${gain_cc[$tt]}=1"
-					override_defines "triggers/${btr}/${actual_toms[$ti]}.sfzh" key
+					echo " volume=-6.00 gain_cc${gain_cc[$tm]}=24 volume_curvecc${gain_cc[$tm]}=1"
+					override_defines "triggers/${btr}/${atm}.sfzh" key
 				done
 
 				echo ''
