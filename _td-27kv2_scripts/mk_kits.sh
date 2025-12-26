@@ -47,9 +47,9 @@ cys=(cy8_splash cy9_splash cy12_splash cy15_crash cy18_crash cy19_china cy20_rid
 declare -A actual_toms
 tms=(tm8 tm10 tm12 tm14 tm16)
 
-function override_defines () {
-	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
-	local -n key_ref=$1  ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
+function common_override () {
+	local trigger_file=$1; shift || { echo "common_override: Missing trigger_file" >&2; exit 1; }
+	local -n key_ref=$1  ; shift || { echo "common_override: Missing key_ref" >&2; exit 1; }
 
 	# the <master> line was done by the call, we take care of defines and includes
 	grep -v '^\(#define\|<master>\|#include\|//\|$\)' "${trigger_file}" || :
@@ -68,9 +68,49 @@ function override_defines () {
 			(( key_ref += 1 ))
 		fi
 	done
+}
+
+function override_defines () {
+	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
+	local -n _key_ref=$1 ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
+
+	local my_key=${_key_ref}
+
+	common_override "${trigger_file}" my_key
+	_key_ref=$my_key
 
 	# make sure the include line follows the defines
 	grep '^#include' "${trigger_file}"
+}
+
+function tom_overrides () {
+	local trigger_file=$1; shift || { echo "tom_overrides: Missing trigger_file" >&2; exit 1; }
+	local -n _key_ref=$1 ; shift || { echo "tom_overrides: Missing key_ref" >&2; exit 1; }
+	local actual_tom=$1  ; shift || { echo "tom_overrides: Missing actual tom" >&2; exit 1; }
+	local tom=$1         ; shift || { echo "tom_overrides: Missing tom" >&2; exit 1; }
+
+	local my_key=${_key_ref}
+	local random_file=/tmp/$$.tmp
+
+	common_override "${trigger_file}" my_key > "$random_file"
+	_key_ref=$my_key
+
+	if [[ "${actual_tom}" == "${tom}" ]]
+	then
+		cat "$random_file"
+		rm -f "$random_file"
+		# make sure the include line follows the defines
+		grep '^#include' "${trigger_file}"
+		return
+	fi
+
+	sed -e 's/\$\<'${actual_tom}'_/$'${tom}'_/g' "$random_file"
+	rm -f "$random_file"
+	echo >&2 "_key_ref {$_key_ref}; my_key {$my_key}"
+
+	echo >&2 "OK, need to read the filename from {${trigger_file}} (actual_tom {$actual_tom}; tom {$tom})..."
+	read -r unused include_file < <(grep '^#include' "${trigger_file}")
+	sed -e 's/\$\<'${actual_tom}'_/$'${tom}'_/g' ${include_file//\"/}
 }
 
 rm -rf _kits
@@ -359,7 +399,9 @@ do
 					echo ''
 					echo '<master>'
 					echo " volume=-6.00 gain_cc${gain_cc[$tm]}=24 volume_curvecc${gain_cc[$tm]}=1"
-					override_defines "triggers/${btr}/${atm}.sfzh" key
+					tom_overrides "triggers/${btr}/${atm}.sfzh" key "$(
+						echo $atm | sed -e 's!^triggers/.../!!' -e 's/_.*$//g'
+					)" "$tm"
 				done
 
 				echo ''
