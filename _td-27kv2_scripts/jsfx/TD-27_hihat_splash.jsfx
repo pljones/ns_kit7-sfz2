@@ -4,12 +4,11 @@ version: 1.0
 about: Detects direction changes in CC4 and emits a configurable "hi-hat splash" note. Passes through CC4 but blocks incoming splash note number.
 
 slider1:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit
-slider2:closedPoint=96<0,127,1>CC4 Closed threshold
-slider3:closedSide=1<0,1,1{Lower(0=closed),Upper(127=closed)}>CC4 Closed side
-slider4:velScale=8<2,64,0.2>Delta-CC4 to Velocity scaling factor
-slider5:dampScale=0<0,64,0.2>Delta-CC4 damping factor (velocity reduction)
-slider6:invertDelta=1<0,1,1{Closed delta,Open delta}>Invert delta sense
-//slider7:perNBlocks=0<0,1500,1>Blocks to skip between checks (0 = every message, 1 = once a block, N = skip N-1 blocks)
+slider2:closedSide=1<0,1,1{Keyboard (0=closed),eKit (127=closed)}>CC4 Hi-hat type
+slider3:closedPoint=96<0,127,1>CC4 Closed threshold
+slider4:velScale=4<2,64,0.2>Delta-CC4 scaling factor (to splash velocity)
+slider5:dampScale=0.6<0,64,0.1>Delta-CC4 damping factor (velocity reduction)
+slider6:dbgSplashVel=-1<-1,127,1>Splash velocity
 
 @init
 prev_cc4 = -1;     // Need to have seen one before can calculate direction or delta
@@ -17,10 +16,7 @@ prev_closing = -1; // Need to have computed a direction before emitting a note
 extreme = -1;      // Store fastest throw of pedal
 delta = 0;         // Default to not moving
 splash_ch = -1;    // Not ready to send a splash yet
-
-
-// Might end up only checking the first CC4 in each block... or N blocks...  (say 750 blocks = 1 second)
-// perNBlocks would be used to decide...
+overshoot = -1;    // Pedal has not reached splash point
 
 @block
 // Process incoming MIDI messages
@@ -39,7 +35,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
 
   splash_ch != -1 ? (
     // we sent a splash - now send a noteOff for it
-    midisend(offset, ($x80 | splash_ch), splashNote & $x7F, $x40);
+    midisend(offset, ($x80 | splash_ch) & $xFF, splashNote & $x7F, $x40);
     splash_ch = -1;
   );
 
@@ -62,24 +58,26 @@ while (midirecv(offset, msg1, msg2, msg3)) (
         ) : (
           value - prev_cc4
         );
+        // have we passed closed?
+        (closedSide == 0 && prev_cc4 <= closedPoint) || (closedSide == 1 && prev_cc4 >= closedPoint) ? (
+          overshoot = (closedSide == 0) ? closedPoint - prev_cc4 : prev_cc4 - closedPoint;
+        ) : (
+          (delta > extreme) ? extreme = delta;
+        );
       );
 
       // have we worked out what direction the pedal is moving?
-      (prev_closing != -1) ? (
-        (prev_closing && movingTowardsClosed && (delta > extreme)) ? extreme = delta;
-        (prev_closing && !movingTowardsClosed) ? (
-          // did we actually arrive?
-          ( (closedSide == 0 && prev_cc4 <= closedPoint) || (closedSide == 1 && prev_cc4 >= closedPoint) ) ? (
-            overshoot = (closedSide == 0) ? closedPoint - prev_cc4 : prev_cc4 - closedPoint;
-            damping = (overshoot == 0 || dampScale == 0) ? 0 : (overshoot / 127) * dampScale;
+      extreme != -1 && overshoot != -1 && prev_closing == 1 && movingTowardsClosed == 0 ? (
+        // we arrived, calculate velocity
+        damping = (overshoot == 0 || dampScale == 0) ? 0 : overshoot * dampScale;
 
-            splash_ch = ch;
-            splash_vel = (delta / 128) * velScale * 2;
-            splash_vel = splash_vel - damping;
-            splash_vel = splash_vel > 127 ? 127 : splash_vel;
-            splash_vel = splash_vel < 1 ? 1 : splash_vel;
-          );
-        );
+        splash_ch = ch;
+        splash_vel = (extreme * velScale * 2);
+        splash_vel = splash_vel - damping;
+        splash_vel = (splash_vel > 127) ? 127 : splash_vel;
+        splash_vel = (splash_vel < 1) ? 1 : splash_vel;
+        overshoot == -1;
+        extreme = -1;
       );
 
       // store latest value
@@ -89,12 +87,10 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     // store latest value
     prev_cc4 = value;
 
-    splash_ch != -1 ? (
-      // reset tracking
-      extreme = -1;
-      prev_closing = -1;
-      prev_cc4 = -1;
-      midisend(offset, ($x80 | splash_ch), splashNote & $x7F, splash_vel & $x7F);
+    splash_ch != -1 &&
+        ((closedSide == 0 && prev_cc4 > closedPoint) || (closedSide == 1 && prev_cc4 < closedPoint)) ? (
+      midisend(offset, ($x90 | splash_ch) & $xFF, splashNote & $x7F, splash_vel & $x7F);
+      dbgSplashVel = splash_vel;
     );
   );
 );
