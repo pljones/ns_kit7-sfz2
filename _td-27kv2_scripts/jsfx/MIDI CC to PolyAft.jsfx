@@ -1,5 +1,6 @@
 desc: MIDI CC to Polyphonic Aftertouch (pljones)
 author: Peter L Jones (peter.l.jones.dymlyd@gmail.com)
+source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/MIDI%20CC%20to%20PolyAft.jsfx
 version: 1.0
 changelog: initial release
 about: Single CC to fixed note polyphonic aftertouch level
@@ -8,6 +9,9 @@ slider1:cc_number=1<0,127,1>CC Number
 slider2:note_number=0<0,127,1>Note number affected
 slider3:invert=0<0,1,1{Normal,Invert}>Normal or inverted mapping
 slider4:dbg_cc=-1<0,127,1>Incoming CC Number
+
+in_pin:none
+out_pin:none
 
 
 @init
