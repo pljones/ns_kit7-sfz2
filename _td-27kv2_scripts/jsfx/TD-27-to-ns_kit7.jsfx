@@ -1,4 +1,8 @@
 desc:MIDI Map TD-27 input to ns_kit7 layout (take 2) (pljones)
+author: Peter L Jones
+version: 1.0.21
+about: Decodes TD-27 position CCs and notes into separate note numbers, starting from zero (you will need to remap your target or remap the output)
+source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27-to_ns_kit7.jsfx
 
 // Whilst care is taken to use the incoming channel number,
 // no attempt is made to allow for multiple channels in use:
