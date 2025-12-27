@@ -11,6 +11,9 @@ slider4:velScale=4<2,64,0.2>Delta-CC4 scaling factor (to splash velocity)
 slider5:dampScale=0.6<0,64,0.1>Delta-CC4 damping factor (velocity reduction)
 slider6:dbgSplashVel=-1<-1,127,1>Splash velocity
 
+in_pin:none
+out_pin:none
+
 @init
 prev_cc4 = -1;     // Need to have seen one before can calculate direction or delta
 prev_closing = -1; // Need to have computed a direction before emitting a note
