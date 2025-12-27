@@ -1,4 +1,8 @@
 desc:MIDI Map TD-27 input to ns_kit7 layout (pljones)
+author: Peter L Jones
+version: 0.5
+about: (Deprecated first attempt) Remap TD-27 to Natural Studio Drum Kit v7.0 mapping
+source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_to_ns_kit7-OLD.jsfx
 
 in_pin:none
 out_pin:none
