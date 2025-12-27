@@ -2,6 +2,7 @@ desc: TD-27 Hi-hat Splash detector OMNI (pljones)
 author: Peter L Jones
 version: 1.0
 about: Detects direction changes in CC4 and emits a configurable "hi-hat splash" note. Passes through CC4 but blocks incoming splash note number.
+source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
 
 slider1:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit
 slider2:closedSide=1<0,1,1{Keyboard (0=closed),eKit (127=closed)}>CC4 Hi-hat type
