@@ -1,29 +1,37 @@
 desc: TD-27 Hi-hat Splash detector OMNI (pljones)
 author: Peter L Jones
-version: 1.0
+version: 2.0
 about: Detects direction changes in CC4 and emits a configurable "hi-hat splash" note. Passes through CC4 but blocks incoming splash note number.
 source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
 
-slider1:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit
-slider2:closedSide=1<0,1,1{Keyboard (0=closed),eKit (127=closed)}>CC4 Hi-hat type
-slider3:closedPoint=96<0,127,1>CC4 Closed threshold
-slider4:velScale=4<2,64,0.2>Delta-CC4 scaling factor (to splash velocity)
-slider5:dampScale=0.6<0,64,0.1>Delta-CC4 damping factor (velocity reduction)
-slider6:dbgSplashVel=-1<-1,127,1>Splash velocity
+slider1:chickNote=44<0,127,1>Hi-hat chick Note to watch
+slider2:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit
+slider3:closedSide=1<0,1,1{Keyboard (CC4 0=closed),eKit (CC4 127=closed)}>Hi-hat type
+slider4:velScale=2.5<0,10,0.1>Splash velocity scaling factor
+slider5:dbgCC4ValueOnChick=0<0,127,1>(dbg) CC4 value on chick
+slider6:dbgCC4Value=0<0,127,1>(dbg) CC4 value
+slider7:dbgSplashVel=-1<-1,127,1>(dbg) Splash velocity
+slider8:dbgTimeDelta=-1<-1,8192000,1>(dbg) Time delta on trigger
+slider9:dbgCC4Delta=-1<-1,127,1>(dbg) CC4 delta on trigger
 
 in_pin:none
 out_pin:none
 
 @init
-prev_cc4 = -1;     // Need to have seen one before can calculate direction or delta
-prev_closing = -1; // Need to have computed a direction before emitting a note
-extreme = -1;      // Store fastest throw of pedal
-delta = 0;         // Default to not moving
-splash_ch = -1;    // Not ready to send a splash yet
-overshoot = -1;    // Pedal has not reached splash point
+note_ch = -1;          // capture on chick note
+cc4_on_chick = -1;     // capture cc4 level of chick note (used in velocity calculation)
+current_cc4 = 64;      // current position (set to mid point... randomly...)
+last_cc4 = 64;         // last seen position (set to mid point... randomly...)
+pedal_was_closing = 0; // previous direction of pedal movement
+pedal_is_open = 0;     // whatever, the pedal is now open
+need_note_off = 0;     // explicit note off trigger
+counter = -1;          // timer
+trigger_time = -1;     // timer when starting to work out velocity
 
 @block
-// Process incoming MIDI messages
+(counter != -1) ? counter = counter + samplesblock;
+
+// Process incoming MIDI messages - TD-27 is not very accurate to clock - offset is useless
 while (midirecv(offset, msg1, msg2, msg3)) (
   status = msg1 & $xF0;
   ch = msg1 & $x0F;
@@ -37,64 +45,115 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     midisend(offset, msg1, msg2, msg3);
   );
 
-  splash_ch != -1 ? (
-    // we sent a splash - now send a noteOff for it
-    midisend(offset, ($x80 | splash_ch) & $xFF, splashNote & $x7F, $x40);
-    splash_ch = -1;
+  // Capture channel for splash note along with CC4 level
+  (status == $x90 && msg2 == chickNote) ? (
+    note_ch = ch;
+    cc4_on_chick = last_cc4;
+    dbgCC4ValueOnChick = cc4_on_chick;
+    // start timer
+    counter = 0;
+  );
+
+  need_note_off ? (
+    // we sent a splash (maybe more than one this block..?) - now send a noteOff for it
+    midisend(0, ($x80 | note_ch) & $xFF, splashNote & $x7F, $x40);
+    need_note_off = 0;
   );
 
   // if CC4
-  status == $xB0 && msg2 == 4 ? (
+  status == $xB0 && msg2 == $x04 ? (
 
-    value = msg3 & $x7F;
+    last_cc4 = current_cc4;
+    current_cc4 = msg3;
+    dbgCC4Value = current_cc4;
 
-    // have we seen any pedal movement at all?
-    (prev_cc4 != -1) ? (
-
-      movingTowardsClosed = (
-        value < prev_cc4 && closedSide == 0) ? 1 : (
-        value > prev_cc4 && closedSide == 1) ? 1 : (
-        0
+    cc4_on_chick == -1 ? (
+      pedal_is_open = 1;
+    ) : (
+      closedSide == 0 ? (
+        pedal_is_open = (cc4_on_chick < current_cc4) ? 1 : 0;
+      ) : (
+        pedal_is_open = (cc4_on_chick > current_cc4) ? 1 : 0;
       );
-      movingTowardsClosed ? (
-        delta = (closedSide == 0) ? (
-          prev_cc4 - value
-        ) : (
-          value - prev_cc4
-        );
-        // have we passed closed?
-        (closedSide == 0 && prev_cc4 <= closedPoint) || (closedSide == 1 && prev_cc4 >= closedPoint) ? (
-          overshoot = (closedSide == 0) ? closedPoint - prev_cc4 : prev_cc4 - closedPoint;
-        ) : (
-          (delta > extreme) ? extreme = delta;
-        );
-      );
-
-      // have we worked out what direction the pedal is moving?
-      extreme != -1 && overshoot != -1 && prev_closing == 1 && movingTowardsClosed == 0 ? (
-        // we arrived, calculate velocity
-        damping = (overshoot == 0 || dampScale == 0) ? 0 : overshoot * dampScale;
-
-        splash_ch = ch;
-        splash_vel = (extreme * velScale * 2);
-        splash_vel = splash_vel - damping;
-        splash_vel = (splash_vel > 127) ? 127 : splash_vel;
-        splash_vel = (splash_vel < 1) ? 1 : splash_vel;
-        overshoot == -1;
-        extreme = -1;
-      );
-
-      // store latest value
-      prev_closing = movingTowardsClosed;
     );
 
-    // store latest value
-    prev_cc4 = value;
-
-    splash_ch != -1 &&
-        ((closedSide == 0 && prev_cc4 > closedPoint) || (closedSide == 1 && prev_cc4 < closedPoint)) ? (
-      midisend(offset, ($x90 | splash_ch) & $xFF, splashNote & $x7F, splash_vel & $x7F);
-      dbgSplashVel = splash_vel;
+    _foo_closed_side = counter;
+    (cc4_on_chick == -1) ? (
+      _foo_cc4_on_chick = -1;
+    ) : (
+      _foo_cc4_on_chick = counter;
     );
+    (pedal_is_open == 0) ? (
+      _foo_pedal_is_open = 0;
+    ) : (
+      _foo_pedal_is_open = counter;
+    );
+
+    // calculate overshoot on pedal close
+    (cc4_on_chick == -1) && (pedal_is_open == 0) ? (
+      _foo_calc_overshoot = counter;
+
+      closedSide == 0 ? (
+        pedal_closing = (current_cc4 < last_cc4) ? 1 : 0;
+        delta = cc4_on_chick - current_cc4;
+      ) : (
+        pedal_closing = (current_cc4 > last_cc4) ? 1 : 0;
+        delta = current_cc4 - cc4_on_chick;
+      );
+
+      pedal_closing == 1 ? (
+        pedal_was_closing == 1 ? (
+          // still closing
+          (delta > overshoot) ? (
+            overshoot = delta;
+            trigger_time = counter;
+          );
+        ) : (
+          // started closing (possibly again whilst closed), reset overshoot
+          overshoot = delta;
+          trigger_time = counter;
+        );
+      );
+
+      pedal_was_closing = pedal_closing;
+    ) : (
+      _foo_calc_overshoot = -1;
+    );
+
+    // So we captured the cc4 at the time the pedal closed, know how far past we went and know the pedal is open.
+    // If it has opened, send the note on.
+    note_vel = -1;   // for debugging
+    time_delta = -1; // for debugging
+    (cc4_on_chick != -1) && pedal_is_open & (trigger_time != -1) ? (
+
+      time_delta = trigger_time - counter;
+      dbgTimeDelta = time_delta;
+
+      cc4_delta = (closedSide == 0) ? overshoot + current_cc4 : overshoot + (127 - current_cc4);
+      dbgCC4Delta = cc4_delta;
+
+      note_vel = ((cc4_delta * samplesblock) / time_delta) * velScale;
+      _foo = note_vel;
+      note_vel = (note_vel > 127) ? 127 : note_vel;
+      note_vel = (note_vel < 1) ? -1 : note_vel;
+
+      note_vel > 0 ? (
+        // send a splash noteOn
+        dbgSplashVel = note_vel;
+        midisend(offset, ($x90 | note_ch) & $xFF, splashNote & $x7F, note_vel & $x7F);
+        // and need a note off
+        need_note_off = 1;
+      );
+
+      // reset triggers
+      cc4_on_chick = -1;
+
+      // stop timer
+      counter = -1;
+      trigger_time = -1;
+    );
+
   );
 );
+// stop timer
+pedal_is_open ? counter = -1;
