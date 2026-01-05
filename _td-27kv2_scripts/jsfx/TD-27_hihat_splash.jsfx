@@ -1,6 +1,6 @@
 desc: TD-27 Hi-hat Splash detector (pljones)
 author: Peter L Jones
-version: 2.0
+version: 2.4
 about: Detects direction changes in CC4 and emits a configurable "hi-hat splash" note. Passes through CC4 but blocks incoming splash note number.
 source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
 
@@ -9,30 +9,31 @@ slider2:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit
 slider3:closedSide=1<0,1,1{Keyboard (CC4 0=closed),eKit (CC4 127=closed)}>Hi-hat type
 slider4:splashTime=50<1,500,1>Splash detection window (ms)
 slider5:velScale=2.5<0,10,0.1>Splash velocity scaling factor
-slider6:dbgCC4Value=0<0,127,1>(dbg) CC4 value
-slider7:dbgBlockCtr=0<0,47999,1>(dbg) Block count
-slider8:dbgNoteAt=-1<-1,47999,1>(dbg) Block count plus offset when Chick seen
-slider9:dbgSplashVel=0<0,127,1>(dbg) Splash Velocity
+slider6:splashDelay=50<0,500,1>Splash delay after CC4 passes chick (ms)
+slider7:dbgCC4Value=0<0,127,1>(dbg) CC4 value
+slider8:dbgBlockCtr=0<0,47999,1>(dbg) Block count (not really "debug")
+slider9:dbgNoteAt=-1<-1,47999,1>(dbg) Block count plus offset when Chick seen
+slider10:dbgSplashVel=0<0,127,1>(dbg) Splash Velocity
 
 in_pin:none
 out_pin:none
 
 @init
-need_note_off = 0;     // explicit note off trigger
-note_ch = -1;          // capture on chick note
+// Tracking vars
+state = 0;             // States: 0=idle, 1=closing, 2=opening, 3=done
 current_cc4 = 64;      // current position (set to mid point... randomly...)
 last_cc4 = 64;         // previous position (set to mid point... randomly...)
-cc4_seen_at = -1;      // block count plus offset when cc4 first seen
+chick_cc4 = -1;        // CC4 at chick note moment
+chick_time_at = -1;    // Timestamp when chick hit
+cc4_seen_at = -1;      // Timestamp when current cc4 seen
+splash_at_time = -1;   // Time when splash should be sent
+need_note_off = 0;     // Indicate splash note off should be sent
 
-// Tracking vars for pedal motion analysis
-// States: 0=idle, 1=closing, 2=opening, 3=done
-state = 0;
-
-// Tracking vars
-chick_cc4 = -1;           // CC4 at chick note moment
-chick_time_at = -1;       // Timestamp when chick hit
-bottom_cc4 = -1;          // CC4 at bottom (most closed position)
-bottom_time_at = -1;      // Timestamp at bottom
+// Others - should be set by the state machine before use
+splash_vel = 0;        // Velocity for splash note on
+note_ch = 0;           // Channel captured on chick note
+bottom_time_at = -1;   // Used in velocity calculation
+bottom_cc4 = 0;        // Used in velocity calculation
 
 function is_opening() (
   (last_cc4 == -1) || (current_cc4 == -1) || (last_cc4 == current_cc4) ?
@@ -63,29 +64,28 @@ function subtract_cc4(more_open, less_open) (
 );
 
 @block
-(chick_time_at != -1) && (dbgBlockCtr < 48000) ? (
+((chick_time_at != -1) || (splash_at_time != -1)) && (dbgBlockCtr < 48000) ? (
   dbgBlockCtr = dbgBlockCtr + samplesblock;
 ) : (
   // time out
   dbgBlockCtr = 0;
   // and reset
-  current_cc4 = 64;
-  last_cc4 = 64;
   chick_time_at = -1;
+  splash_at_time = -1;
   state = 0;
-  bottom_cc4 = -1;
-  bottom_time_at = -1;
 );
 
 need_note_off ? (
   // we sent a splash - now send a noteOff for it
   midisend(0, ($x80 | note_ch) & $xFF, splashNote & $x7F, $x40);
   need_note_off = 0;
-  // and reset
-  chick_time_at = -1;
-  state = 0;
-  bottom_cc4 = -1;
-  bottom_time_at = -1;
+);
+
+// Check if it's time to send scheduled splash
+(splash_at_time != -1) && (dbgBlockCtr > splash_at_time) ? (
+  midisend(0, ($x90 | note_ch) & $xFF, splashNote & $x7F, splash_vel & $x7F);
+  need_note_off = 1;
+  splash_at_time = -1;
 );
 
 // Process incoming MIDI messages - TD-27 is not very accurate to clock - offset is useless
@@ -97,33 +97,33 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     // we sent a splash (maybe more than one this block..?) - now send a noteOff for it
     midisend(offset, ($x80 | note_ch) & $xFF, splashNote & $x7F, $x40);
     need_note_off = 0;
-    // and reset
-    chick_time_at = -1;
-    state = 0;
-    bottom_cc4 = -1;
-    bottom_time_at = -1;
+  );
+
+  // Chick note starts the state machine
+  (status == $x90) && (msg2 == chickNote) && (msg3 > 0) ? (
+    dbgBlockCtr = 0; // Reset timer
+
+    chick_time_at = offset; // Start the timer
+    dbgNoteAt = chick_time_at;
+    chick_cc4 = (closedSide == 0) ? min(0, current_cc4) : max(0, current_cc4);
+    note_ch = ch; // Capture the channel the chick happened on for everything else
+
+    state = 1;
+    splash_at_time = -1; // Suppress any pending splash
+    bottom_time_at = chick_time_at;
+    bottom_cc4 = chick_cc4;
   );
 
   // Drop any incoming messages that match the splash note (regardless of channel)
-  ((status == $x90) || (status == $x80)) && (msg2 == splashNote) ? (
-    // drop incoming splash note
+  ((status == $x90) || (status == $x80)) && (msg2 == splashNote) && (ch == note_ch) ? (
+    // drop incoming splash note on our channel
     0;
   ) : (
     // pass everything else through
     midisend(offset, msg1, msg2, msg3);
-
-    (status == $x90) && (msg2 == chickNote) && (msg3 > 0) ? (
-      chick_time_at = offset;
-      note_ch = ch;
-      chick_cc4 = current_cc4;
-      state = 1;
-
-      dbgNoteAt = chick_time_at;
-      dbgBlockCtr = 0; // Reset timer
-    );
   );
 
-  // CC4 handler - simpler state transitions
+  // CC4 handler
   (status == $xB0) && (msg2 == $x04) && (ch == note_ch) ? (
     current_cc4 = msg3;
     dbgCC4Value = current_cc4;
@@ -131,14 +131,14 @@ while (midirecv(offset, msg1, msg2, msg3)) (
 
     (state == 1) && is_closing() ? (
       // We saw a Chick Note and pedal still closing - track minimum CC4
-      (bottom_cc4 == -1) || (is_more_closed(current_cc4, bottom_cc4)) ? (
+      is_more_closed(current_cc4, bottom_cc4) ? (
         bottom_cc4 = current_cc4;
         bottom_time_at = cc4_seen_at;
       );
 
     ) : (state == 1) && is_opening() ? (
       // We saw a Chick Note and hit bottom - direction changed to opening
-      // (we may have gone past chick but don't worry about it)
+      // (we may have gone openwards past chick but don't worry about it)
       state = 2;
 
       // Calculate rest time (how long we were at bottom)
@@ -176,15 +176,16 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       splash_vel = min(127, (scaled_energy + scaled_release) * velScale);
 
       splash_vel >= 1 ? (
-        midisend(offset, ($x90 | note_ch) & $xFF, splashNote & $x7F, splash_vel & $x7F);
-        need_note_off = 1;
+        splash_at_time = cc4_seen_at + (splashDelay * srate / 1000);
+        dbgSplashVel = splash_vel;
+      ) : (
+        splash_at_time = -1;
+        dbgSplashVel = 0;
       );
 
-      // And... reset anyway
+      // We need another chick
       chick_time_at = -1;
       state = 0;
-      bottom_cc4 = -1;
-      bottom_time_at = -1;
     );
   );
 );
