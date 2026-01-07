@@ -7,9 +7,9 @@ source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_
 slider1:chickNote=44<0,127,1>Hi-hat chick Note to watch (sets channel)
 slider2:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit
 slider3:closedSide=1<0,1,1{Keyboard (CC4 0=closed),eKit (CC4 127=closed)}>Hi-hat type
-slider4:splashTime=50<1,500,1>Splash detection window (ms)
-slider5:velScale=2.5<0,10,0.1>Splash velocity scaling factor
-slider6:splashDelay=50<0,500,1>Splash delay after CC4 passes chick (ms)
+slider4:splashTime=20<1,100,1>Splash detection window (ms)
+slider5:velScale=0.25<0,10,0.05>Splash velocity scaling factor
+slider6:splashDelay=5<0,100,1>Splash delay after CC4 passes chick (ms)
 slider7:dbgCC4Value=0<0,127,1>(dbg) CC4 value
 slider8:dbgBlockCtr=0<0,47999,1>(dbg) Block count (not really "debug")
 slider9:dbgNoteAt=-1<-1,47999,1>(dbg) Block count plus offset when Chick seen
