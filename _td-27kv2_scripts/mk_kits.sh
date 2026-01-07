@@ -83,6 +83,42 @@ function override_defines () {
 	grep '^#include' "${trigger_file}"
 }
 
+function hihat_overrides () {
+	local hh=$1; shift || { echo "hihat_overrides: Missing hh" >&2; exit 1; }
+	local btr=$1; shift || { echo "hihat_overrides: Missing btr" >&2; exit 1; }
+	local -n _key_ref=$1 ; shift || { echo "hihat_overrides: Missing key_ref" >&2; exit 1; }
+
+	local my_key=${_key_ref}
+
+	echo ''
+	echo '<master>'
+	echo " volume=-6.00 gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
+
+	for the_hihat_beater in $btr ped spl
+	do
+		if [[ $hh == - ]]
+		then
+			common_override "triggers/${the_hihat_beater}/${k[hihats]}.sfzh" my_key
+		else
+			common_override "triggers/${the_hihat_beater}/${k[hihats]}_invcc4.sfzh" my_key
+		fi
+	done
+
+	for the_hihat_beater in $btr ped spl
+	do
+		if [[ $hh == - ]]
+		then
+			grep '^#include' "triggers/${the_hihat_beater}/${k[hihats]}.sfzh"
+		else
+			grep '^#include' "triggers/${the_hihat_beater}/${k[hihats]}_invcc4.sfzh"
+		fi
+
+	done
+
+	_key_ref=$my_key
+
+}
+
 function tom_overrides () {
 	local trigger_file=$1; shift || { echo "tom_overrides: Missing trigger_file" >&2; exit 1; }
 	local -n _key_ref=$1 ; shift || { echo "tom_overrides: Missing key_ref" >&2; exit 1; }
@@ -362,25 +398,7 @@ do
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
-				for the_hihat_beater in $btr ped spl
-				do
-
-					echo ''
-					echo '<master>'
-					echo " volume=$(
-						case "${the_hihat_beater}" in
-							"spl") echo '9.00'  ;;
-							"ped") echo '3.00'  ;;
-							*)     echo '-6.00' ;;
-						esac) gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
-					if [[ $hh == - ]]
-					then
-						override_defines "triggers/${the_hihat_beater}/${k[hihats]}.sfzh" key
-					else
-						override_defines "triggers/${the_hihat_beater}/${k[hihats]}_invcc4.sfzh" key
-					fi
-
-				done
+				hihat_overrides ${hh} ${btr} key
 
 				echo ''
 				echo '<master>'
