@@ -1,15 +1,16 @@
 desc: TD-27 Hi-hat Splash detector (pljones)
 author: Peter L Jones
-version: 2.4
-about: Detects direction changes in CC4 and emits a configurable "hi-hat splash" note. Passes through CC4 but blocks incoming splash note number.
+version: 3.0
+about: Uses speed of change in direction of CC4 across a reported Chick note to substitute a Splash note (introduces configurable latency)
 source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
 
-slider1:chickNote=44<0,127,1>Hi-hat chick Note to watch (sets channel)
-slider2:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit
+slider1:chickNote=44<0,127,1>Hi-hat chick MIDI note to watch (sets channel and velocity)
+slider2:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit (uses channel and velocity)
 slider3:closedSide=1<0,1,1{Keyboard (CC4 0=closed),eKit (CC4 127=closed)}>Hi-hat type
-slider4:splashTime=16<1,100,0.1>Splash detection window (ms)
-slider5:dbgCC4Value=0<0,127,1>(dbg) CC4 value
-slider6:dbgTimer=0<0,1000,1>(dbg) Timer
+slider4:splashTime=12<1,100,0.1>Splash detection window (ms)
+slider5:pedalThreshold=4<0,63,1>Minimum pedal opening to trigger a splash
+slider6:dbgCC4Value=0<0,127,1>(dbg) CC4 value
+slider7:dbgTimer=0<0,1000,1>(dbg) Timer
 
 in_pin:none
 out_pin:none
@@ -25,140 +26,144 @@ function is_more_open(cc4_a, cc4_b) (
   subtract_cc4(cc4_a, cc4_b) > 0
 );
 
+// True if first value more open than second value by third value or more
+function is_more_open_by(cc4_a, cc4_b, threshold) (
+  subtract_cc4(cc4_a, cc4_b) > threshold
+);
+
 // True if first value more closed than second value
 function is_more_closed(cc4_a, cc4_b) (
   subtract_cc4(cc4_a, cc4_b) < 0
 );
 
-// True if current state (if available) shows an opening movement (false if insufficient state or not opening)
+// True if current values (if available) shows an opening movement (false if insufficient values or not opening)
+// (Currently unused)
 function is_opening() (
   (last_cc4 == -1) || (current_cc4 == -1) ? 0 : is_more_open(current_cc4, last_cc4)
 );
 
-// True if current state (if available) shows a closing movement (false if insufficient state or not closing)
+// True if current values (if available) shows a closing movement (false if insufficient values or not closing)
 function is_closing() (
   (last_cc4 == -1) || (current_cc4 == -1) ? 0 : is_more_closed(current_cc4, last_cc4)
 );
 
-function now_ms(sample_pos, offset) (
-  ((sample_pos + offset) * 1000) / srate;
+// Current timestamp in milliseconds
+function now_ms(offset) (
+  ((sample_pos + offset) * 1000) / srate
 );
 
-function timer_expired(expiry_time, now) (
-  (expiry_time - now) <= 0;
-);
-
-// pedal_down_by gets updated on each downwards pedal motion towards chick, keeping a timer running
-// stop the timer if it expires (i.e. pedal stops moving down)
-function pedal_down_expired(offset) (
-  (pedal_down_by != -1) ? (timer_expired(pedal_down_by, now_ms(sample_pos, offset)) ? (
-    pedal_down_by = -1;
-    sample_pos = 0;
-    1
-  ) : 0)
-  : 0
-);
-
-// pedal_up_by starts from chick, keeping a timer running
-// stop the timer if it expires (i.e. pedal stops moving down)
-function pedal_up_expired(offset) (
-  (pedal_up_by != -1) ? (timer_expired(pedal_up_by, now_ms(sample_pos, offset)) ? (
-    pedal_up_by = -1;
-    sample_pos = 0;
-    1
-  ) : 0)
-  : 0
+// Has the current time reached the timer?
+function timer_expired(offset) (
+  expiry_time == -1 ? 0 : (expiry_time - now_ms(offset)) <= 0
 );
 
 // If we sent a note on, send a note off for it
 function maybe_send_note_off(offset) (
   (need_note_off != -1) ? (
-    midisend(0, ($x80 | note_ch) & $xFF, need_note_off & $x7F, $x40);
+    midisend(offset, ($x80 | note_ch) & $xFF, need_note_off & $x7F, $x40);
     need_note_off = -1;
   );
-  0
 );
 
 // Check if we need to send a note on
-// ... probably need an "at least more open by this much" ...
 function maybe_send_note_on(offset) (
-  pedal_up_expired(offset) ? (
+  (state == 3) && timer_expired(offset) ? (
     // If current_cc4 is more open than chick_cc4 send splash else send chick
-    is_more_open(current_cc4, chick_cc4) ? (
-      midisend(0, ($x90 | note_ch) & $xFF, splashNote & $x7F, note_vel & $x7F);
+    is_more_open_by(current_cc4, chick_cc4, pedalThreshold) ? (
+      midisend(offset, ($x90 | note_ch) & $xFF, splashNote & $x7F, note_vel & $x7F);
       need_note_off = splashNote;
     ) : (
-      midisend(0, ($x90 | note_ch) & $xFF, chickNote & $x7F, note_vel & $x7F);
+      midisend(offset, ($x90 | note_ch) & $xFF, chickNote & $x7F, note_vel & $x7F);
       need_note_off = chickNote;
-    )
+    );
+    state = 0;
   );
-  0
 );
 
-// Current timestamp in milliseconds
-function now_ms(sample_pos, offset) (
-  ((sample_pos + offset) * 1000) / srate
-);
-
-// Has the current time reached the timer?
-function timer_expired(expire_at, now_ms) (
-  (expire_at - now_ms) <= 0
+function maybe_reset_timer(offset) (
+  timer_expired(offset) ? (
+    state = 0;
+    sample_pos = 0;
+    dbgTimer = sample_pos;
+    expiry_time = -1;
+  );
 );
 
 // Tracking vars
-pedal_down_by = -1;    // Must go chick by this time
-pedal_up_by = -1;      // Pedal must return to start by this time
+state = 0;             // 0 - idle; 1 & 2 - tracking pedal down; 3 - tracking pedal up
+expiry_time = -1;      // When tracking, the timer expiry time
 sample_pos = 0;        // Accumulated sample position (used to calculate time)
-pedal_down_by_next = -1;  // Require at least one CC4 before the chick position CC4
+last_cc4_at = -1;      // Require at least one CC4 before the chick position CC4
 
 current_cc4 = 64;      // Latest CC4 value (set to mid point... randomly...)
 last_cc4 = 64;         // Previous CC4 value (set to mid point... randomly...)
 chick_cc4 = -1;        // CC4 value at chick note moment
 need_note_off = -1;    // Indicates the note off to be sent when not -1
-note_vel = 0;        // Velocity for splash note on
+note_vel = 0;          // Velocity for splash note on
 note_ch = 0;           // Channel captured on chick note
 
 
+// state:
+// Any:
+//   - if a note off is required, send it (maybe_send_note_off)
+//   - on timer expiry (maybe_reset_timer, after maybe_send_note_on):
+//     - set reset timer expiry and start time, set state to 0
+// 0 - "Idle": waiting for CC4
+//     - pass through all events
+//     - on CC4: store last_cc4_at, set state to 1
+// 1 - "Pedal started closing": wait for chick
+//     - pass through all events
+//     - on CC4: store last_cc4_at, set timer expiry and start time, set state to 2
+// 2 - "Waiting for chick": wait for chick
+//     - ignore splash and chick note events
+//     - pass through other events
+//     - on chick: store CC4 and note details, set timer expiry and start time, set state to 3
+//     - on CC4: store last_cc4_at, set timer expiry and start time, leave state unchanged
+// 3 - "Waiting for timer":
+//     - pass through all events
+//     - on timer expiry (maybe_send_note_on, before maybe_reset_timer):
+//       - send either a splash (if the pedal is open enough) or chick
+//       - require a note off
+//       - set reset timer expiry and start time, set state to 0
+
 @block
-(pedal_down_by != -1) || (pedal_up_by != -1) ? (
+state > 1 ? (
   sample_pos = sample_pos + samplesblock;
+  dbgTimer = sample_pos;
 );
 
 maybe_send_note_off(0);
 maybe_send_note_on(0);
-dbgTimer = sample_pos;
+maybe_reset_timer(0);
 
 // Process incoming MIDI messages - TD-27 is not very accurate to clock - offset is useless
 while (midirecv(offset, msg1, msg2, msg3)) (
   status = msg1 & $xF0;
   ch = msg1 & $x0F;
 
-  maybe_send_note_off(offset);
-  maybe_send_note_on(offset);
-  dbgTimer = sample_pos + offset;
+  //- stick with once per block for now -//
+  //maybe_send_note_off(offset);
+  //maybe_send_note_on(offset);
+  //maybe_reset_timer(offset);
 
-  (pedal_down_by != -1)
-    && ((status == $x90) || (status == $x80)) && ((msg2 == splashNote) || (msg2 == chickNote)) && (ch == note_ch) ? (
-    // If tracking pedal down
-    // And splash or chick note on our channel
-    // Ignore it
-    0;
+  // If tracking pedal down, ignore (do "nothing") splash or chick note events and pass everything else through
+  (state == 2) && ((status == $x90) || (status == $x80)) && ((msg2 == splashNote) || (msg2 == chickNote)) ? (
+    0; // Do nothing in a JSFX-friendly way
   ) : (
-    // Pass everything else through
-    midisend(offset, msg1, msg2, msg3);
+    midisend(offset, msg1, msg2, msg3); // Send the current event
   );
 
   // Did the pedal close fast enough?
-  (pedal_down_by != -1) && (status == $x90) && (msg2 == chickNote) && (msg3 > 0) ? (
-    pedal_down_by = -1;       // Stop the pedal down timer
-    pedal_down_by_next = -1;  // Require at least one CC4 before the chick position CC4
-
+  (state == 2) && (status == $x90) && (msg2 == chickNote) && (msg3 > 0) ? (
     chick_cc4 = current_cc4;  // So we know when the pedal opens
     note_ch = ch;             // Capture the channel the chick happened on for everything else
     note_vel = msg3;          // Velocity for chick or splash
 
-    sample_pos = 0;           // reset timer
-    pedal_up_by = splashTime; // set expiry
+    sample_pos = offset;                       // set timer
+    expiry_time = now_ms(offset) + splashTime; // set expiry
+    state = 3;                                 // start the timer
+
+    last_cc4_at = -1;  // Clear "next" timer value
   );
 
   // CC4 handler
@@ -166,18 +171,30 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     current_cc4 = msg3;
     dbgCC4Value = current_cc4;
 
-    (pedal_up_by == -1) ? (
-      pedal_down_by = pedal_down_by_next;
+    (state == 0) ? (
+      // Idle
       is_closing() ? (
-        sample_pos = 0;                  // reset timer
-        pedal_down_by_next = splashTime; // set expiry
-      ) : (
-        pedal_down_by = -1;      // clear expiry, stopping timer
-        pedal_down_by_next = -1;
+        // Start tracking closing pedal
+        last_cc4_at = now_ms(offset); // set expiry for next CC4
+        state = 1;                    // wait for next CC4
       );
-    ) : (
-      pedal_down_by = -1;
-      pedal_down_by_next = -1;
+    ) : ((state == 1) || (state == 2)) ? (
+      // Moving towards closed, keep tracking pedal
+      is_closing() ? (
+        sample_pos = offset;                    // set timer
+        expiry_time = last_cc4_at + splashTime; // set expiry
+        state = 2;                              // (re)start the timer
+
+        last_cc4_at = now_ms(offset);           // set expiry for next CC4
+      ) : (
+        // pedal direction towards open, so wait for next downwards movement
+        sample_pos = 0;    // reset timer
+        expiry_time = -1;  // no timer running
+        state = 0;         // Return to idle
+
+        last_cc4_at = -1;  // Clear "next" timer value
+        dbgTimer = sample_pos; // Reset UI
+      );
     );
 
     last_cc4 = current_cc4;
