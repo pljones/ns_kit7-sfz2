@@ -8,7 +8,7 @@ slider1:chickNote=44<0,127,1>Hi-hat chick MIDI note to watch (sets channel and v
 slider2:splashNote=97<0,127,1>Hi-hat splash MIDI note to emit (uses channel and velocity)
 slider3:closedSide=1<0,1,1{Keyboard (CC4 0=closed),eKit (CC4 127=closed)}>Hi-hat type
 slider4:splashTime=12<1,100,0.1>Splash detection window (ms)
-slider5:pedalThreshold=4<0,63,1>Minimum pedal opening to trigger a splash
+slider5:pedalThreshold=4<0,63,1>Pedal sensitivity (reduces false triggers, etc)
 slider6:dbgCC4Value=0<0,127,1>(dbg) CC4 value
 slider7:dbgTimer=0<0,1000,1>(dbg) Timer
 
@@ -57,6 +57,14 @@ function timer_expired(offset) (
   expiry_time == -1 ? 0 : (expiry_time - now_ms(offset)) <= 0
 );
 
+function reset_timer() (
+  state = 0;
+  sample_pos = 0;
+  dbgTimer = sample_pos;
+  expiry_time = -1;
+  last_cc4_at = -1;
+);
+
 // If we sent a note on, send a note off for it
 function maybe_send_note_off(offset) (
   (need_note_off != -1) ? (
@@ -76,23 +84,18 @@ function maybe_send_note_on(offset) (
       midisend(offset, ($x90 | note_ch) & $xFF, chickNote & $x7F, note_vel & $x7F);
       need_note_off = chickNote;
     );
-    state = 0;
+    reset_timer();
   );
 );
 
 function maybe_reset_timer(offset) (
-  timer_expired(offset) ? (
-    state = 0;
-    sample_pos = 0;
-    dbgTimer = sample_pos;
-    expiry_time = -1;
-  );
+  timer_expired(offset) ? reset_timer();
 );
 
 // Tracking vars
 state = 0;             // 0 - idle; 1 & 2 - tracking pedal down; 3 - tracking pedal up
-expiry_time = -1;      // When tracking, the timer expiry time
 sample_pos = 0;        // Accumulated sample position (used to calculate time)
+expiry_time = -1;      // When tracking, the timer expiry time
 last_cc4_at = -1;      // Require at least one CC4 before the chick position CC4
 
 current_cc4 = 64;      // Latest CC4 value (set to mid point... randomly...)
@@ -106,25 +109,32 @@ note_ch = 0;           // Channel captured on chick note
 // state:
 // Any:
 //   - if a note off is required, send it (maybe_send_note_off)
-//   - on timer expiry (maybe_reset_timer, after maybe_send_note_on):
-//     - set reset timer expiry and start time, set state to 0
+//   - on timer expiry (maybe_reset_timer, after maybe_send_note_on)
+//     - clear the timer and reset state
+//   - on CC4: after everything else, set last_cc4 to current_cc4, store last_cc4_at
 // 0 - "Idle": waiting for CC4
 //     - pass through all events
-//     - on CC4: store last_cc4_at, set state to 1
-// 1 - "Pedal started closing": wait for chick
-//     - pass through all events
-//     - on CC4: store last_cc4_at, set timer expiry and start time, set state to 2
-// 2 - "Waiting for chick": wait for chick
-//     - ignore splash and chick note events
-//     - pass through other events
-//     - on chick: store CC4 and note details, set timer expiry and start time, set state to 3
-//     - on CC4: store last_cc4_at, set timer expiry and start time, leave state unchanged
+//     - on CC4:
+//       - if pedal closing (i.e. at least one CC4 has passed), set state to 1
+// 1, 2: - "Pedal closing": wait for chick
+//     - state 1: pass through all events
+//     - state 2:
+//       - ignore splash and chick note events, pass through all others
+//       - on chick:
+//         - store CC4 and note details
+//         - reset timer expiry (last_cc4_at + splashTime) and restart timer
+//         - set state to 3
+//     - on CC4, either state:
+//       - if closing enough: set state to 2, set timer expiry (last_cc4_at + splashTime) and start timer
 // 3 - "Waiting for timer":
 //     - pass through all events
-//     - on timer expiry (maybe_send_note_on, before maybe_reset_timer):
-//       - send either a splash (if the pedal is open enough) or chick
-//       - require a note off
-//       - set reset timer expiry and start time, set state to 0
+//     - on timer expiry (maybe_send_note_on):
+//       - check the pedal position relative to the chick position
+//         - if sufficiently more open, send a splash note
+//         - else send a chick note
+//         - require a note off for the relevant note on
+//       - clear the timer and reset state
+//     - no additional CC4 handling
 
 @block
 state > 1 ? (
@@ -162,8 +172,6 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     sample_pos = offset;                       // set timer
     expiry_time = now_ms(offset) + splashTime; // set expiry
     state = 3;                                 // start the timer
-
-    last_cc4_at = -1;  // Clear "next" timer value
   );
 
   // CC4 handler
@@ -175,28 +183,29 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       // Idle
       is_closing() ? (
         // Start tracking closing pedal
-        last_cc4_at = now_ms(offset); // set expiry for next CC4
         state = 1;                    // wait for next CC4
       );
     ) : ((state == 1) || (state == 2)) ? (
-      // Moving towards closed, keep tracking pedal
+      // Waiting for chick
       is_closing() ? (
-        sample_pos = offset;                    // set timer
-        expiry_time = last_cc4_at + splashTime; // set expiry
+        // Moving towards closed, keep tracking pedal
         state = 2;                              // (re)start the timer
-
-        last_cc4_at = now_ms(offset);           // set expiry for next CC4
-      ) : (
-        // pedal direction towards open, so wait for next downwards movement
-        sample_pos = 0;    // reset timer
-        expiry_time = -1;  // no timer running
-        state = 0;         // Return to idle
-
-        last_cc4_at = -1;  // Clear "next" timer value
+        sample_pos = offset;                    // set timer
         dbgTimer = sample_pos; // Reset UI
+        expiry_time = last_cc4_at + splashTime; // (re)set chick expiry
+      ) : (
+        // If moving significantly towards open, wait for next downwards movement
+        is_more_open_by(current_cc4, last_cc4, pedalThreshold) ? (
+          current_cc4 = last_cc4; // Pedal has "not moved"
+          reset_timer();
+        );
       );
+    ) : (
+      // This checks state and timer, cleaning up state if needed
+      maybe_send_note_on(offset);
     );
 
     last_cc4 = current_cc4;
+    last_cc4_at = now_ms(offset); // set expiry for next CC4
   );
 );
