@@ -75,7 +75,7 @@ while(midirecv(offset, msg1, msg23)) (
     midisend(offset, msg1, msg23);
 
   ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
-    dbgChickVel = data3; // set the debug for this note on
+    dbgChickVel = data2; // set the debug for this note on
 
     // Detect chick note (Note On)
     chick_on_time = now_ms(offset);
@@ -100,7 +100,7 @@ while(midirecv(offset, msg1, msg23)) (
 
     // Send chick or splash
     out_note = is_chick ? chickNote : splashNote;
-    out_velocity = is_chick ? data3 : out_velocity;
+    out_velocity = is_chick ? data2 : out_velocity;
     dbgNoteOn = is_chick ? 1 : 2;
     last_note_sent = out_note;
     midisend(offset, 0x90 | chan, out_note | (out_velocity << 8));
