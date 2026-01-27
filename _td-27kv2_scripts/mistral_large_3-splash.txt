@@ -1,0 +1,1837 @@
+User: This is a Reaper JSFX script.  It is used to trigger a Hi-hat Splash sound if the pedal (tracked using MIDI CC4) is pressed "correctly".  The algorithm for "correctly" is somewhat vague.  If the pedal is pressed and held, it should emit a Hi-hat Chick.  However, if it's pressed (enough) and released fast enough, it should emit a Hi-hat Splash.  But this must not interfere with repeated pedal chick notes (e.g. keeping time) - splashes tend to be less frequent.  My "gut feel" is "more pressure" should be put onto the pedal to get the splash but I'm not sure that's how - for example - the Roland TD-27 models it.
+
+Workspace: Collecting workspace information
+
+User: #file:gemini-splash.txt contains a discussion with Gemini AI about implementing a possible Reaper JSFX to handle generating Chick or Splash notes based on hihat pedal movement (mapped from CC4).
+#file:TD-27_hihat_splash.jsfx  contains the current approach.
+
+Please review the two and suggest any enhacements to the current approach.
+
+GitHub Copilot: I've reviewed both the Gemini discussion and your current JSFX implementation. The Gemini approach provides some valuable insights about how the TD-27's real hi-hat pedal works (with CC4=80 being the "touch point" and 80-127 representing compression force), which differs from your current implementation. Here are my suggested enhancements:
+
+### Key Improvements Needed:
+
+1. **State Machine Implementation**
+   - Current code tracks press start but doesn't properly handle the different phases of pedal movement
+   - Need to track: Open → Closing → Closed/Compressed → Rebounding
+
+2. **Force-Based Splash Detection**
+   - Current algorithm uses velocity and duration but doesn't account for the TD-27's compression zone (80-127)
+   - Should track maximum compression depth to determine splash potential
+
+3. **Release Timing Window**
+   - Current implementation uses a single threshold (chickHeld)
+   - Should add a separate "splash window" parameter for the rebound timing
+
+### Suggested Code Changes:
+
+```jsfx
+// ...existing code...
+slider12:touchPoint=80<0,127,1>Touch point (CC4 value)
+slider13:splashForce=115<80,127,1>Splash force threshold
+slider14:splashWindow=150<0,500,1>Splash window (ms)
+slider15:minCompression=5<0,20,1>Min compression to consider splash
+
+@init
+// ...existing variables...
+state = 0; // 0=open, 1=closing, 2=compressed, 3=rebounding
+max_compression = 0;
+compression_start_time = 0;
+splash_primed = 0;
+// ...rest of init...
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // State machine for pedal movement
+    (state == 0 && data2 > touchPoint) ? (
+      state = 1; // Closing
+      press_start_time = now_ms(offset);
+      press_start_value = data2;
+    ) : (state == 1 && data2 >= touchPoint) ? (
+      max_compression = max(max_compression, data2);
+      (data2 >= splashForce) ? splash_primed = 1;
+      (data2 >= 127) ? (
+        state = 2; // Fully compressed
+        compression_start_time = now_ms(offset);
+      );
+    ) : (state >= 1 && data2 < touchPoint) ? (
+      state = 3; // Rebounding
+      rebound_time = now_ms(offset);
+      // Check for splash conditions
+      is_splash = splash_primed &&
+                 (max_compression - touchPoint >= minCompression) &&
+                 (rebound_time - compression_start_time < splashWindow);
+      splash_primed = 0;
+    ) : (state == 3 && data2 < 40) ? (
+      state = 0; // Back to open
+      max_compression = 0;
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    dbgChickVel = data2;
+    // Only trigger chick if we're in closing state (not already compressed)
+    (state == 1) ? (
+      // Calculate velocity based on compression
+      cc4_change = max_compression - touchPoint;
+      press_duration = now_ms(offset) - press_start_time;
+      press_velocity = (cc4_change / (127 - touchPoint)) / max(1, press_duration);
+      raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+
+      // Determine splash potential
+      is_fast = raw_vel > minVel;
+      is_splash = splash_primed &&
+                 (max_compression - touchPoint >= minCompression) &&
+                 (now_ms(offset) - compression_start_time < splashWindow);
+
+      // Map velocity to MIDI range
+      norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+      curved_vel = apply_curve(norm_vel);
+      out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+
+      // Send appropriate note
+      out_note = is_splash ? splashNote : chickNote;
+      out_velocity = is_splash ? out_velocity : data2;
+      dbgNoteOn = is_splash ? 2 : 1;
+      dbgNoteVel = out_velocity;
+      last_note_sent = out_note;
+      midisend(offset, 0x90 | chan, out_note | (out_velocity << 8));
+
+      // Reset state after chick/splash
+      state = is_splash ? 0 : 2;
+      max_compression = 0;
+      splash_primed = 0;
+    );
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Note Off handling remains the same
+    out_note = last_note_sent;
+    midisend(offset, 0x80 | chan, out_note | (data2 << 8));
+
+  ) : (
+    midisend(offset, msg1, msg23);
+  );
+);
+```
+
+### Key Benefits of This Approach:
+
+1. **More Accurate Splash Detection**:
+   - Uses the compression zone (80-127) to determine splash potential
+   - Requires both sufficient force AND quick release
+
+2. **Better Time-Keeping**:
+   - Only triggers chicks during the closing phase
+   - Prevents double-triggering during compression
+
+3. **More Configurable**:
+   - Added sliders for touch point, splash force threshold, and splash window
+   - Allows fine-tuning for different playing styles
+
+4. **More Natural Feel**:
+   - Matches the TD-27's actual pedal behavior more closely
+   - Rewards "hard stomp + quick release" with splashes
+
+Would you like me to explain any part of this implementation in more detail or suggest additional refinements?
+
+User: The exact `touchPoint` value will be the last CC4 received before the ChickNote is received.
+
+GitHub Copilot: Based on the Gemini discussion and your current implementation, I'll enhance the splash detection algorithm to better match the TD-27's behavior. The key insight is that we should track the maximum compression depth (CC4 value) after the touch point (CC4=80) to determine if a splash should be triggered.
+
+Here's the enhanced implementation:
+
+````jsfx
+// ...existing code...
+slider12:touchPoint=80<0,127,1>Touch point (CC4 value)
+slider13:splashForce=115<80,127,1>Splash force threshold
+slider14:splashWindow=150<0,500,1>Splash window (ms)
+slider15:minCompression=5<0,20,1>Min compression to consider splash
+
+@init
+// ...existing variables...
+state = 0; // 0=open, 1=closing, 2=compressed, 3=rebounding
+max_compression = 0;
+compression_start_time = 0;
+splash_primed = 0;
+touch_point_reached = 0;
+// ...rest of init...
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // State machine for pedal movement
+    (state == 0 && data2 >= touchPoint && !touch_point_reached) ? (
+      state = 1; // Closing - touch point reached
+      touch_point_reached = 1;
+      press_start_time = now_ms(offset);
+      press_start_value = data2;
+    ) : (state == 1 && data2 >= touchPoint) ? (
+      // Track maximum compression after touch point
+      max_compression = max(max_compression, data2);
+      (data2 >= splashForce) ? splash_primed = 1;
+      (data2 >= 127) ? (
+        state = 2; // Fully compressed
+        compression_start_time = now_ms(offset);
+      );
+    ) : (state >= 1 && data2 < touchPoint) ? (
+      state = 3; // Rebounding
+      rebound_time = now_ms(offset);
+    ) : (state == 3 && data2 < 40) ? (
+      state = 0; // Back to open
+      touch_point_reached = 0;
+      max_compression = 0;
+      splash_primed = 0;
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    dbgChickVel = data2;
+
+    // Calculate compression depth from touch point
+    cc4_change = max_compression - touchPoint;
+    press_duration = now_ms(offset) - press_start_time;
+
+    // Calculate velocity based on compression
+    press_velocity = (cc4_change / (127 - touchPoint)) / max(1, press_duration);
+    raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+
+    // Determine splash conditions
+    is_splash = splash_primed &&
+               (cc4_change >= minCompression) &&
+               (now_ms(offset) - compression_start_time < splashWindow);
+
+    // Map velocity to MIDI range and apply curve
+    norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+    curved_vel = apply_curve(norm_vel);
+    out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+
+    dbgNoteVel = out_velocity;
+
+    // Send appropriate note
+    out_note = is_splash ? splashNote : chickNote;
+    out_velocity = is_splash ? out_velocity : data2;
+    dbgNoteOn = is_splash ? 2 : 1;
+    last_note_sent = out_note;
+    midisend(offset, 0x90 | chan, out_note | (out_velocity << 8));
+
+    // Reset state after chick/splash
+    state = is_splash ? 0 : 2;
+    touch_point_reached = 0;
+    max_compression = 0;
+    splash_primed = 0;
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Note Off handling remains the same
+    out_note = last_note_sent;
+    midisend(offset, 0x80 | chan, out_note | (data2 << 8));
+
+  ) : (
+    midisend(offset, msg1, msg23);
+  );
+);
+````
+
+Key improvements in this version:
+
+1. **State Machine**: Properly tracks the pedal movement phases (open → closing → compressed → rebounding)
+2. **Touch Point Detection**: Uses the configured touch point (default 80) as the reference for compression measurement
+3. **Compression Tracking**: Measures how far the pedal is pressed beyond the touch point
+4. **Splash Conditions**: Requires both sufficient force (splashForce) AND quick release (splashWindow)
+5. **Velocity Calculation**: Based on compression depth and duration, matching the TD-27's behavior
+6. **State Reset**: Properly resets all tracking variables after each chick/splash
+
+The algorithm now:
+- Triggers a chick when the pedal is pressed past the touch point
+- Triggers a splash when the pedal is pressed hard (past splashForce) and released quickly (within splashWindow)
+- Maintains the original chick note velocity for chicks
+- Calculates a new velocity for splashes based on compression depth and speed
+
+This should provide more accurate splash detection that matches the TD-27's behavior while maintaining the ability to do fast chick patterns.
+
+User: There should be no slider for `touchPoint`.  It is not user configurable.  It is _always_ the last CC4 message vakue received before the Chick Note On message.
+
+GitHub Copilot: I'll update the JSFX script to remove the `touchPoint` slider and implement the touch point detection based on the last CC4 value received before the Chick Note On message. Here's the enhanced implementation:
+
+````jsfx
+desc: TD-27 Hi-hat Splash detector (pljones)
+author: Peter L Jones (with GitHub Copilot)
+version: 4.1
+about: based on https://www.megadrum.info/content/hihat-pedal-settings New Algorithm description
+source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
+
+// MegaDrum uses the analogue variable pedal controller readings to drive its Chick/Note triggering.
+// This assumes MIDI CC4 is an equivalent but that a MIDI Hi-hat Chick Note will be issued at some point by the module.
+// The intent is to turn this into a MIDI Hi-hat Splash Note, when applicable (in accordance with the settings).
+// The eDRUMin algorithm does not sound appropriate, expecting the receiver to determing whether the note is a Chick or Splash
+// based on Note On to Note Off duration.  The aim here is to be explicit.
+
+slider1:chickNote=44<0,127,1>Chick Note (to detect)
+slider2:splashNote=97<0,127,1>Splash Note (to emit)
+slider3:closedSide=1<0,1,1{Keyboard (CC4=0 Closed),eKit (CC4=127 Closed)}>Hi-hat type
+slider4:chickHeld=600<0,2000,10>Chick threshold (ms)
+slider5:minVel=400<100,1000,10>Min Velocity
+slider6:maxVel=900<100,1000,10>Max Velocity
+slider7:velSensitivity=0.5<0,1,0.05>Velocity Sensitivity
+slider8:curveType=2<0,5,1{Linear,Log,Exp1,Exp2,S-Curve,Strong}>Velocity Curve
+slider9:splashForce=115<80,127,1>Splash force threshold
+slider10:splashWindow=150<0,500,1>Splash window (ms)
+slider11:minCompression=5<0,20,1>Min compression to consider splash
+slider12:dbgChickVel=0<0,127,1>(debug) Original Chick vel
+slider13:dbgNoteOn=0<0,2,1{-,Chick,Splash}>(debug) Emitted Note on
+slider14:dbgNoteVel=0<0,127,1>(debug) Emitted Note vel
+
+in_pin:none
+out_pin:none
+
+@init
+// Pedal tracking
+last_cc4_value = 63.5;
+touch_point = 0; // Will be set to last CC4 value before chick note
+press_start_time = 0;
+press_start_value = 0;
+max_compression = 0;
+
+// State tracking
+state = 0; // 0=open, 1=closing, 2=compressed, 3=rebounding
+splash_primed = 0;
+last_note_sent = 0;
+
+// Debug values
+dbgChickVel = 0;
+dbgNoteOn = 0;
+dbgNoteVel = 0;
+
+// Current timestamp in milliseconds
+function now_ms(offset) (
+  ((sample_pos + offset) * 1000) / srate;
+);
+
+// Apply curve choice to computed velocity
+function apply_curve(norm_val) (
+  norm_val = max(0, min(1, norm_val));
+  curveType == 0 ? norm_val :
+  curveType == 1 ? log(norm_val * 9 + 1) / log(10) :
+  curveType == 2 ? exp(norm_val * 2) / exp(2) :
+  curveType == 3 ? pow(norm_val, 2) :
+  curveType == 4 ? (norm_val < 0.5 ? 2 * norm_val * norm_val : -1 + (4 - 2 * norm_val) * norm_val) :
+  curveType == 5 ? pow(norm_val, 3) :
+  norm_val;
+);
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // State machine for pedal movement
+    (state == 0) ? (
+      // Open state - waiting for pedal movement
+      closing = closedSide ? (data2 > last_cc4_value) : (data2 < last_cc4_value);
+      (closing && (abs(data2 - last_cc4_value) > 2)) ? (
+        state = 1; // Transition to closing state
+        press_start_time = now_ms(offset);
+        press_start_value = last_cc4_value;
+      );
+    ) : (state == 1) ? (
+      // Closing state - pedal is moving toward closed position
+      closing = closedSide ? (data2 > last_cc4_value) : (data2 < last_cc4_value);
+      (closing) ? (
+        // Still closing - track maximum compression
+        max_compression = max(max_compression, data2);
+        (data2 >= splashForce) ? splash_primed = 1;
+      ) : (
+        // Transition to rebounding state
+        state = 3;
+      );
+    ) : (state == 2) ? (
+      // Compressed state - pedal is held at maximum compression
+      // Check if pedal starts to rebound
+      rebounding = closedSide ? (data2 < last_cc4_value) : (data2 > last_cc4_value);
+      (rebounding) ? state = 3;
+    ) : (state == 3) ? (
+      // Rebounding state - pedal is moving back toward open position
+      // Check if pedal returns to open position
+      open = closedSide ? (data2 < 40) : (data2 > 40);
+      (open) ? (
+        state = 0;
+        max_compression = 0;
+        splash_primed = 0;
+      );
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    dbgChickVel = data2;
+
+    // Set touch point to the last CC4 value before the chick note
+    touch_point = last_cc4_value;
+
+    // Calculate compression depth from touch point
+    cc4_change = max_compression - touch_point;
+    press_duration = now_ms(offset) - press_start_time;
+
+    // Calculate velocity based on compression
+    press_velocity = (cc4_change / (127 - touch_point)) / max(1, press_duration);
+    raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+
+    // Determine splash conditions
+    is_splash = splash_primed &&
+               (cc4_change >= minCompression) &&
+               (press_duration < splashWindow);
+
+    // Map velocity to MIDI range and apply curve
+    norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+    curved_vel = apply_curve(norm_vel);
+    out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+
+    dbgNoteVel = out_velocity;
+
+    // Send appropriate note
+    out_note = is_splash ? splashNote : chickNote;
+    out_velocity = is_splash ? out_velocity : data2;
+    dbgNoteOn = is_splash ? 2 : 1;
+    last_note_sent = out_note;
+    midisend(offset, 0x90 | chan, out_note | (out_velocity << 8));
+
+    // Reset state after chick/splash
+    state = is_splash ? 0 : 2;
+    max_compression = 0;
+    splash_primed = 0;
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Note Off for chick - map to whatever we sent
+    out_note = last_note_sent;
+    midisend(offset, 0x80 | chan, out_note | (data2 << 8));
+
+  ) : (
+    // Pass through all other MIDI
+    midisend(offset, msg1, msg23);
+  );
+);
+````
+
+Key changes made:
+1. Removed the `touchPoint` slider as requested
+2. Implemented automatic touch point detection - it's now set to the last CC4 value received before the Chick Note On message
+3. Improved the state machine to better track pedal movement phases
+4. Added proper compression tracking from the touch point
+5. Maintained all the splash detection logic based on compression depth and timing
+6. Kept all the existing debug sliders for monitoring behavior
+
+The algorithm now:
+- Automatically detects the touch point (where the hi-hat cymbals first make contact)
+- Tracks compression beyond the touch point (80-127 range)
+- Triggers a splash when the pedal is pressed hard (past splashForce) and released quickly (within splashWindow)
+- Maintains the original chick note velocity for chicks
+- Calculates a new velocity for splashes based on compression depth and speed
+
+User: Fixing that note velocity bug will be a help on its own!
+
+GitHub Copilot: I'll enhance the JSFX script to fix the note velocity bug and improve the splash detection algorithm. Here's the updated implementation with the touch point correctly set to the last CC4 value before the Chick Note On message:
+
+````jsfx
+desc: TD-27 Hi-hat Splash detector (pljones)
+author: Peter L Jones (with GitHub Copilot)
+version: 4.2
+about: Enhanced splash detection with proper velocity handling and touch point detection
+// ...existing slider definitions...
+
+@init
+// ...existing variable declarations...
+touch_point = 0;
+touch_point_detected = 0; // Flag to track if touch point has been set
+
+// Current timestamp in milliseconds
+function now_ms(offset) (
+  ((sample_pos + offset) * 1000) / srate;
+);
+
+// Apply curve choice to computed velocity
+function apply_curve(norm_val) (
+  // ...existing curve function...
+);
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // State machine for pedal movement
+    (state == 0) ? (
+      // Open state - waiting for pedal movement
+      closing = closed
+
+User: Can you explain why resetting the state of `state` after sending the note on depends on `is_splash`?
+
+GitHub Copilot: Great question! The conditional state reset after sending the note on is a crucial part of the splash detection algorithm. Let me explain the reasoning:
+
+### Why State Reset Depends on `is_splash`:
+
+1. **Different Pedal Behaviors for Chick vs Splash**:
+   - For a **chick** (normal hi-hat close): The pedal is pressed and held closed
+   - For a **splash**: The pedal is pressed hard but immediately released
+
+2. **State Machine Logic**:
+   ```jsfx
+   // Reset state after chick/splash
+   state = is_splash ? 0 : 2;
+   ```
+   - When `is_splash` is true (splash detected):
+     - We reset to state `0` (open) because the pedal was quickly released
+     - This allows immediate detection of the next pedal movement
+   - When `is_splash` is false (chick detected):
+     - We set state to `2` (compressed) because the pedal is being held down
+     - This prevents additional notes from being triggered while the pedal is held
+
+3. **Preventing Double-Triggers**:
+   - If we didn't conditionally reset the state, we might:
+     - Get multiple chick notes from a single pedal press
+     - Miss splash opportunities during rapid playing
+     - Have incorrect compression tracking
+
+4. **Real-World Pedal Behavior**:
+   - For splashes: The pedal moves Open → Closing → Open (quick press/release)
+   - For chicks: The pedal moves Open → Closing → Compressed (held down)
+
+5. **Velocity Calculation Context**:
+   - The state at the time of note-on affects how we interpret subsequent CC4 values
+   - For splashes, we want to immediately be ready for the next pedal movement
+   - For chicks, we need to track how long the pedal is held in the compressed state
+
+### Example Scenarios:
+
+**Splash Scenario (quick press/release):**
+1. Pedal starts open (state 0)
+2. Moves to closing (state 1)
+3. Chick note triggered, splash detected (is_splash = true)
+4. State reset to 0 (open) - ready for next movement
+
+**Chick Scenario (held pedal):**
+1. Pedal starts open (state 0)
+2. Moves to closing (state 1)
+3. Chick note triggered, no splash (is_splash = false)
+4. State set to 2 (compressed) - pedal is being held
+5. When pedal is released, state moves to 3 (rebounding) then back to 0 (open)
+
+This conditional reset ensures the state machine accurately reflects the physical pedal position and playing technique, which is essential for proper splash detection and natural playing feel.
+
+User: Ah, `open = closedSide ? (data2 < 40) : (data2 > 40);` the threshold for open is the last value of CC4 before the Chick Note.  Probably plus the "2" used for the 0 --> transition.
+
+GitHub Copilot: You're absolutely right to question this! Let me explain the current implementation and suggest an improvement based on your observation.
+
+### Current Implementation Analysis:
+```jsfx
+open = closedSide ? (data2 < 40) : (data2 > 40);
+```
+
+This line determines when the pedal is considered "open" based on:
+1. `closedSide` slider (0=Keyboard/CC4=0 Closed, 1=eKit/CC4=127 Closed)
+2. A fixed threshold of 40
+
+### The Issue:
+You correctly identified that this should be related to the touch point (last CC4 value before Chick Note) rather than a fixed value. The current fixed threshold of 40 is arbitrary and doesn't account for:
+- Different pedal mechanisms
+- Different playing styles
+- The actual touch point where the cymbals first make contact
+
+### Improved Implementation:
+We should modify this to use the touch point plus a small hysteresis value (like the "2" used in the closing detection):
+
+```jsfx
+// In the @init section, add:
+hysteresis = 2; // Small value to prevent state flapping
+
+// Then in the state machine (state == 3 section):
+open_threshold = touch_point + (closedSide ? -hysteresis : hysteresis);
+open = closedSide ? (data2 < open_threshold) : (data2 > open_threshold);
+```
+
+### Complete Fixed State Machine Section:
+Here's how the rebounding state section should look:
+
+```jsfx
+) : (state == 3) ? (
+  // Rebounding state - pedal is moving back toward open position
+  // Check if pedal returns to open position (using touch point as reference)
+  open_threshold = touch_point + (closedSide ? -hysteresis : hysteresis);
+  open = closedSide ? (data2 < open_threshold) : (data2 > open_threshold);
+  (open) ? (
+    state = 0;
+    max_compression = 0;
+    splash_primed = 0;
+  );
+```
+
+### Why This Improvement Matters:
+1. **Consistency**: Uses the same hysteresis value as the closing detection
+2. **Accuracy**: Relates the "open" threshold to the actual touch point
+3. **Flexibility**: Works with different pedal types and playing styles
+4. **Natural Feel**: Matches the physical behavior of hi-hat pedals more closely
+
+This change ensures that the "open" state is detected when the pedal returns to just above/below the touch point, rather than an arbitrary fixed value. It will make the state transitions more accurate and responsive to the player's actual technique.
+
+User: The other major logical flaw is
+```
+midisend(offset, 0x90 | chan, out_note | (out_velocity << 8));
+```
+happens inside
+```
+(status == 0x90 && data2 > 0 && data1 == chickNote)
+```
+which means instantly the chick note arrives, allowing no time for later pedal movement.
+
+
+GitHub Copilot: You've identified a **critical flaw** in the algorithm! This is indeed a major issue. The current implementation processes the chick note immediately when it arrives, without allowing time for the pedal movement to complete and determine if it should be a splash. Let me fix this:
+
+### The Problem:
+1. The chick note is processed immediately when received
+2. No time is allowed for the pedal to continue moving (which might turn it into a splash)
+3. The state machine can't properly detect splash conditions that occur after the chick note is triggered
+
+### The Solution:
+We need to **delay processing** of the chick note until we're sure whether it's a chick or splash. Here's how to fix it:
+
+```jsfx
+@init
+// ... existing variables ...
+pending_chick = 0;       // Flag for pending chick note
+pending_chick_time = 0;  // When the chick note was received
+pending_chick_vel = 0;   // Original velocity of the chick note
+pending_chick_chan = 0;  // Channel of the chick note
+pending_chick_offset = 0;// MIDI offset of the chick note
+// ... rest of init ...
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // ... existing state machine code ...
+
+    // If we have a pending chick and we detect a splash condition
+    (pending_chick && state == 3 && splash_primed) ? (
+      // Convert pending chick to splash
+      cc4_change = max_compression - touch_point;
+      press_duration = now_ms(offset) - press_start_time;
+
+      is_splash = (cc4_change >= minCompression) &&
+                 (press_duration < splashWindow);
+
+      (is_splash) ? (
+        // Calculate splash velocity
+        press_velocity = (cc4_change / (127 - touch_point)) / max(1, press_duration);
+        raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+        norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+        curved_vel = apply_curve(norm_vel);
+        out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+
+        // Send splash note
+        midisend(pending_chick_offset, 0x90 | pending_chick_chan, splashNote | (out_velocity << 8));
+        dbgNoteOn = 2;
+        dbgNoteVel = out_velocity;
+        last_note_sent = splashNote;
+
+        // Cancel the original chick note
+        midisend(pending_chick_offset, 0x80 | pending_chick_chan, chickNote | (0 << 8));
+      );
+
+      // Reset pending chick
+      pending_chick = 0;
+      state = is_splash ? 0 : 2;
+      max_compression = 0;
+      splash_primed = 0;
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    // Store the chick note but don't send it yet
+    pending_chick = 1;
+    pending_chick_time = now_ms(offset);
+    pending_chick_vel = data2;
+    pending_chick_chan = chan;
+    pending_chick_offset = offset;
+    dbgChickVel = data2;
+
+    // Set touch point to the last CC4 value before the chick note
+    touch_point = last_cc4_value;
+
+    // Pass through the original chick note for now
+    midisend(offset, msg1, msg23);
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // If we get a chick note off and have a pending chick, process it as a chick
+    (pending_chick) ? (
+      // Send the original chick note with its original velocity
+      midisend(pending_chick_offset, 0x90 | pending_chick_chan, chickNote | (pending_chick_vel << 8));
+      dbgNoteOn = 1;
+      dbgNoteVel = pending_chick_vel;
+      last_note_sent = chickNote;
+      pending_chick = 0;
+      state = 2; // Set to compressed state
+    );
+
+    // Send note off
+    out_note = last_note_sent;
+    midisend(offset, 0x80 | chan, out_note | (data2 << 8));
+
+  ) : (
+    // Pass through all other MIDI
+    midisend(offset, msg1, msg23);
+  );
+);
+```
+
+### Key Improvements:
+
+1. **Pending Chick Buffering**:
+   - When a chick note arrives, we store it but don't process it immediately
+   - We let the pedal continue moving to detect splash conditions
+
+2. **Splash Conversion**:
+   - If splash conditions are met during the rebound phase, we:
+     - Send the splash note with calculated velocity
+     - Cancel the original chick note with a note-off
+   - If no splash conditions are met, we send the original chick note
+
+3. **Note-Off Handling**:
+   - If we receive a note-off for the chick while it's pending, we process it as a regular chick
+
+4. **Timing Window**:
+   - The splash detection window is now properly respected
+   - We only make the chick/splash decision after the pedal movement is complete
+
+This solution properly handles the timing issue while maintaining all the existing functionality. It allows the pedal movement to complete before deciding whether to send a chick or splash note.
+
+User: No, this won't work.  You can't go backwards in time.  If the note is emitted, it will have sounded.  You need to do what the previous version was doing and _not send a note_ when the Chick Note arrives.
+
+GitHub Copilot: You're absolutely right - we can't undo a note that's already been sent. Let me revise the approach to properly handle this timing issue without trying to "undo" notes. Here's the correct solution:
+
+### The Correct Approach:
+1. **Don't send the chick note immediately** when it arrives
+2. **Buffer the chick note** and wait for pedal movement to complete
+3. **Make the decision** after we know if it's a chick or splash
+4. **Send the appropriate note** based on the final decision
+
+Here's the implementation:
+
+```jsfx
+@init
+// ... existing variables ...
+pending_chick = 0;       // Flag for pending chick note
+pending_chick_time = 0;  // When the chick note was received
+pending_chick_vel = 0;   // Original velocity of the chick note
+pending_chick_chan = 0;  // Channel of the chick note
+pending_chick_offset = 0;// MIDI offset of the chick note
+decision_made = 0;       // Flag to track if we've made a chick/splash decision
+// ... rest of init ...
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // ... existing state machine code ...
+
+    // If we're in rebounding state and have a pending chick, make decision
+    (state == 3 && pending_chick && !decision_made) ? (
+      // Calculate compression and timing
+      cc4_change = max_compression - touch_point;
+      press_duration = now_ms(offset) - press_start_time;
+
+      // Determine if this should be a splash
+      is_splash = splash_primed &&
+                 (cc4_change >= minCompression) &&
+                 (press_duration < splashWindow);
+
+      // Calculate velocity for splash (use original for chick)
+      (is_splash) ? (
+        press_velocity = (cc4_change / (127 - touch_point)) / max(1, press_duration);
+        raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+        norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+        curved_vel = apply_curve(norm_vel);
+        out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+        out_note = splashNote;
+        dbgNoteOn = 2;
+      ) : (
+        out_velocity = pending_chick_vel;
+        out_note = chickNote;
+        dbgNoteOn = 1;
+      );
+
+      // Send the appropriate note
+      midisend(pending_chick_offset, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+      dbgNoteVel = out_velocity;
+      last_note_sent = out_note;
+      decision_made = 1;
+
+      // Reset state
+      state = is_splash ? 0 : 2;
+      max_compression = 0;
+      splash_primed = 0;
+    );
+
+    // If pedal returns to open and we have a pending chick but no decision made
+    (state == 0 && pending_chick && !decision_made) ? (
+      // Default to chick if we never got to rebounding state
+      midisend(pending_chick_offset, 0x90 | pending_chick_chan, chickNote | (pending_chick_vel << 8));
+      dbgNoteOn = 1;
+      dbgNoteVel = pending_chick_vel;
+      last_note_sent = chickNote;
+      decision_made = 1;
+      state = 2; // Set to compressed state
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    // Store the chick note but don't send it yet
+    pending_chick = 1;
+    pending_chick_time = now_ms(offset);
+    pending_chick_vel = data2;
+    pending_chick_chan = chan;
+    pending_chick_offset = offset;
+    decision_made = 0;
+    dbgChickVel = data2;
+
+    // Set touch point to the last CC4 value before the chick note
+    touch_point = last_cc4_value;
+
+    // Don't send the note yet - we'll decide later
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Only send note off if we've already sent a note on
+    (last_note_sent) ? (
+      midisend(offset, 0x80 | chan, last_note_sent | (data2 << 8));
+      // Reset pending chick if we get a note off before making a decision
+      pending_chick = 0;
+      decision_made = 0;
+    );
+
+  ) : (
+    // Pass through all other MIDI
+    midisend(offset, msg1, msg23);
+  );
+);
+```
+
+### Key Improvements:
+
+1. **No Immediate Note Sending**: The chick note is buffered but not sent immediately
+2. **Decision Point**: We make the chick/splash decision during the rebounding phase
+3. **Fallback Mechanism**: If the pedal returns to open without rebounding, we default to chick
+4. **State Tracking**: Added `decision_made` flag to prevent duplicate decisions
+5. **Note-Off Handling**: Only send note-off if we've already sent a note-on
+6. **Proper Timing**: All decisions are made based on complete pedal movement data
+
+### How It Works:
+
+1. When a chick note arrives, we store it but don't send it
+2. We track the pedal movement through its full cycle (closing → compressed → rebounding)
+3. During the rebounding phase, we decide if it should be a chick or splash
+4. We send the appropriate note based on the decision
+5. If the pedal returns to open without rebounding, we default to sending a chick
+6. Note-off messages are handled appropriately based on what notes we've sent
+
+This approach ensures we never try to "undo" a note that's already been sent, while still maintaining the ability to detect splashes based on complete pedal movement.
+
+User: `chickHeld` appears replaced by `splashWindow`, is that right?
+
+GitHub Copilot: You're absolutely right to question this! Let me clarify the relationship between `chickHeld` and `splashWindow` and fix the implementation:
+
+### The Relationship Between `chickHeld` and `splashWindow`:
+
+1. **`chickHeld`** (slider4) was originally meant to determine how long a chick note should be held before being considered a "held" chick (not a splash)
+2. **`splashWindow`** (slider10) determines the time window during which a splash can be detected after the pedal starts rebounding
+3. **They serve different purposes** and both are still needed in the algorithm
+
+### The Issue:
+In the current implementation, I incorrectly removed the use of `chickHeld` when I was focusing on fixing the timing issues. This was a mistake - both parameters are important for proper detection.
+
+### Corrected Implementation:
+Here's how they should work together:
+
+```jsfx
+// In the decision-making section (state == 3 with pending chick):
+(state == 3 && pending_chick && !decision_made) ? (
+  // Calculate compression and timing
+  cc4_change = max_compression - touch_point;
+  press_duration = now_ms(offset) - press_start_time;
+  rebound_duration = now_ms(offset) - pending_chick_time;
+
+  // Determine if this should be a splash
+  is_splash = splash_primed &&
+             (cc4_change >= minCompression) &&
+             (rebound_duration < splashWindow) &&
+             (press_duration < chickHeld);  // Add chickHeld back to the conditions
+
+  // ... rest of the decision logic ...
+);
+```
+
+### Complete Fixed Implementation:
+
+```jsfx
+@init
+// ... existing variables ...
+pending_chick = 0;       // Flag for pending chick note
+pending_chick_time = 0;  // When the chick note was received
+pending_chick_vel = 0;   // Original velocity of the chick note
+pending_chick_chan = 0;  // Channel of the chick note
+pending_chick_offset = 0;// MIDI offset of the chick note
+decision_made = 0;       // Flag to track if we've made a chick/splash decision
+// ... rest of init ...
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // ... existing state machine code ...
+
+    // If we're in rebounding state and have a pending chick, make decision
+    (state == 3 && pending_chick && !decision_made) ? (
+      // Calculate compression and timing
+      cc4_change = max_compression - touch_point;
+      press_duration = now_ms(offset) - press_start_time;
+      rebound_duration = now_ms(offset) - pending_chick_time;
+
+      // Determine if this should be a splash
+      is_splash = splash_primed &&
+                 (cc4_change >= minCompression) &&
+                 (rebound_duration < splashWindow) &&
+                 (press_duration < chickHeld);  // Critical: both time windows matter
+
+      // Calculate velocity for splash (use original for chick)
+      (is_splash) ? (
+        press_velocity = (cc4_change / (127 - touch_point)) / max(1, rebound_duration);
+        raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+        norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+        curved_vel = apply_curve(norm_vel);
+        out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+        out_note = splashNote;
+        dbgNoteOn = 2;
+      ) : (
+        out_velocity = pending_chick_vel;
+        out_note = chickNote;
+        dbgNoteOn = 1;
+      );
+
+      // Send the appropriate note
+      midisend(pending_chick_offset, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+      dbgNoteVel = out_velocity;
+      last_note_sent = out_note;
+      decision_made = 1;
+
+      // Reset state
+      state = is_splash ? 0 : 2;
+      max_compression = 0;
+      splash_primed = 0;
+    );
+
+    // If pedal returns to open and we have a pending chick but no decision made
+    (state == 0 && pending_chick && !decision_made) ? (
+      // Default to chick if we never got to rebounding state
+      midisend(pending_chick_offset, 0x90 | pending_chick_chan, chickNote | (pending_chick_vel << 8));
+      dbgNoteOn = 1;
+      dbgNoteVel = pending_chick_vel;
+      last_note_sent = chickNote;
+      decision_made = 1;
+      state = 2; // Set to compressed state
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    // Store the chick note but don't send it yet
+    pending_chick = 1;
+    pending_chick_time = now_ms(offset);
+    pending_chick_vel = data2;
+    pending_chick_chan = chan;
+    pending_chick_offset = offset;
+    decision_made = 0;
+    dbgChickVel = data2;
+
+    // Set touch point to the last CC4 value before the chick note
+    touch_point = last_cc4_value;
+
+    // Don't send the note yet - we'll decide later
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Only send note off if we've already sent a note on
+    (last_note_sent) ? (
+      midisend(offset, 0x80 | chan, last_note_sent | (data2 << 8));
+      // Reset pending chick if we get a note off before making a decision
+      pending_chick = 0;
+      decision_made = 0;
+    );
+
+  ) : (
+    // Pass through all other MIDI
+    midisend(offset, msg1, msg23);
+  );
+);
+```
+
+### How They Work Together:
+
+1. **`chickHeld`** determines the maximum time the pedal can be pressed before it's considered a "held" chick (not eligible for splash)
+2. **`splashWindow`** determines how quickly the pedal must rebound after compression to be considered a splash
+3. **Both conditions must be met** for a splash to be detected:
+   - The pedal must rebound within `splashWindow` milliseconds
+   - The total press duration must be less than `chickHeld` milliseconds
+
+This gives you independent control over:
+- How long the pedal can be held before it's no longer splash-eligible (`chickHeld`)
+- How quickly the pedal must rebound to be considered a splash (`splashWindow`)
+
+The combination of these two parameters allows for fine-tuning the "feel" of the splash detection to match different playing styles and pedal mechanisms.
+
+User: OK, that's looking a bit messy.  Could you put the whole file into a new editor window, please.
+
+GitHub Copilot: Here's the complete, cleaned-up implementation of the TD-27 Hi-hat Splash detector with all the fixes we've discussed:
+
+```jsfx
+desc: TD-27 Hi-hat Splash detector (pljones)
+author: Peter L Jones (with GitHub Copilot)
+version: 4.2
+about: Enhanced splash detection with proper timing and velocity handling
+source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
+
+// MegaDrum uses the analogue variable pedal controller readings to drive its Chick/Note triggering.
+// This assumes MIDI CC4 is an equivalent but that a MIDI Hi-hat Chick Note will be issued at some point by the module.
+// The intent is to turn this into a MIDI Hi-hat Splash Note, when applicable (in accordance with the settings).
+// The eDRUMin algorithm does not sound appropriate, expecting the receiver to determine whether the note is a Chick or Splash
+// based on Note On to Note Off duration. The aim here is to be explicit.
+
+slider1:chickNote=44<0,127,1>Chick Note (to detect)
+slider2:splashNote=97<0,127,1>Splash Note (to emit)
+slider3:closedSide=1<0,1,1{Keyboard (CC4=0 Closed),eKit (CC4=127 Closed)}>Hi-hat type
+slider4:chickHeld=600<0,2000,10>Chick threshold (ms)
+slider5:minVel=400<100,1000,10>Min Velocity
+slider6:maxVel=900<100,1000,10>Max Velocity
+slider7:velSensitivity=0.5<0,1,0.05>Velocity Sensitivity
+slider8:curveType=2<0,5,1{Linear,Log,Exp1,Exp2,S-Curve,Strong}>Velocity Curve
+slider9:splashForce=115<80,127,1>Splash force threshold
+slider10:splashWindow=150<0,500,1>Splash window (ms)
+slider11:minCompression=5<0,20,1>Min compression to consider splash
+slider12:dbgChickVel=0<0,127,1>(debug) Original Chick vel
+slider13:dbgNoteOn=0<0,2,1{-,Chick,Splash}>(debug) Emitted Note on
+slider14:dbgNoteVel=0<0,127,1>(debug) Emitted Note vel
+
+in_pin:none
+out_pin:none
+
+@init
+// Pedal tracking
+last_cc4_value = 63.5;
+touch_point = 0; // Will be set to last CC4 value before chick note
+press_start_time = 0;
+press_start_value = 0;
+max_compression = 0;
+hysteresis = 2; // Small value to prevent state flapping
+
+// State tracking
+state = 0; // 0=open, 1=closing, 2=compressed, 3=rebounding
+splash_primed = 0;
+last_note_sent = 0;
+pending_chick = 0;       // Flag for pending chick note
+pending_chick_time = 0;  // When the chick note was received
+pending_chick_vel = 0;   // Original velocity of the chick note
+pending_chick_chan = 0;  // Channel of the chick note
+pending_chick_offset = 0;// MIDI offset of the chick note
+decision_made = 0;       // Flag to track if we've made a chick/splash decision
+
+// Debug values
+dbgChickVel = 0;
+dbgNoteOn = 0;
+dbgNoteVel = 0;
+
+// Current timestamp in milliseconds
+function now_ms(offset) (
+  ((sample_pos + offset) * 1000) / srate;
+);
+
+// Apply curve choice to computed velocity
+function apply_curve(norm_val) (
+  norm_val = max(0, min(1, norm_val));
+  curveType == 0 ? norm_val :
+  curveType == 1 ? log(norm_val * 9 + 1) / log(10) :
+  curveType == 2 ? exp(norm_val * 2) / exp(2) :
+  curveType == 3 ? pow(norm_val, 2) :
+  curveType == 4 ? (norm_val < 0.5 ? 2 * norm_val * norm_val : -1 + (4 - 2 * norm_val) * norm_val) :
+  curveType == 5 ? pow(norm_val, 3) :
+  norm_val;
+);
+
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // State machine for pedal movement
+    (state == 0) ? (
+      // Open state - waiting for pedal movement
+      closing = closedSide ? (data2 > last_cc4_value) : (data2 < last_cc4_value);
+      (closing && (abs(data2 - last_cc4_value) > hysteresis)) ? (
+        state = 1; // Transition to closing state
+        press_start_time = now_ms(offset);
+        press_start_value = last_cc4_value;
+      );
+    ) : (state == 1) ? (
+      // Closing state - pedal is moving toward closed position
+      closing = closedSide ? (data2 > last_cc4_value) : (data2 < last_cc4_value);
+      (closing) ? (
+        // Still closing - track maximum compression
+        max_compression = max(max_compression, data2);
+        (data2 >= splashForce) ? splash_primed = 1;
+      ) : (
+        // Transition to rebounding state
+        state = 3;
+      );
+    ) : (state == 2) ? (
+      // Compressed state - pedal is held at maximum compression
+      // Check if pedal starts to rebound
+      rebounding = closedSide ? (data2 < last_cc4_value) : (data2 > last_cc4_value);
+      (rebounding) ? state = 3;
+    ) : (state == 3) ? (
+      // Rebounding state - pedal is moving back toward open position
+      // Check if we have a pending chick and need to make a decision
+      (pending_chick && !decision_made) ? (
+        // Calculate compression and timing
+        cc4_change = max_compression - touch_point;
+        press_duration = now_ms(offset) - press_start_time;
+        rebound_duration = now_ms(offset) - pending_chick_time;
+
+        // Determine if this should be a splash
+        is_splash = splash_primed &&
+                   (cc4_change >= minCompression) &&
+                   (rebound_duration < splashWindow) &&
+                   (press_duration < chickHeld);
+
+        // Calculate velocity for splash (use original for chick)
+        (is_splash) ? (
+          press_velocity = (cc4_change / (127 - touch_point)) / max(1, rebound_duration);
+          raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+          norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+          curved_vel = apply_curve(norm_vel);
+          out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+          out_note = splashNote;
+          dbgNoteOn = 2;
+        ) : (
+          out_velocity = pending_chick_vel;
+          out_note = chickNote;
+          dbgNoteOn = 1;
+        );
+
+        // Send the appropriate note
+        midisend(pending_chick_offset, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+        dbgNoteVel = out_velocity;
+        last_note_sent = out_note;
+        decision_made = 1;
+
+        // Reset state
+        state = is_splash ? 0 : 2;
+        max_compression = 0;
+        splash_primed = 0;
+      );
+
+      // Check if pedal returns to open position
+      open_threshold = touch_point + (closedSide ? -hysteresis : hysteresis);
+      open = closedSide ? (data2 < open_threshold) : (data2 > open_threshold);
+      (open) ? (
+        state = 0;
+        max_compression = 0;
+        splash_primed = 0;
+        // If we have a pending chick but no decision was made, send it as chick
+        (pending_chick && !decision_made) ? (
+          midisend(pending_chick_offset, 0x90 | pending_chick_chan, chickNote | (pending_chick_vel << 8));
+          dbgNoteOn = 1;
+          dbgNoteVel = pending_chick_vel;
+          last_note_sent = chickNote;
+          decision_made = 1;
+        );
+      );
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    // Store the chick note but don't send it yet
+    pending_chick = 1;
+    pending_chick_time = now_ms(offset);
+    pending_chick_vel = data2;
+    pending_chick_chan = chan;
+    pending_chick_offset = offset;
+    decision_made = 0;
+    dbgChickVel = data2;
+
+    // Set touch point to the last CC4 value before the chick note
+    touch_point = last_cc4_value;
+
+    // Don't send the note yet - we'll decide later
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Only send note off if we've already sent a note on
+    (last_note_sent) ? (
+      midisend(offset, 0x80 | chan, last_note_sent | (data2 << 8));
+      // Reset pending chick if we get a note off before making a decision
+      pending_chick = 0;
+      decision_made = 0;
+    );
+
+  ) : (
+    // Pass through all other MIDI
+    midisend(offset, msg1, msg23);
+  );
+);
+```
+
+### Key Improvements in This Version:
+
+1. **Proper Timing Handling**: The chick note is buffered and not sent immediately, allowing time to determine if it should be a splash
+2. **Correct State Management**: Uses a state machine that properly tracks pedal movement phases
+3. **Dual Time Windows**: Both `chickHeld` and `splashWindow` are used correctly in the decision logic
+4. **Touch Point Detection**: Automatically detects the touch point from the last CC4 value before the chick note
+5. **Hysteresis**: Uses hysteresis to prevent state flapping
+6. **Clean State Transitions**: Properly resets state after each note is sent
+7. **Debugging Support**: Maintains all debug sliders for monitoring behavior
+
+This implementation should provide accurate splash detection while maintaining the ability to do fast chick patterns.
+
+User: `chickHeld` doesn't appear to delay setting `decision_made = 1`.
+
+GitHub Copilot: You're absolutely right to catch this! The `chickHeld` parameter should indeed influence when we make the decision, not just be part of the splash condition check. Let me fix this timing issue:
+
+### The Problem:
+Currently, we make the decision (`decision_made = 1`) as soon as we detect the rebounding state, but we should wait until either:
+1. The splash window expires, or
+2. The chickHeld time is reached
+
+### The Fix:
+We need to modify the decision logic to:
+1. Only make a decision when either the splash window or chickHeld time has passed
+2. Default to chick if we reach chickHeld time without a splash
+3. Keep the splash option open until the splash window expires
+
+Here's the corrected implementation for the rebounding state section:
+
+```jsfx
+// In the rebounding state (state == 3) section:
+(state == 3) ? (
+  // Check if we have a pending chick
+  (pending_chick) ? (
+    current_time = now_ms(offset);
+    press_duration = current_time - press_start_time;
+    rebound_duration = current_time - pending_chick_time;
+
+    // Check if we should make a decision yet
+    should_decide = !decision_made &&
+                   (rebound_duration >= splashWindow || press_duration >= chickHeld);
+
+    (should_decide) ? (
+      // Determine if this should be a splash
+      is_splash = splash_primed &&
+                 (max_compression - touch_point >= minCompression) &&
+                 (rebound_duration < splashWindow) &&
+                 (press_duration < chickHeld);
+
+      // Calculate velocity for splash (use original for chick)
+      (is_splash) ? (
+        press_velocity = ((max_compression - touch_point) / (127 - touch_point)) / max(1, rebound_duration);
+        raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+        norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+        curved_vel = apply_curve(norm_vel);
+        out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+        out_note = splashNote;
+        dbgNoteOn = 2;
+      ) : (
+        out_velocity = pending_chick_vel;
+        out_note = chickNote;
+        dbgNoteOn = 1;
+      );
+
+      // Send the appropriate note with the current timestamp
+      midisend(current_time, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+      dbgNoteVel = out_velocity;
+      last_note_sent = out_note;
+      decision_made = 1;
+
+      // Reset state
+      state = is_splash ? 0 : 2;
+      max_compression = 0;
+      splash_primed = 0;
+    );
+  );
+
+  // Check if pedal returns to open position
+  open_threshold = touch_point + (closedSide ? -hysteresis : hysteresis);
+  open = closedSide ? (data2 < open_threshold) : (data2 > open_threshold);
+  (open) ? (
+    state = 0;
+    max_compression = 0;
+    splash_primed = 0;
+    // If we have a pending chick but no decision was made, send it as chick
+    (pending_chick && !decision_made) ? (
+      midisend(now_ms(offset), 0x90 | pending_chick_chan, chickNote | (pending_chick_vel << 8));
+      dbgNoteOn = 1;
+      dbgNoteVel = pending_chick_vel;
+      last_note_sent = chickNote;
+      decision_made = 1;
+    );
+  );
+);
+```
+
+### Key Changes:
+
+1. **Decision Timing**: We now only make a decision when either:
+   - The splash window has expired (`rebound_duration >= splashWindow`), or
+   - The chickHeld time has been reached (`press_duration >= chickHeld`)
+
+2. **Proper Time Tracking**: We track both the press duration and rebound duration separately
+
+3. **Default to Chick**: If we reach chickHeld time without meeting splash conditions, we default to sending a chick note
+
+4. **Splash Window**: The splash can still be detected anytime during the splash window
+
+5. **State Reset**: We properly reset the state after making a decision
+
+This ensures that `chickHeld` properly influences when the decision is made, not just whether a splash is detected. The decision will be made at the later of the two times: when the splash window expires or when the chickHeld time is reached.
+
+User: ```
+should_decide = !decision_made && (rebound_duration >= splashWindow || press_duration >= chickHeld);
+```
+This doesn't look right.  You can decide "it's a splash" without waiting, if the pedal movement indicates -- `is_splash` being true means you can make a decision, whilst `is_splash` being false means you need to wait (because it might yet become true - or the timeout might mean it's a chick).
+
+GitHub Copilot: You're absolutely right. Let me fix this logic to properly handle the decision timing. The key insight is that we can make a decision immediately if we detect splash conditions, but we need to wait if we're not sure yet. Here's the corrected approach:
+
+```jsfx
+// In the rebounding state (state == 3) section:
+(state == 3 && pending_chick && !decision_made) ? (
+  current_time = now_ms(offset);
+  press_duration = current_time - press_start_time;
+  rebound_duration = current_time - pending_chick_time;
+
+  // Calculate compression
+  cc4_change = max_compression - touch_point;
+
+  // Check if we can make a splash decision immediately
+  is_splash = splash_primed &&
+             (cc4_change >= minCompression) &&
+             (rebound_duration < splashWindow) &&
+             (press_duration < chickHeld);
+
+  // Check if we need to wait or make a decision
+  should_decide = is_splash ||  // Can decide immediately if it's a splash
+                 (rebound_duration >= splashWindow) ||  // Splash window expired
+                 (press_duration >= chickHeld);  // Chick held time reached
+
+  (should_decide) ? (
+    // If we didn't detect a splash but should decide, default to chick
+    (is_splash) ? (
+      press_velocity = (cc4_change / (127 - touch_point)) / max(1, rebound_duration);
+      raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+      norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+      curved_vel = apply_curve(norm_vel);
+      out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+      out_note = splashNote;
+      dbgNoteOn = 2;
+    ) : (
+      out_velocity = pending_chick_vel;
+      out_note = chickNote;
+      dbgNoteOn = 1;
+    );
+
+    // Send the appropriate note with the current timestamp
+    midisend(current_time, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+    dbgNoteVel = out_velocity;
+    last_note_sent = out_note;
+    decision_made = 1;
+
+    // Reset state
+    state = is_splash ? 0 : 2;
+    max_compression = 0;
+    splash_primed = 0;
+  );
+);
+```
+
+### Key Improvements:
+
+1. **Immediate Splash Decision**: If `is_splash` is true, we can make the decision immediately without waiting
+2. **Waiting for Uncertain Cases**: If we're not sure yet (`is_splash` is false), we wait until either:
+   - The splash window expires (`rebound_duration >= splashWindow`), or
+   - The chick held time is reached (`press_duration >= chickHeld`)
+3. **Default to Chick**: If we reach a timeout without detecting a splash, we default to sending a chick note
+4. **Proper Timing**: We track all timing variables at the start of the decision block
+
+### The Logic Flow:
+
+1. Calculate current timing and compression values
+2. Check if splash conditions are met (`is_splash`)
+3. Determine if we should make a decision:
+   - Yes, if it's a splash (immediate decision)
+   - Yes, if splash window expired
+   - Yes, if chick held time reached
+4. Make the decision:
+   - If splash conditions are met, send splash note
+   - Otherwise, send chick note
+5. Reset state appropriately
+
+This ensures that:
+- Splashes are detected as soon as possible
+- We don't wait unnecessarily when we know it's a splash
+- We still respect the timeouts for uncertain cases
+- The `chickHeld` parameter properly influences the decision timing for non-splash cases
+
+User: `state == 3 && pending_chick && !decision_made` -- is the use of `pending_chick` there redundant?  If we're in state 3 without a decision, we've not emitted a note.  Essentially state 3 means pending.
+
+GitHub Copilot: You're absolutely right! The `pending_chick` check is indeed redundant in that condition. If we're in state 3 (rebounding) and haven't made a decision yet (`!decision_made`), then by definition we must have a pending chick note. This is a great simplification.
+
+Here's the corrected condition and the surrounding logic:
+
+```jsfx
+// In the rebounding state (state == 3) section:
+(state == 3 && !decision_made) ? (
+  current_time = now_ms(offset);
+  press_duration = current_time - press_start_time;
+  rebound_duration = current_time - pending_chick_time;
+
+  // Calculate compression
+  cc4_change = max_compression - touch_point;
+
+  // Check if we can make a splash decision immediately
+  is_splash = splash_primed &&
+             (cc4_change >= minCompression) &&
+             (rebound_duration < splashWindow) &&
+             (press_duration < chickHeld);
+
+  // Check if we need to wait or make a decision
+  should_decide = is_splash ||  // Can decide immediately if it's a splash
+                 (rebound_duration >= splashWindow) ||  // Splash window expired
+                 (press_duration >= chickHeld);  // Chick held time reached
+
+  (should_decide) ? (
+    // If we didn't detect a splash but should decide, default to chick
+    (is_splash) ? (
+      press_velocity = (cc4_change / (127 - touch_point)) / max(1, rebound_duration);
+      raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+      norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+      curved_vel = apply_curve(norm_vel);
+      out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+      out_note = splashNote;
+      dbgNoteOn = 2;
+    ) : (
+      out_velocity = pending_chick_vel;
+      out_note = chickNote;
+      dbgNoteOn = 1;
+    );
+
+    // Send the appropriate note with the current timestamp
+    midisend(current_time, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+    dbgNoteVel = out_velocity;
+    last_note_sent = out_note;
+    decision_made = 1;
+
+    // Reset state
+    state = is_splash ? 0 : 2;
+    max_compression = 0;
+    splash_primed = 0;
+  );
+);
+```
+
+### Why This Simplification Works:
+
+1. **State 3 Definition**: The rebounding state (state 3) is only reached after we've received a chick note and started rebounding
+2. **Decision Tracking**: The `decision_made` flag ensures we only process each chick note once
+3. **Logical Flow**: If we're in state 3 and haven't made a decision, we must have a pending chick note
+
+This change makes the code cleaner and more logical while maintaining all the functionality. The state machine now more clearly represents the actual pedal movement and decision process.
+
+User: The next problem is the Note Off for the chick can arrive before we send the note on.  So we really need to decouple it from the real note off -- suppress that if we're considering sending a note, then construct it from scratch (e.g. before the next block starts the midi loop, sending with offset 0).
+
+GitHub Copilot: You've identified a critical timing issue! You're absolutely right that we need to handle note-off messages independently from our note-on decisions. Here's the complete solution that properly decouples note-off handling:
+
+```jsfx
+desc: TD-27 Hi-hat Splash detector (pljones)
+author: Peter L Jones (with GitHub Copilot)
+version: 4.3
+about: Enhanced splash detection with proper note-off handling
+// ... [rest of the header remains the same] ...
+
+@init
+// ... [existing variables] ...
+pending_note_off = 0;       // Flag for pending note off
+pending_note_off_chan = 0;  // Channel for pending note off
+pending_note_off_time = 0;  // Time when note off was received
+// ... [rest of init] ...
+
+@block
+// First handle any pending note offs at the start of the block
+(pending_note_off) ? (
+  // Send note off at the beginning of the block (offset 0)
+  midisend(0, 0x80 | pending_note_off_chan, last_note_sent | (0 << 8));
+  pending_note_off = 0;
+);
+
+// Process MIDI messages
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // Track CC4 (pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // ... [existing state machine code] ...
+
+    // In rebounding state (state == 3) section:
+    (state == 3 && !decision_made) ? (
+      current_time = now_ms(offset);
+      press_duration = current_time - press_start_time;
+      rebound_duration = current_time - pending_chick_time;
+
+      // Calculate compression
+      cc4_change = max_compression - touch_point;
+
+      // Check if we can make a splash decision immediately
+      is_splash = splash_primed &&
+                 (cc4_change >= minCompression) &&
+                 (rebound_duration < splashWindow) &&
+                 (press_duration < chickHeld);
+
+      // Check if we need to wait or make a decision
+      should_decide = is_splash ||
+                     (rebound_duration >= splashWindow) ||
+                     (press_duration >= chickHeld);
+
+      (should_decide) ? (
+        // If we didn't detect a splash but should decide, default to chick
+        (is_splash) ? (
+          press_velocity = (cc4_change / (127 - touch_point)) / max(1, rebound_duration);
+          raw_vel = abs(press_velocity) * 1000 * velSensitivity;
+          norm_vel = (raw_vel - minVel) / (maxVel - minVel);
+          curved_vel = apply_curve(norm_vel);
+          out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+          out_note = splashNote;
+          dbgNoteOn = 2;
+        ) : (
+          out_velocity = pending_chick_vel;
+          out_note = chickNote;
+          dbgNoteOn = 1;
+        );
+
+        // Send the appropriate note with the current timestamp
+        midisend(current_time, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+        dbgNoteVel = out_velocity;
+        last_note_sent = out_note;
+        decision_made = 1;
+
+        // Reset state
+        state = is_splash ? 0 : 2;
+        max_compression = 0;
+        splash_primed = 0;
+      );
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    // Store the chick note but don't send it yet
+    pending_chick = 1;
+    pending_chick_time = now_ms(offset);
+    pending_chick_vel = data2;
+    pending_chick_chan = chan;
+    decision_made = 0;
+    dbgChickVel = data2;
+
+    // Set touch point to the last CC4 value before the chick note
+    touch_point = last_cc4_value;
+
+    // Don't send the note yet - we'll decide later
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Store the note off to be sent at the beginning of the next block
+    pending_note_off = 1;
+    pending_note_off_chan = chan;
+    pending_note_off_time = now_ms(offset);
+
+    // If we have a pending chick but haven't made a decision yet, cancel it
+    (pending_chick && !decision_made) ? (
+      pending_chick = 0;
+      decision_made = 0;
+      max_compression = 0;
+      splash_primed = 0;
+      state = 0;
+    );
+
+  ) : (
+    // Pass through all other MIDI
+    midisend(offset, msg1, msg23);
+  );
+);
+```
+
+### Key Improvements:
+
+1. **Note-Off Handling**:
+   - Added `pending_note_off` flag and related variables
+   - Note-offs are stored and sent at the beginning of the next block
+   - This ensures proper timing regardless of when the note-off arrives
+
+2. **Note-Off Timing**:
+   - Note-offs are sent with offset 0 at the start of each block
+   - This maintains proper timing while allowing our decision logic to complete
+
+3. **Chick Cancellation**:
+   - If a note-off arrives before we've made a decision, we cancel the pending chick
+   - This prevents stuck notes and ensures proper behavior
+
+4. **State Reset**:
+   - Properly resets all state variables when a note-off cancels a pending chick
+
+5. **Timing Consistency**:
+   - All note-on decisions maintain their original timing
+   - Note-offs are sent as soon as possible while maintaining proper timing
+
+### How It Works:
+
+1. At the start of each block, we send any pending note-off
+2. When a note-off is received:
+   - We store it to be sent at the next block start
+   - If we have a pending chick that hasn't been decided yet, we cancel it
+3. Our note-on decision logic remains unchanged
+4. This ensures that:
+   - Note-offs never get "stuck" waiting for our decision
+   - The timing of note-offs is preserved
+   - We maintain proper note pairing (each note-on gets a note-off)
+
+This solution properly handles the case where a note-off arrives before we've sent the corresponding note-on, which is crucial for accurate hi-hat pedal response.
+
+User: #createFile the plan as is into an untitled file (`untitled:plan-${camelCaseName}.prompt.md` without frontmatter) for further refinement.
+
+GitHub Copilot: Optimizing tool selection...
+
+User: It's simpler just to ignore _any Chick Note Off_ if we're pending emitting a Chick or Splash.  The details for the Note Off should come from the Note On (offset zero, same channel as Note On, same note number as Note On, velocity zero).  It's only when that Note On was sent we want to start thinking about sending the Note Off for it.
+
+GitHub Copilot: I'll create a simplified plan that ignores chick note-offs while we're pending a decision, and only generates note-offs after we've sent the note-on. Here's the file:
+
+<function=create_file>
+<parameter=filePath>untitled:plan-td27HihatSplash.prompt.md</parameter>
+<parameter=content>
+# TD-27 Hi-hat Splash Detector Implementation Plan
+
+## Overview
+This JSFX script detects hi-hat splash conditions based on pedal movement (CC4) and converts chick notes to splash notes when appropriate. The key improvement is proper handling of note timing and note-off generation.
+
+## Core Algorithm
+
+### State Machine
+1. **State 0 (Open)**: Pedal is in open position
+2. **State 1 (Closing)**: Pedal is moving toward closed position
+3. **State 2 (Compressed)**: Pedal is held at maximum compression
+4. **State 3 (Rebounding)**: Pedal is moving back toward open position
+
+### Key Variables
+- `touch_point`: Last CC4 value before chick note (automatically detected)
+- `max_compression`: Maximum CC4 value reached during pedal press
+- `splash_primed`: Flag indicating if splash force threshold was reached
+- `pending_chick`: Flag for chick note waiting to be processed
+- `decision_made`: Flag indicating if we've decided chick vs splash
+- `last_note_sent`: The note number that was last sent
+
+## Implementation Details
+
+### Initialization
+```jsfx
+@init
+// Pedal tracking
+last_cc4_value = 63.5;
+touch_point = 0;
+press_start_time = 0;
+max_compression = 0;
+hysteresis = 2;
+
+// State tracking
+state = 0; // 0=open, 1=closing, 2=compressed, 3=rebounding
+splash_primed = 0;
+last_note_sent = 0;
+pending_chick = 0;
+pending_chick_time = 0;
+pending_chick_vel = 0;
+pending_chick_chan = 0;
+decision_made = 0;
+```
+
+### MIDI Processing
+```jsfx
+@block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+
+  // CC4 (pedal position) handling
+  (status == 0xB0 && data1 == 4) ? (
+    // State machine implementation
+    // ...existing state transitions...
+
+    // Decision making in rebounding state
+    (state == 3 && !decision_made) ? (
+      // Calculate timing and compression
+      current_time = now_ms(offset);
+      press_duration = current_time - press_start_time;
+      rebound_duration = current_time - pending_chick_time;
+      cc4_change = max_compression - touch_point;
+
+      // Determine if splash conditions are met
+      is_splash = splash_primed &&
+                 (cc4_change >= minCompression) &&
+                 (rebound_duration < splashWindow) &&
+                 (press_duration < chickHeld);
+
+      // Make decision if conditions are met or timeouts reached
+      should_decide = is_splash ||
+                     (rebound_duration >= splashWindow) ||
+                     (press_duration >= chickHeld);
+
+      (should_decide) ? (
+        // Send appropriate note (splash or chick)
+        (is_splash) ? (
+          // Calculate splash velocity
+          // ...velocity calculation...
+          out_note = splashNote;
+        ) : (
+          out_velocity = pending_chick_vel;
+          out_note = chickNote;
+        );
+
+        // Send note-on
+        midisend(current_time, 0x90 | pending_chick_chan, out_note | (out_velocity << 8));
+        last_note_sent = out_note;
+        decision_made = 1;
+
+        // Reset state
+        state = is_splash ? 0 : 2;
+        max_compression = 0;
+        splash_primed = 0;
+      );
+    );
+
+    last_cc4_value = data2;
+    midisend(offset, msg1, msg23);
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    // Store chick note but don't send yet
+    pending_chick = 1;
+    pending_chick_time = now_ms(offset);
+    pending_chick_vel = data2;
+    pending_chick_chan = chan;
+    decision_made = 0;
+    touch_point = last_cc4_value;
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // IGNORE CHICK NOTE-OFFS WHILE PENDING DECISION
+    // Only process note-offs after we've sent a note-on
+    (last_note_sent && decision_made) ? (
+      // This case should be handled by the note-on sending its own note-off
+      // when the pedal returns to open position
+    );
+
+  ) : (
+    // Pass through all other MIDI
+    midisend(offset, msg1, msg23);
+  );
+);
+```
+
+### Note-Off Generation
+1. **Ignore incoming note-offs** while pending a decision
+2. **Generate note-offs automatically** when:
+   - The pedal returns to open position after sending a note-on
+   - Or after a fixed duration (to prevent stuck notes)
+3. **Note-off format**:
+   - Offset: 0 (sent at start of next block)
+   - Channel: Same as note-on
+   - Note number: Same as note-on
+   - Velocity: 0
+
+### Simplifications
+1. **No pending note-off tracking**: Instead of storing note-offs, we generate them when needed
+2. **State-based note-off generation**: Note-offs are sent when the pedal returns to open state
+3. **Timeout-based fallback**: If pedal doesn't return to open, send note-off after a reasonable delay
+
+### Edge Cases Handled
+1. **Note-off arrives before note-on**: Ignored until note-on is sent
+2. **Multiple chick notes in quick succession**: Each is processed independently
+3. **Pedal gets stuck**: Timeout ensures note-off is eventually sent
+4. **Rapid pedal movement**: State machine ensures proper sequencing
+
+## Testing Approach
+1. **Unit Testing**:
+   - Test each state transition
+   - Test splash detection logic
+   - Test velocity calculation
+
+2. **Integration Testing**:
+   - Test with real MIDI pedal input
+   - Test with various playing styles (fast/slow, hard/soft)
+   - Test edge cases (rapid repeated presses, half-presses)
+
+3. **Parameter Tuning**:
+   - Adjust `splashWindow` for different playing styles
+   - Adjust `splashForce` for different pedal mechanisms
+   - Adjust `minCompression` for sensitivity
+</parameter>
+</function>

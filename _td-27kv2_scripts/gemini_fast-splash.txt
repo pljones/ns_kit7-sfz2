@@ -1,0 +1,150 @@
+﻿# Me:
+
+I'm writing a Reaper JSFX script.  It is used to trigger a Hi-hat Splash sound if the pedal (tracked using MIDI CC4) is pressed "correctly".  The algorithm for "correctly" is somewhat vague.  If the pedal is pressed and held, it should emit a Hi-hat Chick.  However, if it's pressed (enough) and released fast enough, it should emit a Hi-hat Splash.  But this must not interfere with repeated pedal chick notes (e.g. keeping time) - splashes tend to be less frequent.  My "gut feel" is "more pressure" should be put onto the pedal to get the splash but I'm not sure that's how - for example - the Roland TD-27 models it.
+
+# AI:
+
+Writing a splash algorithm is a classic "feel" problem in drum programming. You’re essentially trying to map a physical gesture—the kinetic energy of the foot—into a linear MIDI stream that doesn't natively track "stomp velocity."
+
+The Roland TD-27 (and most high-end modules) generally uses a Velocity vs. Time threshold. They don't necessarily look for "more pressure" (since CC4 usually just tracks position), but rather the rate of change in that position.
+
+Here is a breakdown of how to structure your logic to get that "natural" feel without accidentally triggering splashes during time-keeping.
+
+1. The Logic: Rate of Closure
+
+Instead of total pressure, focus on the velocity of the "close" stroke and the duration of the "hold." A Splash is effectively a "failed Chick." In a Chick, the cymbals meet and stay closed. In a Splash, the cymbals meet with high velocity but are immediately pulled apart, allowing them to vibrate.
+
+Key Variables to Track
+
+v_close: How fast the CC4 value went from 0 (open) to 127 (closed).
+
+t_hold: How many milliseconds the pedal stayed at "maximum closed" before moving back toward open.
+
+splash_threshold: A time window (usually < 100ms).
+
+2. The Recommended Algorithm
+
+To avoid interfering with time-keeping (repeated Chicks), you should implement a "Grace Period" or a "Trigger on Release" logic for the Splash.
+
+The Step-by-Step Flow:
+
+Detect the Downstroke: Calculate the velocity of the pedal movement. If the pedal moves from Open to Closed faster than a certain threshold, "prime" the Splash.
+
+The Chick Trigger: As soon as CC4 hits the "closed" threshold (e.g., >110), trigger the Hi-Hat Chick immediately. This ensures your time-keeping is always on the beat.
+
+The "Splash" Window: Start a timer the moment the Chick is triggered.
+
+The Decision:
+
+If CC4 drops (pedal opens) before t_hold exceeds 80–120ms: Trigger Splash. (Note: You may want to send a "Choke" to the Chick sound first).
+
+If CC4 stays high longer than the window: Do nothing. The Chick stands, and the Splash is cancelled.
+
+3. Dealing with "More Pressure"
+
+Since MIDI CC4 only goes up to 127, you can't measure "extra" pressure once the pedal is down unless your hardware has a secondary pressure sensor (most don't).
+
+However, you can simulate this by looking at the Entry Velocity:
+
+If the user slams the pedal to 127 in under 20ms, assign a high velocity to the Splash.
+
+If the user moves it to 127 over 60ms, it’s a standard Chick.
+
+4. JSFX Implementation Tip
+
+In JSFX, you’ll want to use @sample to track the delta of the CC4 input.
+
+C
+// Pseudocode Logic
+delta = current_cc4 - last_cc4;
+(delta > velocity_thresh) ? (
+    primed_for_splash = 1;
+    timer = 0;
+);
+
+(current_cc4 > 120 && last_cc4 <= 120) ? (
+    trigger_chick();
+);
+
+(primed_for_splash && current_cc4 < 100 && timer < splash_window) ? (
+    trigger_splash();
+    primed_for_splash = 0;
+);
+
+Why this works for the TD-27 feel:
+
+The TD-27 feels responsive because it doesn't wait to see if you're splashing to play the Chick. It plays the Chick instantly on closure, and if you release fast enough, the Splash sound is layered on top or replaces it. Because a Splash is physically louder and longer, it naturally masks the Chick that preceded it by a few milliseconds.
+
+Would you like me to help you write a more specific code block for the @sample section to handle the millisecond-to-sample rate conversion?
+
+# Me:
+
+The TD-27 has a "real" hi-hat. Fully open, CC4 is 0, "closed", it's around 80. It takes more and more effort to push the pedal down past 80 to 127. So it can, essentially, "know" how much force is being applied.
+
+# AI:
+
+That changes the physics of your script significantly! Since your hardware maps force to the 80–127 range, you are essentially working with a "pressure-sensitive floor" rather than just a travel distance.
+
+On a "real" hi-hat controller like the one used with the TD-27 (the VH-10 or VH-14D), the range from 0 to 80 represents the cymbals moving through the air. The range from 80 to 127 represents the compression of the felt/spring after the cymbals have already touched.
+
+Here is how to adapt your JSFX logic to use that "extra effort" for more expressive splashing.
+
+1. Using "Deep Closure" as a Splash Trigger
+
+In this setup, a Chick happens the moment you hit the "touch point" (CC 80). A Splash is determined by how far into the "compression zone" (80–127) you went before rebounding.
+
+The "Force-Velocity" Algorithm
+
+The Chick: Triggered as soon as CC4 crosses 80.
+
+The Splash Prep: Track the maximum CC4 value reached during the "down" phase. If it goes deep into the compression zone (e.g., hits 115+), it’s a "Heavy Foot" gesture.
+
+The Splash Execution: Trigger the splash only if the pedal returns to the "Open" zone (e.g., < 40) within a very tight window (approx. 100–150ms) after the Chick.
+
+2. Refining the JSFX Logic
+
+To prevent your time-keeping Chicks from turning into accidental Splashes, you need to filter for Rebound Speed.
+
+Action	Peak CC4 Value	Release Speed	Result
+Soft Keep-time	~85–90	Slow/Held	Clean Chick
+Heavy Keep-time	120+	Held	Heavy Chick (No Splash)
+The Splash	110+	Extremely Fast	Chick + Splash
+Export to Sheets
+Implementation Strategy
+
+You should use a State Machine in your @sample block:
+
+State 0 (Open): Waiting for CC4 > 80.
+
+State 1 (Closing): CC4 has crossed 80. Note the time. Watch for the max_value.
+
+State 2 (Closed/Compressed): If CC4 stays > 80 for more than 100ms, reset. It’s just a Chick.
+
+State 3 (The Rebound): If CC4 drops below 50 while timer < threshold AND max_value > 110, fire the Splash MIDI note.
+
+3. Dealing with the "Chick Interference"
+
+A common frustration in JSFX is the "Double Trigger." If you trigger a Chick at 80 and a Splash at 110, you might get a messy sound.
+
+The Pro Fix: The Roland modules actually use the "Deep Closure" (80–127) to calculate the velocity of the Chick.
+
+If you stop at 85, it's a soft Chick.
+
+If you slam it to 127, it's a loud Chick.
+
+Crucially: The Splash MIDI note should only be sent if the pedal leaves the closed zone faster than it entered.
+
+4. Suggested Variable Mapping
+
+Since the TD-27 is proprietary, you'll need to "tune" these constants in your script:
+
+THRES_CHICK = 80; (The physical contact point)
+
+THRES_SPLASH_FORCE = 115; (The "hard stomp" requirement)
+
+THRES_RELEASE_WINDOW = 0.12; (Seconds allowed between stomp and release)
+
+Note: Make sure you use pdc_delay or lookahead if you want the Splash to feel perfectly timed, though for a pedal, "Trigger on Release" is usually acceptable as the physical splash of the cymbals actually happens as they come apart.
+
+Would you like me to provide a structured JSFX code snippet that implements this specific "Pressure Rebound" state machine?
+
