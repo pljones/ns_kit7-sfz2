@@ -23,6 +23,7 @@ slider8:curveType=2<0,5,1{Linear,Log,Exp1,Exp2,S-Curve,Strong}>Velocity Curve
 slider9:dbgChickVel=0<0,127,1>(debug) Original Chick vel
 slider10:dbgNoteOn=0<0,2,1{-,Chick,Splash}>(debug) Emitted Note on
 slider11:dbgNoteVel=0<0,127,1>(debug) Emitted Note vel
+slider12:dbgSamplePos=0<0,100000000000,1>(debug) Sample position
 
 in_pin:none
 out_pin:none
@@ -105,8 +106,11 @@ while(midirecv(offset, msg1, msg23)) (
 
     // Send chick or splash
     out_note = is_chick ? chickNote : splashNote;
-    out_velocity = is_chick ? data2 : out_velocity;
     dbgNoteOn = is_chick ? 1 : 2;
+
+    out_velocity = is_chick ? data2 : out_velocity;
+    dbgNoteVel = out_velocity;
+
     last_note_sent = out_note;
     midisend(offset, 0x90 | chan, out_note | (out_velocity << 8));
 
@@ -122,3 +126,4 @@ while(midirecv(offset, msg1, msg23)) (
 );
 
 tracking_active ? total_samples += samplesblock;
+dbgSamplePos = total_samples;
