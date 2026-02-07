@@ -10,24 +10,24 @@ slider1:chickNote=44<0,127,1>Chick Note (to detect)
 slider2:splashNote=97<0,127,1>Splash Note (to emit)
 slider3:zingNote=98<0,127,1>Zing Note (to emit)
 slider4:closedSide=1<0,1,1{Keyboard (CC4=0 Closed),eKit (CC4=127 Closed)}>Hi-hat type
-slider5:chickLevel=80<0,127,1>Chick level (CC4 at cymbal touch)
-slider6:fastReleaseMs=150<50,500,10>Fast release threshold (ms)
-slider7:splashZingTimeMs=200<50,1000,10>Splash/Zing switch-over (ms)
-slider8:minVel=400<100,1000,10>Min Velocity
-slider9:maxVel=900<100,1000,10>Max Velocity
-slider10:velSensitivity=0.5<0,1,0.05>Velocity Sensitivity
-slider11:curveType=2<0,5,1{Linear,Log,Exp1,Exp2,S-Curve,Strong}>Velocity Curve
-slider12:zingDepthScale=1<0,2,0.1>Zing depth scale
-slider13:dbgChickVel=0<0,127,1>(debug) Original Chick vel
-slider14:dbgNoteOn=0<0,3,1{-,Chick,Splash,Zing}>(debug) Emitted Note on
-slider15:dbgNoteVel=0<0,127,1>(debug) Emitted Note vel
-slider16:dbgSamplePos=0<0,10000000,1>(debug) Sample position
+slider5:fastReleaseMs=150<50,500,10>Fast release threshold (ms)
+slider6:splashZingTimeMs=200<50,1000,10>Splash/Zing switch-over (ms)
+slider7:minVel=400<100,1000,10>Min Velocity
+slider8:maxVel=900<100,1000,10>Max Velocity
+slider9:velSensitivity=0.5<0,1,0.05>Velocity Sensitivity
+slider10:curveType=2<0,5,1{Linear,Log,Exp1,Exp2,S-Curve,Strong}>Velocity Curve
+slider11:zingDepthScale=1<0,2,0.1>Zing depth scale
+slider12:dbgChickVel=0<0,127,1>(debug) Original Chick vel
+slider13:dbgNoteOn=0<0,3,1{-,Chick,Splash,Zing}>(debug) Emitted Note on
+slider14:dbgNoteVel=0<0,127,1>(debug) Emitted Note vel
+slider15:dbgSamplePos=0<0,10000000,1>(debug) Sample position
 
 in_pin:none
 out_pin:none
 
 @init
 last_cc4_value = 63.5;
+chick_cc4 = closedSide ? 127 : 0; // Default to closed position
 press_start_time = 0;
 release_start_time = 0;
 release_start_value = 0;
@@ -56,7 +56,9 @@ function apply_curve(norm_val) (
 tracking_active && (total_samples - last_activity_samples > 2 * srate) ? (
   tracking_active = 0;
   total_samples = 0;
-  last_activity_samples;
+  last_activity_samples = 0;
+  press_start_time = 0;
+  chick_cc4 = closedSide ? 127 : 0; // Reset to closed position
 );
 
 while(midirecv(offset, msg1, msg23)) (
@@ -94,8 +96,8 @@ while(midirecv(offset, msg1, msg23)) (
         hold_duration_ms = hold_duration_samples * 1000 / srate;
         (press_start_time == 0 || hold_duration_samples > 2 * srate) ? hold_duration_ms = splashZingTimeMs + 1; // treat as Zing
 
-        // CC4 opened past chick level?
-        past_chick = closedSide ? (data2 < chickLevel) : (data2 > chickLevel);
+        // CC4 opened past chick position?
+        past_chick = closedSide ? (data2 <= chick_cc4) : (data2 >= chick_cc4);
 
         (release_duration_ms < fastReleaseMs && release_delta >= 20 && !release_sent && past_chick) ? (
           is_splash = hold_duration_ms < splashZingTimeMs;
@@ -106,7 +108,7 @@ while(midirecv(offset, msg1, msg23)) (
           raw_vel = release_speed * 1000 * velSensitivity;
           // Zing: add depth-below-chick factor
           is_splash ? 0 : (
-            depth = closedSide ? max(0, chickLevel - release_start_value) : max(0, release_start_value - chickLevel);
+            depth = closedSide ? max(0, chick_cc4 - release_start_value) : max(0, release_start_value - chick_cc4);
             depth_factor = depth / 127 * zingDepthScale;
             raw_vel = raw_vel * (1 + depth_factor);
           );
@@ -134,7 +136,9 @@ while(midirecv(offset, msg1, msg23)) (
     midisend(offset, msg1, msg23);
 
   ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
-    // Chick Note On: pass through unchanged
+    // Chick Note On: pass through unchanged, capture chick_cc4 and set press_start_time
+    chick_cc4 = last_cc4_value; // Capture the CC4 value before the Chick Note On
+    press_start_time = event_samples; // Set press_start_time to the Chick Note On time
     tracking_active = 1;
     last_activity_samples = event_samples;
     dbgChickVel = data2;
