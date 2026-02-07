@@ -1,6 +1,6 @@
 desc: TD-27 Hi-hat Splash detector (pljones)
-author: Peter L Jones (with Claude Haiku 4.5 - Mistral failed, ChatGPT failed)
-version: 4.0
+author: Peter L Jones (with Claude Haiku 4.5 - Mistral failed, ChatGPT failed - updated by cursor "auto" mode)
+version: 4.1
 about: based on https://www.megadrum.info/content/hihat-pedal-settings New Algrthm description
 source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
 
@@ -29,17 +29,15 @@ out_pin:none
 
 @init
 last_cc4_value = 63.5;
-press_start_time = 0;
+press_start_time = 0;   // sample count at start of press
 press_start_value = 0;
 last_note_sent = 0;
+total_samples = 0;
+tracking_active = 0;
+last_activity_samples = 0;
 dbgChickVel = 0;
 dbgNoteOn = 0;
 dbgNoteVel = 0;
-
-// Current timestamp in milliseconds
-function now_ms(offset) (
-  ((sample_pos + offset) * 1000) / srate
-);
 
 // Apply curve choice to computed velocity
 function apply_curve(norm_val) (
@@ -54,32 +52,39 @@ function apply_curve(norm_val) (
 );
 
 @block
+tracking_active && (total_samples - last_activity_samples > 2 * srate) ? tracking_active = 0;
+
 while(midirecv(offset, msg1, msg23)) (
   status = msg1 & 0xF0;
   chan = msg1 & 0x0F;
   data1 = msg23 & 0x7F;
   data2 = (msg23 >> 8) & 0x7F;
+  event_samples = total_samples + offset;
 
-  // Track CC4 (pedal position)
+  // Track CC4 (pedal position); only start/refresh tracking when gate passed (ignore minor disturbances)
   (status == 0xB0 && data1 == 4) ? (
     // Detect pedal press: closing pedal (toward 127 if closedSide, toward 0 if closed_at_0)
     closing = closedSide ? (data2 > last_cc4_value) : (data2 < last_cc4_value);
-
-    // Ignore minor disturbances in the pedal
-    (closing && (abs(data2 - last_cc4_value) > 2)) ? (
+    (closing && (abs(data2 - last_cc4_value) >= 1)) ? (
+      tracking_active = 1;
+      last_activity_samples = event_samples;
       press_start_value = last_cc4_value;
-      press_start_time = now_ms(offset);
+      press_start_time = event_samples;
     );
 
     last_cc4_value = data2;
     midisend(offset, msg1, msg23);
 
   ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
-    dbgChickVel = data2; // set the debug for this note on
+    tracking_active = 1;
+    last_activity_samples = event_samples;
+    dbgChickVel = data2;
 
     // Detect chick note (Note On)
-    chick_on_time = now_ms(offset);
-    press_duration = chick_on_time - press_start_time;
+    chick_on_time = event_samples;
+    press_duration_samples = chick_on_time - press_start_time;
+    press_duration_ms = press_duration_samples * 1000 / srate;
+    (press_start_time == 0 || press_duration_samples > 2 * srate) ? press_duration_ms = 50;
 
     // Calculate velocity of press
     cc4_change = last_cc4_value - press_start_value;
@@ -88,7 +93,7 @@ while(midirecv(offset, msg1, msg23)) (
 
     // Determine chick or splash
     is_fast = raw_vel > minVel;
-    is_short = press_duration < chickHeld;
+    is_short = press_duration_ms < chickHeld;
     is_chick = is_fast && is_short;
 
     // Map velocity to MIDI range and apply curve
@@ -115,3 +120,5 @@ while(midirecv(offset, msg1, msg23)) (
     midisend(offset, msg1, msg23);
   );
 );
+
+tracking_active ? total_samples += samplesblock;
