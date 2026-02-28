@@ -11,16 +11,10 @@ slider2:splashNote=97<0,127,1>Splash Note (to emit)
 slider3:zingNote=98<0,127,1>Zing Note (to emit)
 slider4:closedSide=1<0,1,1{Keyboard (CC4=0 Closed),eKit (CC4=127 Closed)}>Hi-hat type
 slider5:fastReleaseMs=150<50,500,10>Fast release threshold (ms)
-slider6:splashZingTimeMs=200<50,1000,10>Splash/Zing switch-over (ms)
-slider7:minVel=400<100,1000,10>Min Velocity
-slider8:maxVel=900<100,1000,10>Max Velocity
-slider9:velSensitivity=0.5<0,1,0.05>Velocity Sensitivity
-slider10:curveType=2<0,5,1{Linear,Log,Exp1,Exp2,S-Curve,Strong}>Velocity Curve
-slider11:zingDepthScale=1<0,2,0.1>Zing depth scale
-slider12:dbgChickVel=0<0,127,1>(debug) Original Chick vel
-slider13:dbgNoteOn=0<0,3,1{-,Chick,Splash,Zing}>(debug) Emitted Note on
-slider14:dbgNoteVel=0<0,127,1>(debug) Emitted Note vel
-slider15:dbgSamplePos=0<0,10000000,1>(debug) Sample position
+slider6:splashZingTimeMs=600<50,1000,10>Splash/Zing switch-over (ms)
+slider7:dbgChickVel=0<0,127,1>(debug) Original Chick vel
+slider8:dbgNoteOn=0<0,3,1{-,Chick,Splash,Zing}>(debug) Emitted Note on
+slider9:dbgSamplePos=0<0,10000000,1>(debug) Sample position
 
 in_pin:none
 out_pin:none
@@ -99,23 +93,12 @@ while(midirecv(offset, msg1, msg23)) (
         // CC4 opened past chick position?
         past_chick = closedSide ? (data2 <= chick_cc4) : (data2 >= chick_cc4);
 
-        (release_duration_ms < fastReleaseMs && release_delta >= 20 && !release_sent && past_chick) ? (
+        (release_duration_ms < fastReleaseMs && !release_sent && past_chick) ? (
           is_splash = hold_duration_ms < splashZingTimeMs;
           out_note = is_splash ? splashNote : zingNote;
 
-          // Velocity: release speed, for Zing also depth below chick
-          release_speed = release_delta / max(1, release_duration_ms);
-          raw_vel = release_speed * 1000 * velSensitivity;
-          // Zing: add depth-below-chick factor
-          is_splash ? 0 : (
-            depth = closedSide ? max(0, chick_cc4 - release_start_value) : max(0, release_start_value - chick_cc4);
-            depth_factor = depth / 127 * zingDepthScale;
-            raw_vel = raw_vel * (1 + depth_factor);
-          );
-
-          norm_vel = (raw_vel - minVel) / (maxVel - minVel);
-          curved_vel = apply_curve(norm_vel);
-          out_velocity = max(1, min(127, floor(curved_vel * 126 + 1)));
+          // Velocity: use Chick velocity directly
+          out_velocity = dbgChickVel;
 
           dbgNoteOn = is_splash ? 2 : 3;
           dbgNoteVel = out_velocity;
@@ -143,7 +126,6 @@ while(midirecv(offset, msg1, msg23)) (
     last_activity_samples = event_samples;
     dbgChickVel = data2;
     dbgNoteOn = 1;
-    dbgNoteVel = data2;
     midisend(offset, msg1, msg23);
 
   ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
