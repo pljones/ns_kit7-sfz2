@@ -1,0 +1,140 @@
+desc: TD-27 Hi-hat Splash detector (pljones)
+author: Peter L Jones
+version: 1.0
+about: Detects Hi-hat Chick Notes (Note 44) and emits an additional Splash Note (Note 96) when CC4 rises above the stored chick position within a configurable time window. The Chick Note always passes through unchanged.
+source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_td-27kv2_scripts/jsfx/TD-27_hihat_splash.jsfx
+
+// This script monitors CC4 (hi-hat pedal position) and Note 44 (chick note).
+// When a chick note is detected, it stores the current CC4 position.
+// If the pedal opens (CC4 moves toward open) past the stored position within
+// the time window, an additional Splash note is emitted.
+// The chick note itself always passes through unchanged.
+
+slider1:chickNote=44<0,127,1>Chick Note (to detect)
+slider2:splashNote=96<0,127,1>Splash Note (to emit)
+slider3:closedSide=1<0,1,1{Keyboard (CC4=0 Closed),eKit (CC4=127 Closed)}>Hi-hat type
+slider4:timeWindow=150<50,500,10>Time window (ms)
+slider5:dbgChickCC4=0<0,127,1>(debug) CC4 at chick time
+slider6:dbgTrackingActive=0<0,1,1>(debug) Tracking active
+slider7:dbgSplashSent=0<0,1,1>(debug) Splash sent
+slider8:dbgTimeSinceChick=0<0,1000,1>(debug) Time since chick (ms)
+
+in_pin:none
+out_pin:none
+
+@init
+last_cc4_value = 63.5;
+chick_cc4 = 0;
+chick_time = 0;
+chick_velocity = 0;
+chick_channel = 0;
+tracking_active = 0;
+splash_sent = 0;
+splash_note_pending = 0;
+total_samples = 0;
+last_activity_samples = 0;
+
+// Debug sliders
+dbgChickCC4 = 0;
+dbgTrackingActive = 0;
+dbgSplashSent = 0;
+dbgTimeSinceChick = 0;
+
+@block
+// Send Note Off for pending splash note at start of block (before processing incoming MIDI)
+splash_note_pending > 0 ? (
+  midisend(0, 0x80 | chick_channel, splash_note_pending | (0 << 8));
+  splash_note_pending = 0;
+);
+
+// Timeout reset: clear tracking state after 2 seconds of inactivity
+tracking_active && (total_samples - last_activity_samples > 2 * srate) ? (
+  tracking_active = 0;
+  splash_sent = 0;
+  dbgTrackingActive = 0;
+);
+
+// Process all MIDI messages in the block
+while(midirecv(offset, msg1, msg23)) (
+  status = msg1 & 0xF0;
+  chan = msg1 & 0x0F;
+  data1 = msg23 & 0x7F;
+  data2 = (msg23 >> 8) & 0x7F;
+  event_samples = total_samples + offset;
+
+  // Handle CC4 (hi-hat pedal position)
+  (status == 0xB0 && data1 == 4) ? (
+    // Always pass through CC4 unchanged
+    midisend(offset, msg1, msg23);
+
+    // Check for splash condition if tracking
+    tracking_active && !splash_sent ? (
+      // Calculate time since chick
+      time_since_chick_ms = (event_samples - chick_time) * 1000 / srate;
+      dbgTimeSinceChick = time_since_chick_ms;
+
+      // Check if within time window
+      time_since_chick_ms < timeWindow ? (
+        // Determine if pedal is opening past chick position
+        // closedSide=1 (eKit): CC4=127 closed, CC4=0 open, so "opening" = CC4 decreasing
+        // closedSide=0 (Keyboard): CC4=0 closed, CC4=127 open, so "opening" = CC4 increasing
+        opening = closedSide ? (data2 < last_cc4_value) : (data2 > last_cc4_value);
+        past_chick = closedSide ? (data2 < chick_cc4) : (data2 > chick_cc4);
+
+        // Emit splash if opening past chick position
+        opening && past_chick ? (
+          midisend(offset, 0x90 | chick_channel, splashNote | (chick_velocity << 8));
+          splash_sent = 1;
+          splash_note_pending = splashNote;
+          dbgSplashSent = 1;
+          tracking_active = 0;  // Stop tracking after splash sent
+          dbgTrackingActive = 0;
+        );
+      ) : (
+        // Time window expired - stop tracking
+        tracking_active = 0;
+        dbgTrackingActive = 0;
+      );
+    );
+
+    // Update last CC4 value
+    last_cc4_value = data2;
+
+  ) : (status == 0x90 && data2 > 0 && data1 == chickNote) ? (
+    // Handle Chick Note On - pass through unchanged AND start tracking
+    midisend(offset, msg1, msg23);
+
+    // Store state for splash detection
+    chick_cc4 = last_cc4_value;
+    chick_time = event_samples;
+    chick_velocity = data2;
+    chick_channel = chan;
+    tracking_active = 1;
+    splash_sent = 0;
+    last_activity_samples = event_samples;
+
+    // Update debug sliders
+    dbgChickCC4 = chick_cc4;
+    dbgTrackingActive = 1;
+    dbgSplashSent = 0;
+
+  ) : ((status == 0x80 || (status == 0x90 && data2 == 0)) && data1 == chickNote) ? (
+    // Handle Chick Note Off - pass through unchanged
+    midisend(offset, msg1, msg23);
+
+  ) : (
+    // Pass through all other MIDI unchanged
+    midisend(offset, msg1, msg23);
+  );
+);
+
+// Update sample counter when tracking is active
+tracking_active ? total_samples += samplesblock;
+
+// Update debug time display
+tracking_active ? (
+  dbgTimeSinceChick = (total_samples - chick_time) * 1000 / srate;
+) : (
+  dbgTimeSinceChick = 0;
+);
+
