@@ -44,19 +44,17 @@ tight=(    [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12
 
 cys=(cy8_splash cy9_splash cy12_splash cy15_crash cy18_crash cy19_china cy20_ride)
 
-declare -A actual_toms
-tms=(tm8 tm10 tm12 tm14 tm16)
+tm_bop=(tm8 tm10 tm12 tm14 tm16)
+tm_dry=(tm10 tm10 tm12 tm14 tm14)
+tm_noreso=(tm10 tm10 tm12 tm14 tm14)
+tm_rock=(tm8 tm10 tm12 tm14 tm16)
 
-function common_override () {
-	local trigger_file=$1; shift || { echo "common_override: Missing trigger_file" >&2; exit 1; }
-	local -n key_ref=$1  ; shift || { echo "common_override: Missing key_ref" >&2; exit 1; }
+function override_defines () {
+	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
+	local -n key_ref=$1  ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
 
-	# the <master> line was done by the call, we take care of defines and includes
-	grep -v '^\(#define\|<master>\|#include\|//\|$\)' "${trigger_file}" || :
-
-	# slurp the existing file
 	mapfile -t triggers < "${trigger_file}"
-
+	grep -v '^\(#define\|<master>\|$\)' "${trigger_file}"
 	i=0
 	while [[ $i -lt ${#triggers[@]} ]]
 	do
@@ -70,85 +68,6 @@ function common_override () {
 	done
 }
 
-function override_defines () {
-	local trigger_file=$1; shift || { echo "override_defines: Missing trigger_file" >&2; exit 1; }
-	local -n _key_ref=$1 ; shift || { echo "override_defines: Missing key_ref" >&2; exit 1; }
-
-	local my_key=${_key_ref}
-
-	common_override "${trigger_file}" my_key
-	_key_ref=$my_key
-
-	# make sure the include line follows the defines
-	grep '^#include' "${trigger_file}"
-}
-
-function hihat_overrides () {
-	local hh=$1; shift || { echo "hihat_overrides: Missing hh" >&2; exit 1; }
-	local btr=$1; shift || { echo "hihat_overrides: Missing btr" >&2; exit 1; }
-	local -n _key_ref=$1 ; shift || { echo "hihat_overrides: Missing key_ref" >&2; exit 1; }
-
-	local my_key=${_key_ref}
-
-	echo ''
-	echo '<master>'
-	echo " volume=-6.00 gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
-
-	for the_hihat_beater in $btr ped spl
-	do
-		if [[ $hh == - ]]
-		then
-			common_override "triggers/${the_hihat_beater}/${k[hihats]}.sfzh" my_key
-		else
-			common_override "triggers/${the_hihat_beater}/${k[hihats]}_invcc4.sfzh" my_key
-		fi
-	done
-
-	for the_hihat_beater in $btr ped spl
-	do
-		if [[ $hh == - ]]
-		then
-			grep '^#include' "triggers/${the_hihat_beater}/${k[hihats]}.sfzh"
-		else
-			grep '^#include' "triggers/${the_hihat_beater}/${k[hihats]}_invcc4.sfzh"
-		fi
-
-	done
-
-	_key_ref=$my_key
-
-}
-
-function tom_overrides () {
-	local trigger_file=$1; shift || { echo "tom_overrides: Missing trigger_file" >&2; exit 1; }
-	local -n _key_ref=$1 ; shift || { echo "tom_overrides: Missing key_ref" >&2; exit 1; }
-	local actual_tom=$1  ; shift || { echo "tom_overrides: Missing actual tom" >&2; exit 1; }
-	local tom=$1         ; shift || { echo "tom_overrides: Missing tom" >&2; exit 1; }
-
-	local my_key=${_key_ref}
-	local random_file=/tmp/$$.tmp
-
-	common_override "${trigger_file}" my_key > "$random_file"
-	_key_ref=$my_key
-
-	if [[ "${actual_tom}" == "${tom}" ]]
-	then
-		cat "$random_file"
-		rm -f "$random_file"
-		# make sure the include line follows the defines
-		grep '^#include' "${trigger_file}"
-		return
-	fi
-
-	sed -e 's/\$\<'${actual_tom}'_/$'${tom}'_/g' "$random_file"
-	rm -f "$random_file"
-	echo >&2 "_key_ref {$_key_ref}; my_key {$my_key}"
-
-	echo >&2 "OK, need to read the filename from {${trigger_file}} (actual_tom {$actual_tom}; tom {$tom})..."
-	read -r unused include_file < <(grep '^#include' "${trigger_file}")
-	sed -e 's/\$\<'${actual_tom}'_/$'${tom}'_/g' ${include_file//\"/}
-}
-
 rm -rf _kits
 mkdir _kits
 
@@ -157,6 +76,7 @@ do
 	echo --- $kit ---
 	declare -n k=$kit
 	declare -a c=(${cys[@]} ${k[cymbals]})
+	declare -n t=tm_${k[toms]}
 	the_hihat=${k[hihats]}
 
 
@@ -169,104 +89,39 @@ do
 
 		for cy in "${c[@]}"
 		do
-			if [[ ! -f "triggers/${btr}/${cy}.sfzh" ]]
-			then
-				echo "${kit} ${btr} has no ${cy} cymbal" >&2
-				exit 1
-			fi
+			[[ -f "triggers/${btr}/${cy}.sfzh" ]] || { echo "${kit} ${btr} snare ${snare} has no ${cy}"; continue; }
 		done
-
-		if [[ ! -f "triggers/${btr}/${k[hihats]}.sfzh" ]]
-		then
-			echo "${kit} ${btr} has no ${k[hihats]} hihat" >&2
-			exit 1
-		fi
-
+		[[ -f "triggers/${btr}/${k[hihats]}.sfzh" ]] || { echo "${kit} ${btr} snare ${snare} has no ${k[hihats]}"; continue; }
 		for snare in off on
 		do
 			[[ -f "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" ]] || {
-				continue
+				# echo "${kit} ${btr} snare ${snare} has no ${k[snares]}";
+				continue;
 			}
-
-			if [[ ! -f "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" ]]
-			then
-				 echo "${kit} snare ${snare} has no ${k[kicks]} kick" >&2
-				 exit 1
-			fi
-
-			# Available toms for this beater, tuning, snare
+			[[ -f "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" ]] || { echo "${kit} snare ${snare} has no ${k[kicks]}"; continue; }
 			actual_toms=()
 			# tm12_rock_snare_off.sfzh
-			for tm in "${tms[@]}"
+			for tm in "${t[@]}"
 			do
 				f="triggers/${btr}/${tm}_${k[toms]}_snare_${snare}.sfzh"
-				if [[ -f "$f" ]]
+				if [[ ! -f $f ]]
 				then
-					actual_toms[${tm}]="${tm}_${k[toms]}_snare_${snare}"
-					continue
-				fi
-
-				echo -n "${kit}: ${btr} (${k[toms]}) snare ${snare} has no ${tm}"
-
-				# try the opposite snare state
-				replacement_snare=$([[ "$snare" == "on" ]] && echo off || echo on)
-				f="triggers/${btr}/${tm}_${k[toms]}_snare_${replacement_snare}.sfzh"
-				if [[ -f "$f" ]]
-				then
-					actual_toms[${tm}]="${tm}_${k[toms]}_snare_${replacement_snare}"
-					echo " - replacing with opposite snare {${actual_toms[${tm}]}}"
-					continue
-				fi
-
-				# fall back to the last tom we found (or the next if none yet)
-				if [[ "${#actual_toms[@]}" -gt 0 ]]
-				then
-					replacement_tom="${tms[$((${#actual_toms[@]} - 1))]}"
-					actual_toms[${tm}]="${actual_toms[${replacement_tom}]}"  # duplicate last found tom
-					echo " - replacing with previous tom {${actual_toms[${tm}]}}"
-					continue
-				fi
-
-				# look ahead for the next tom that exists
-				# - find the index of current tom in tms array
-				current_index=0
-				while [[ $current_index -lt ${#tms[@]} && "${tms[$current_index]}" != "$tm" ]]
-				do
-					((current_index++))
-				done
-
-				replacement_tom=""
-				# - check each tom after current one
-				for ((i=current_index+1; i<${#tms[@]}; i++))
-				do
-					later_tm=${tms[$i]}
-
-					f="triggers/${btr}/${later_tm}_${k[toms]}_snare_${snare}.sfzh"
-					if [[ -f "$f" ]]
+					x="sn${snare}_btr${btr}_toms${k[toms]}"
+					echo -n "${kit} ${btr} (${k[toms]}) snare ${snare} has no ${tm}; (x {$x})"
+					replacement_snare=$([[ "$snare" == "on" ]] && echo off || echo on)
+					actual_toms+=(${tm}_${k[toms]}_snare_${replacement_snare})
+					f="triggers/${btr}/${actual_toms[-1]}.sfzh"
+					if [[ ! -f "$f" ]]
 					then
-						replacement_tom="${later_tm}_${k[toms]}_snare_${snare}"
-						break
+						echo ''
+						echo >&2 "Failed to replace tom (${snare} -> ${replacement_snare}): {$f} not found"
+						exit 1
+					else
+						echo " - using ${kit} ${btr} ${actual_toms[-1]} instead";
 					fi
-					# also try opposite snare state
-					f="triggers/${btr}/${later_tm}_${k[toms]}_snare_${replacement_snare}.sfzh"
-					if [[ -f "$f" ]]
-					then
-						replacement_tom="${later_tm}_${k[toms]}_snare_${replacement_snare}"
-						break
-					fi
-					# ... continue looking
-				done
-
-				if [[ -n "$replacement_tom" ]]
-				then
-					actual_toms[${tm}]="$replacement_tom"
-					echo " - replacing with next available tom {${actual_toms[${tm}]}}"
 				else
-					echo ''
-					echo "${kit} ${btr} snare ${snare} has no ${tm} tom" >&2
-					exit 1
+					actual_toms+=(${tm}_${k[toms]}_snare_${snare})
 				fi
-
 			done
 
 			for hh in - invcc4
@@ -361,8 +216,9 @@ do
 				((cc++))
 				gain_cc[brush]=${cc}
 				((cc++))
-				for tm in "${tms[@]}"
+				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
 				do
+					tm=${t[$ti]}
 					echo " set_hdcc${cc}=0.5   label_cc${cc}=$(sed -e 's/tm\(.*\)/\1” tom/' <<<"${tm}") (cc${cc})"
 					gain_cc[${tm}]=${cc}
 					((cc++))
@@ -398,7 +254,25 @@ do
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
-				hihat_overrides ${hh} ${btr} key
+				for the_hihat_beater in $btr ped spl
+				do
+
+					echo ''
+					echo '<master>'
+					echo " volume=$(
+						case "${the_hihat_beater}" in
+							"spl") echo '9.00'  ;;
+							"ped") echo '3.00'  ;;
+							*)     echo '-6.00' ;;
+						esac) gain_cc${gain_cc[hihat]}=24 volume_curvecc${gain_cc[hihat]}=1"
+					if [[ $hh == - ]]
+					then
+						override_defines "triggers/${the_hihat_beater}/${k[hihats]}.sfzh" key
+					else
+						override_defines "triggers/${the_hihat_beater}/${k[hihats]}_invcc4.sfzh" key
+					fi
+
+				done
 
 				echo ''
 				echo '<master>'
@@ -411,15 +285,13 @@ do
 				[[ "${btr}" == "brs" ]] && echo " gain_cc${gain_cc[brush]}=-12 volume_curvecc${gain_cc[brush]}=4"
 				override_defines "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" key
 
-				for tm in "${tms[@]}"
+				for (( ti = 0; ti < ${#actual_toms[@]}; ti++ ))
 				do
-					atm="${actual_toms[$tm]}"
+					tt=${t[$ti]}
 					echo ''
 					echo '<master>'
-					echo " volume=-6.00 gain_cc${gain_cc[$tm]}=24 volume_curvecc${gain_cc[$tm]}=1"
-					tom_overrides "triggers/${btr}/${atm}.sfzh" key "$(
-						echo $atm | sed -e 's!^triggers/.../!!' -e 's/_.*$//g'
-					)" "$tm"
+					echo " volume=-6.00 gain_cc${gain_cc[$tt]}=24 volume_curvecc${gain_cc[$tt]}=1"
+					override_defines "triggers/${btr}/${actual_toms[$ti]}.sfzh" key
 				done
 
 				echo ''
