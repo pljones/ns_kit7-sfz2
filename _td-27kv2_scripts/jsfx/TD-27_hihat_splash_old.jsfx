@@ -1,4 +1,4 @@
-desc: TD-27 Hi-hat Splash detector (pljones)
+desc: TD-27 Hi-hat Splash detector [OLD] (pljones)
 author: Peter L Jones (with Claude Haiku 4.5 - Mistral failed, ChatGPT failed - updated by cursor "auto" mode)
 version: 4.1
 about: based on https://www.megadrum.info/content/hihat-pedal-settings New Algrthm description
