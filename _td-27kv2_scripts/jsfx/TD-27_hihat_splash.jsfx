@@ -13,8 +13,8 @@ source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_
 slider1:chickNote=44<0,127,1>Chick Note (to detect)
 slider2:splashNote=96<0,127,1>Splash Note (to emit)
 slider3:closedSide=1<0,1,1{Keyboard (CC4=0 Closed),eKit (CC4=127 Closed)}>Hi-hat type
-slider4:timeWindow=25<10,250,5>Time window (ms)
-slider5:thresholdPastChick=4<0,60,1>Threshold past chick (CC4 units)
+slider4:timeWindow=30<10,250,5>Time window (ms)
+slider5:thresholdPastChick=8<0,60,1>Threshold past chick (CC4 units)
 slider6:dbgChickCC4=0<0,127,1>(debug) CC4 at chick time
 slider7:dbgSplashSent=0<0,1,1>(debug) Splash sent
 slider8:dbgTimeSinceChick=0<0,2001,1>(debug) Time since chick (ms)
@@ -126,4 +126,3 @@ tracking_active ? (
   samples_since_chick += samplesblock;
   dbgTimeSinceChick = samples_since_chick * 1000 / srate;
 );
-
