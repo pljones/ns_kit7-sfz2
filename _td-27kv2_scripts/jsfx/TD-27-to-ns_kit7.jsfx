@@ -11,9 +11,9 @@ source: https://raw.githubusercontent.com/pljones/ns_kit7-sfz2/refs/heads/main/_
 in_pin:none
 out_pin:none
 
-slider1:crash1=2<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Crash 1 Assign
-slider2:crash2=4<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Crash 2 Assign
-slider3:ride=7<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride}>Ride Assign
+slider1:crash1=2<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride,cy19_sizzle}>Crash 1 Assign
+slider2:crash2=4<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride,cy19_sizzle}>Crash 2 Assign
+slider3:ride=7<0,7,1{cy8_splash,cy9_splash,cy12_splash,cy15_crash,cy18_crash,cy19_china,cy20_ride,cy19_ride,cy19_sizzle}>Ride Assign
 slider4:tom1=0<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 1 Assign
 slider5:tom2=2<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 2 Assign
 slider6:tom3=4<0,4,1{tm8,tm10,tm12,tm14,tm16}>Tom 3 Assign
@@ -122,6 +122,7 @@ trigger_cy18_crash  = 17;
 trigger_cy19_china  = 21;
 trigger_cy20_ride   = 25;
 trigger_cy19_ride   = 29;
+trigger_cy19_sizzle = 33;
 // Cymbal offsets for zones
 zone_cy_bel       = 0;
 zone_cy_top_inner = 1;
@@ -129,7 +130,7 @@ zone_cy_top_outer = 2;
 zone_cy_rim       = 3;
 
 // Trigger maps from sliders - zones from whatever position sensing we get
-cy_map = malloc(0, 8);
+cy_map = malloc(0, 9);
 cy_map[0] = trigger_cy8_splash;
 cy_map[1] = trigger_cy9_splash;
 cy_map[2] = trigger_cy12_splash;
@@ -138,10 +139,11 @@ cy_map[4] = trigger_cy18_crash;
 cy_map[5] = trigger_cy19_china;
 cy_map[6] = trigger_cy20_ride;
 cy_map[7] = trigger_cy19_ride;
+cy_map[8] = trigger_cy19_sizzle;
 
 
 // Hi-Hat
-trigger_hh = 33;
+trigger_hh = 37;
 // Hi-Hat offsets for zones
 zone_hh_bel   = 0;
 zone_hh_top_l = 1;
@@ -153,14 +155,14 @@ zone_hh_spl   = 6;
 
 
 // Kick
-trigger_kick = 40;
+trigger_kick = 44;
 // Kick offsets for zones
 zone_kick_cls = 0;
 zone_kick_opn = 1;
 
 
 // Snare
-trigger_snare = 42;
+trigger_snare = 46;
 // Snare offsets for zones
 zone_sn_head = 0;
 zone_sn_xtk  = 1;
@@ -183,11 +185,11 @@ zone_sn_brush_drag_under      = 16;
 
 
 // Toms
-trigger_tm8  = 59;
-trigger_tm10 = 64;
-trigger_tm12 = 69;
-trigger_tm14 = 74;
-trigger_tm16 = 79;
+trigger_tm8  = 63;
+trigger_tm10 = 68;
+trigger_tm12 = 73;
+trigger_tm14 = 78;
+trigger_tm16 = 83;
 // Tom offsets for zones
 zone_tm_ord_l = 0;
 zone_tm_ord_r = 1;
@@ -204,7 +206,7 @@ tom_map[3] = trigger_tm14;
 tom_map[4] = trigger_tm16;
 
 // Cowbell
-trigger_cowbell = 84;
+trigger_cowbell = 88;
 // Cowbell offsets for zones
 zone_cowbell_muted_ord = 0;
 zone_cowbell_muted_top = 1;
@@ -212,7 +214,7 @@ zone_cowbell_open_ord  = 2;
 zone_cowbell_open_top  = 3;
 
 // Tambourine
-trigger_tambourine = 88;
+trigger_tambourine = 92;
 // Tambourine offsets for zones
 zone_tambourine_hit = 0;
 zone_tambourine_jng = 1;

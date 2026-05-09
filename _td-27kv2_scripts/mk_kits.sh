@@ -30,19 +30,19 @@ for kit in ${kits[@]}
 do
 	declare -A $kit
 done
-bop=(      [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop       [toms]=bop)
-bop_muted=([cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_muted [toms]=bop)
-bop_open=( [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_open  [toms]=bop)
-dead=(     [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd22_noreso [snares]=sn12_dead      [toms]=dry)
-funk=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn12_funk      [toms]=rock)
-jungle=(   [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn10_jungle    [toms]=bop)
-metal=(    [cymbals]=cy19_sizzle [hihats]=hh13 [kicks]=kd22_boom   [snares]=sn14_metal     [toms]=noreso)
-orleans=(  [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd22_boom   [snares]=sn12_orleans   [toms]=rock)
-piccolo=(  [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=dry)
-rock=(     [cymbals]=cy19_ride   [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=rock)
-tight=(    [cymbals]=cy19_ride   [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=rock)
+bop=(      [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop       [toms]=bop)
+bop_muted=([hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_muted [toms]=bop)
+bop_open=( [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn12_bop_open  [toms]=bop)
+dead=(     [hihats]=hh14 [kicks]=kd22_noreso [snares]=sn12_dead      [toms]=dry)
+funk=(     [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn12_funk      [toms]=rock)
+jungle=(   [hihats]=hh13 [kicks]=kd14_bop    [snares]=sn10_jungle    [toms]=bop)
+metal=(    [hihats]=hh13 [kicks]=kd22_boom   [snares]=sn14_metal     [toms]=noreso)
+orleans=(  [hihats]=hh14 [kicks]=kd22_boom   [snares]=sn12_orleans   [toms]=rock)
+piccolo=(  [hihats]=hh13 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=dry)
+rock=(     [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=rock)
+tight=(    [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=rock)
 
-cys=(cy8_splash cy9_splash cy12_splash cy15_crash cy18_crash cy19_china cy20_ride)
+cys=(cy8_splash cy9_splash cy12_splash cy15_crash cy18_crash cy19_china cy20_ride cy19_ride cy19_sizzle)
 
 declare -A actual_toms
 tms=(tm8 tm10 tm12 tm14 tm16)
@@ -162,7 +162,6 @@ for kit in ${kits[@]}
 do
 	echo --- $kit ---
 	declare -n k=$kit
-	declare -a c=(${cys[@]} ${k[cymbals]})
 	the_hihat=${k[hihats]}
 
 
@@ -173,7 +172,7 @@ do
 			continue
 		fi
 
-		for cy in "${c[@]}"
+		for cy in ${cys[@]}
 		do
 			if [[ ! -f "triggers/${btr}/${cy}.sfzh" ]]
 			then
@@ -350,7 +349,7 @@ do
 				echo " set_hdcc${cc}=0.5   label_cc${cc}=Vol Ctrls follow"
 				((cc++))
 				declare -A gain_cc
-				for cy in ${cys[@]} ${k[cymbals]}
+				for cy in ${cys[@]}
 				do
 					echo " set_hdcc${cc}=0.5   label_cc${cc}=$(sed -e 's/cy\([^_]*\)_/\1” /' <<<"${cy}") (cc${cc})"
 					gain_cc[${cy}]=${cc}
@@ -396,7 +395,7 @@ do
 @EOF
 				key=1
 
-				for cy in ${cys[@]} ${k[cymbals]}
+				for cy in ${cys[@]}
 				do
 					echo ''
 					echo '<master>'
@@ -404,6 +403,7 @@ do
 					override_defines "triggers/${btr}/${cy}.sfzh" key
 				done
 
+				echo ''
 				hihat_overrides ${hh} ${btr} key
 
 				echo ''
