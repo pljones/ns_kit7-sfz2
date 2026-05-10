@@ -155,6 +155,89 @@ function tom_overrides () {
 	sed -e 's/\$\<'${actual_tom}'_/$'${tom}'_/g' ${include_file//\"/}
 }
 
+function build_actual_toms () {
+	local btr=$1             ; shift || { echo "build_actual_toms: Missing btr" >&2; exit 1; }
+	local snare=$1           ; shift || { echo "build_actual_toms: Missing snare" >&2; exit 1; }
+	local kit=$1             ; shift || { echo "build_actual_toms: Missing kit" >&2; exit 1; }
+	local -n _k=$1           ; shift || { echo "build_actual_toms: Missing kit config" >&2; exit 1; }
+	local -n _actual_toms=$1 ; shift || { echo "build_actual_toms: Missing actual_toms array" >&2; exit 1; }
+
+	# Available toms for this beater, tuning, snare
+	_actual_toms=()
+	# tm12_rock_snare_off.sfzh
+	for tm in "${tms[@]}"
+	do
+		f="triggers/${btr}/${tm}_${_k[toms]}_snare_${snare}.sfzh"
+		if [[ -f "$f" ]]
+		then
+			_actual_toms[${tm}]="${tm}_${_k[toms]}_snare_${snare}"
+			continue
+		fi
+
+		#echo -n "${kit}: ${btr} (${_k[toms]}) snare ${snare} has no ${tm}"
+
+		# try the opposite snare state
+		replacement_snare=$([[ "$snare" == "on" ]] && echo off || echo on)
+		f="triggers/${btr}/${tm}_${_k[toms]}_snare_${replacement_snare}.sfzh"
+		if [[ -f "$f" ]]
+		then
+			_actual_toms[${tm}]="${tm}_${_k[toms]}_snare_${replacement_snare}"
+			#echo " - replacing with opposite snare {${_actual_toms[${tm}]}}"
+			continue
+		fi
+
+		# fall back to the last tom we found (or the next if none yet)
+		if [[ "${#_actual_toms[@]}" -gt 0 ]]
+		then
+			replacement_tom="${tms[$((${#_actual_toms[@]} - 1))]}"
+			_actual_toms[${tm}]="${_actual_toms[${replacement_tom}]}"  # duplicate last found tom
+			#echo " - replacing with previous tom {${_actual_toms[${tm}]}}"
+			continue
+		fi
+
+		# look ahead for the next tom that exists
+		# - find the index of current tom in tms array
+		current_index=0
+		while [[ $current_index -lt ${#tms[@]} && "${tms[$current_index]}" != "$tm" ]]
+		do
+			((current_index++))
+		done
+
+		replacement_tom=""
+		# - check each tom after current one
+		for ((i=current_index+1; i<${#tms[@]}; i++))
+		do
+			later_tm=${tms[$i]}
+
+			f="triggers/${btr}/${later_tm}_${_k[toms]}_snare_${snare}.sfzh"
+			if [[ -f "$f" ]]
+			then
+				replacement_tom="${later_tm}_${_k[toms]}_snare_${snare}"
+				break
+			fi
+			# also try opposite snare state
+			f="triggers/${btr}/${later_tm}_${_k[toms]}_snare_${replacement_snare}.sfzh"
+			if [[ -f "$f" ]]
+			then
+				replacement_tom="${later_tm}_${_k[toms]}_snare_${replacement_snare}"
+				break
+			fi
+			# ... continue looking
+		done
+
+		if [[ -n "$replacement_tom" ]]
+		then
+			_actual_toms[${tm}]="$replacement_tom"
+			#echo " - replacing with next available tom {${_actual_toms[${tm}]}}"
+		else
+			#echo ''
+			echo "${kit} ${btr} snare ${snare} has no ${tm} tom" >&2
+			exit 1
+		fi
+
+	done
+}
+
 rm -rf _kits
 mkdir _kits
 
@@ -190,89 +273,17 @@ do
 		for snare in off on
 		do
 			[[ -f "triggers/${btr}/${k[snares]}_snare_${snare}.sfzh" ]] || {
+				#echo "${kit} ${btr} has no ${k[snares]} snare with snare ${snare} - skipping kit" >&2
 				continue
 			}
 
 			if [[ ! -f "triggers/ped/${k[kicks]}_snare_${snare}.sfzh" ]]
 			then
-				 echo "${kit} snare ${snare} has no ${k[kicks]} kick" >&2
-				 exit 1
+				echo "${kit} snare ${snare} has no ${k[kicks]} kick" >&2
+				exit 1
 			fi
 
-			# Available toms for this beater, tuning, snare
-			actual_toms=()
-			# tm12_rock_snare_off.sfzh
-			for tm in "${tms[@]}"
-			do
-				f="triggers/${btr}/${tm}_${k[toms]}_snare_${snare}.sfzh"
-				if [[ -f "$f" ]]
-				then
-					actual_toms[${tm}]="${tm}_${k[toms]}_snare_${snare}"
-					continue
-				fi
-
-				echo -n "${kit}: ${btr} (${k[toms]}) snare ${snare} has no ${tm}"
-
-				# try the opposite snare state
-				replacement_snare=$([[ "$snare" == "on" ]] && echo off || echo on)
-				f="triggers/${btr}/${tm}_${k[toms]}_snare_${replacement_snare}.sfzh"
-				if [[ -f "$f" ]]
-				then
-					actual_toms[${tm}]="${tm}_${k[toms]}_snare_${replacement_snare}"
-					echo " - replacing with opposite snare {${actual_toms[${tm}]}}"
-					continue
-				fi
-
-				# fall back to the last tom we found (or the next if none yet)
-				if [[ "${#actual_toms[@]}" -gt 0 ]]
-				then
-					replacement_tom="${tms[$((${#actual_toms[@]} - 1))]}"
-					actual_toms[${tm}]="${actual_toms[${replacement_tom}]}"  # duplicate last found tom
-					echo " - replacing with previous tom {${actual_toms[${tm}]}}"
-					continue
-				fi
-
-				# look ahead for the next tom that exists
-				# - find the index of current tom in tms array
-				current_index=0
-				while [[ $current_index -lt ${#tms[@]} && "${tms[$current_index]}" != "$tm" ]]
-				do
-					((current_index++))
-				done
-
-				replacement_tom=""
-				# - check each tom after current one
-				for ((i=current_index+1; i<${#tms[@]}; i++))
-				do
-					later_tm=${tms[$i]}
-
-					f="triggers/${btr}/${later_tm}_${k[toms]}_snare_${snare}.sfzh"
-					if [[ -f "$f" ]]
-					then
-						replacement_tom="${later_tm}_${k[toms]}_snare_${snare}"
-						break
-					fi
-					# also try opposite snare state
-					f="triggers/${btr}/${later_tm}_${k[toms]}_snare_${replacement_snare}.sfzh"
-					if [[ -f "$f" ]]
-					then
-						replacement_tom="${later_tm}_${k[toms]}_snare_${replacement_snare}"
-						break
-					fi
-					# ... continue looking
-				done
-
-				if [[ -n "$replacement_tom" ]]
-				then
-					actual_toms[${tm}]="$replacement_tom"
-					echo " - replacing with next available tom {${actual_toms[${tm}]}}"
-				else
-					echo ''
-					echo "${kit} ${btr} snare ${snare} has no ${tm} tom" >&2
-					exit 1
-				fi
-
-			done
+			build_actual_toms "${btr}" "${snare}" "${kit}" k actual_toms
 
 			for hh in - invcc4
 			do
@@ -449,5 +460,4 @@ do
 	done
 
 	unset -n k
-	unset -n t
 done
