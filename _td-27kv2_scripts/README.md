@@ -26,6 +26,7 @@ flowchart
   --> all_triggers@{ shape: f-circ, label: "Summary" }
   all_triggers --> |"<code>./mk_kits.sh</code>"| kits[(_kits/\*
   Common kit definitions and trigger includes)]
+  all_triggers --> |"<code>./mk_kit_piece_groups.sh</code>"| kit_piece_groups[(_kit_piece_groups/\* Shared kit piece groups used to make kits)]
 ```
 First, we need the "true peak" levels of each sample (not RMS or whatever I got from VelLeveler originally).
 
@@ -97,12 +98,22 @@ triggers to this layout.
 (Hi-hat splash note is an entire chapter on its own...)
 
 You don't need to use `./mk_kits.sh`.
-You could create kits from the kit piece triggers in a variety of different ways.
-The way I have done it is quite memory intensive.
-You could load all the triggers and use `<master>` and `loccNN/hiccNN` to select kits,
-for example.
+The way I have done it is quite memory intensive as duplicate copies of samples are used.
+
+Also provided is `./mk_kit_piece_groups.sh`.
+This creates each _set_ (or "group") of samples that is needed to assemble a kit
+(trigger keys numbered the same way as `./mk_kits.sh`).
+This way you can load all the samples just once (more or less),
+then set up a full kit using host routing logic.
+
+Of course, there are many other ways to do it.
+You could load all the triggers and
+use `<master>` and `loccNN/hiccNN` to select kits, for example.
 Or split into each beater and do the same.
 You could even reconstruct the original way
 the articulations are handled and triggers are numbered.
-Whatever you do, it is a good idea to renumber into a complete set all of the triggers,
+Whatever you do,
+it is a good idea to renumber into a complete set all of the triggers,
 rather than having each `1` to `n` at kit piece level.
+Otherwise it makes mapping from an incoming trigger signal
+to a kit piece articulation much more difficult.
