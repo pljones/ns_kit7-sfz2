@@ -530,7 +530,7 @@ do
 # cowbell ${btr}/pn8_cowbell
 # tambourine ${btr}/pn9_tambourine
 
-				for kit_piece_group in cymbals ${k[hihats]} ${k[kicks]}_${snare} ${k[snares]}_${snare} ${k[toms]}_${snare} pn8_cowbell pn9_tambourine
+				for kit_piece_group in cymbals ${k[hihats]} ${k[kicks]} ${k[snares]} ${k[toms]} pn8_cowbell pn9_tambourine
 				do
 					f="${kit_piece_group}"
 					if [[ ! "$kit_piece_group" =~ ^(kd|pn9) ]]
@@ -545,6 +545,7 @@ do
 					then
 						f="${f}_snare_${snare}"
 					fi
+					#echo "kit {$kit}; btr {$btr}; snare {$snare}; hh {$hh}; kit_piece_group {${kit_piece_group}} -> f {$f}"
 					f="_kit_piece_groups/${f}.sfz"
 					[[ -f "$f" ]] && f="/dev/null" # need to loop to keep the key and cc counts correct, but skip regenerating if already exists
 
