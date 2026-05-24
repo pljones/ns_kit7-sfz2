@@ -18,3 +18,7 @@ _td-27kv2_scripts/backup/
 .github/instructions
 .github/copilot-instructions.md
 _kit_piece_groups
+TD-27KV2 wip.rpp
+com.Plogue.Aria-ns_kit7/
+split ns_kit7.rpp
+test.rpp
