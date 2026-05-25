@@ -98,7 +98,7 @@ function mk_reaper_track () {
 	local last=$1; shift || { echo "mk_reaper_track: Missing last/notlast" >&2; exit 1; }
 	local isbus=$1; shift || { echo "mk_reaper_track: Missing isbus" >&2; exit 1; }
 	local layout=$1; shift || { echo "mk_reaper_track: Missing layout" >&2; exit 1; }
-	local -n _callback=$1; shift || { echo "mk_reaper_track: Missing callback" >&2; exit 1; }
+	local callback=$1; shift || { echo "mk_reaper_track: Missing callback" >&2; exit 1; }
 
 	cat <<@EOF
   <TRACK {${trackid}}
@@ -121,8 +121,55 @@ function mk_reaper_track () {
 		*) echo ee --- Strip Meter FX Bridge ;;
 	esac)"
 @EOF
-	${_callback[@]}
+	eval $callback
 	echo '  >'
+}
+
+declare -A td_27_to_ns_kit7_presets=(
+	["bop"]='        4 5 8 0 1 3 4 5 2 3 0 1 0 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 0 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 bop"'
+	["jungle"]='        0 2 5 0 2 3 0 1 2 3 4 5 0 0 0 127 0 58 0 78 64 43 61 78 33 0 0 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 jungle"'
+	["funk"]='        1 2 3 0 2 4 4 5 2 3 5 7 0 127 121 64 127 66 0 44 64 40 68 44 34 0 0 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 funk"'
+	["orleans"]='        1 2 3 0 2 4 4 5 2 3 5 7 0 6 127 85 0 60 0 42 64 38 92 42 37 0 0 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 orleans"'
+	["metal"]='        2 3 4 1 2 4 4 5 2 3 0 1 0 0 127 21 118 58 0 80 64 43 106 80 12 0 0 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 metal"'
+	["dead"]='        2 3 5 1 2 4 4 5 2 3 0 1 0 4 115 85 78 64 0 38 64 44 19 38 16 0 1 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 dead"'
+	["rock"]='        2 4 8 0 2 4 4 5 2 3 0 1 0 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 rock"'
+	["piccolo"]='        4 5 7 1 2 4 4 5 2 3 4 5 0 2 127 85 0 65 0 79 64 43 19 79 26 0 0 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 piccolo"'
+	["bop"]='        4 5 8 0 1 3 4 5 2 3 0 1 0 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 0 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 bop"'
+	["tight"]='        6 5 7 0 2 4 4 5 2 3 0 1 0 1 9 127 0 0 0 42 64 38 93 42 30 0 0 -1 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "ns_kit7 tight"'
+)
+function send_fxchain () {
+	local preset=$1; shift || { echo "mk_send_fxchain: Missing preset" >&2; exit 1; }
+
+	#echo "!td_27_to_ns_kit7_preset[*] {${!td_27_to_ns_kit7_presets[*]}; preset {$preset}" >&2
+	[[ -v td_27_to_ns_kit7_presets[$preset] ]] || { echo "preset {$preset} not found in td_27_to_ns_kit7_presets" >&2; exit 1; }
+
+	cat <<@EOF
+    REC 1 5088 1 0 0 0 0 0
+    FX 0
+    MAINSEND 0 0
+    <FXCHAIN
+      WNDRECT 25 60 655 408
+      SHOW 0
+      LASTSEL 1
+      DOCKED 1
+      BYPASS 0 0 0
+      <JS pljones/TD-27_hihat_splash.jsfx ""
+        44 96 1 30 8 -1 0 0 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - Default
+      >
+      PRESETNAME Default
+      FLOATPOS 0 0 0 0
+      FXID {$(UUIDGEN)}
+      WAK 0 0
+      BYPASS 0 0 0
+      <JS pljones/TD-27-to-ns_kit7.jsfx ""
+${td_27_to_ns_kit7_presets[$preset]}
+      >
+      PRESETNAME "ns_kit7 $preset"
+      FLOATPOS 0 0 0 0
+      FXID {$(UUIDGEN)}
+      WAK 0 0
+    >
+@EOF
 }
 
 #AUXRECV 17 0 1 0 0 0 0 -1 0 -1:U 0 -1 ''
@@ -133,26 +180,24 @@ function mk_auxrecv () {
 	done
 }
 
-function nop_callback () {
+function nop () {
 	echo '    FX 0'
 	echo '    MAINSEND 0 0'
 }
-declare -a nop=(nop_callback)
 
-function parent_send_callback () {
+function parent_send () {
 	echo '    FX 1'
 	echo '    MAINSEND 1 0'
 }
-declare -a parent_send=(parent_send_callback)
 
-function clap_callback () {
-	local file=$1; shift || { echo "clap_callback: Missing file" >&2; exit 1; }
-	local fxid=$1; shift || { echo "clap_callback: Missing fxid" >&2; exit 1; }
-	local -n __sends="$1"; shift || { echo "clap_callback: Missing sends" >&2; exit 1; }
+function clap_fxchain () {
+	local file=$1; shift || { echo "clap_fxchain: Missing file" >&2; exit 1; }
+	local fxid=$1; shift || { echo "clap_fxchain: Missing fxid" >&2; exit 1; }
+	local -n __sends="$1"; shift || { echo "clap_fxchain: Missing sends" >&2; exit 1; }
 
 	cat <<@EOF
     FX 0
-	MAINSEND 1 0'
+    MAINSEND 1 0
 $(mk_auxrecv "${__sends[@]}")
     <FXCHAIN
       WNDRECT 24 52 655 408
@@ -179,14 +224,13 @@ function mk_clap_track () {
 	local sends=$1; shift || { echo "mk_clap_track: Missing sends" >&2; exit 1; }
 
 	declare -a _sends=($sends)
-	declare -a callback=(clap_callback "$file" "$fxid" _sends)
 	mk_reaper_track \
 		"$trackid" \
 		"$name" \
 		"$last" \
 		false \
 		fx \
-		callback
+		"clap_fxchain "$file" "$fxid" _sends"
 }
 
 # naturalstudios/ns_kit7/ns_kit7_td-27/hnd_cymbals
@@ -206,7 +250,7 @@ function mk_sfozando_ariax () {
 	cat > ${ARIA_PRESETS_DIR}/${name}.ariax <<@EOF
 <?xml version="1.0" ?>
 <AriaSave version="1981" productID="1014">
-    <Settings quality="1" streaming="256" maxStreamAllocMB="2048" MIDIOutMode="1" automationSlot="0" liveMode="0" sc="13" scala="01 - equal.scl" scalaCenter="60" globalTuning="0" />
+    <Settings quality="1" streaming="256" maxStreamAllocMB="32768" MIDIOutMode="1" automationSlot="0" liveMode="0" sc="13" scala="01 - equal.scl" scalaCenter="60" globalTuning="0" />
     <Slot id="0" name="naturalstudios/ns_kit7/ns_kit7_td-27/${file}" bankId="5000" version="0" channel="-1" poly="${poly}" tuning="0" pb_range="-1" ptrans="0" mtrans="0" moctave="0" sc="10" mute="0">
         <Main id="0" value="1" />
     </Slot>
@@ -222,7 +266,7 @@ function do_sfzfile () {
 	local last=$1; shift || { echo "do_sfzfile: Missing last/notlast" >&2; exit 1; }
 	local sends=$1; shift || { echo "do_sfzfile: Missing sends" >&2; exit 1; }
 
-	echo "do_sfzfile: sends {$sends}" >&2
+	#echo "do_sfzfile: sends {$sends}" >&2
 	[[ -z "$sends" ]] && { echo "do_sfzfile: btr {$btr}; sfzfile {$sfzfile} - empty sends" >&2; }
 
 	#echo "btr {$btr}; sfzfile {$(basename "$sfzfile" .sfz)}" >&2
@@ -247,14 +291,15 @@ echo '  TEMPO 120 4 4 0'
 
 declare -A sends=()
 
-declare -A brs_kits
-declare -A hnd_kits
-declare -A mlt_kits
-declare -A stx_kits
+declare -a brs_kits
+declare -a hnd_kits
+declare -a mlt_kits
+declare -a stx_kits
 
 # Sound source parent send track
 # ns_kit7 container track
 t=1
+tns=()
 for btr in brs hnd mlt stx
 do
 	declare -n btr_kits="${btr}_kits"
@@ -288,14 +333,14 @@ do
 				continue
 			fi
 
-			echo "kit {$kit}; snares {$snares}; btr {$btr}; t {$t}" >&2
+			#echo "kit {$kit}; snares {$snares}; btr {$btr}; t {$t}" >&2
 
 			mk_kit "$kit" "$snares" "$btr" $t sends
 			# kit track
 			(( t++ )) || :
 
 			tn="${kit} ${btr}$( [[ "$snares" == "on" ]] && echo "-w" || : )"
-			btr_kits["${tn}"]="$(UUIDGEN)"
+			btr_kits+=("${tn}")
 
 		done
 	done
@@ -306,7 +351,7 @@ mk_reaper_track "$(UUIDGEN)" "Sound source parent" notlast true meter nop
 for btr in brs hnd mlt stx
 do
 	declare -n _b="${btr}_kits"
-	declare -a tns=("${!_b[@]}")
+	declare -a tns=("${_b[@]}")
 	if [[ ${#tns[@]} -eq 0 ]]
 	then
 		#echo "No tracks for btr {$btr}" >&2
@@ -319,9 +364,11 @@ do
 	while (( i < ${#tns[@]} ))
 	do
 		tn="${tns[$i]}"
-		uuid="${_b[$tn]}"
+		preset=${tn//[ _]*}
+		uuid="$(UUIDGEN)"
 		last=$( [[ $i -eq $((${#tns[@]} - 1)) ]] && echo "last" || echo "notlast" )
-		mk_reaper_track "$uuid" "$tn" "$last" false fx nop
+		#echo "btr {$btr}; tn {$tn}; preset {$preset}" >&2
+		mk_reaper_track "$uuid" "$tn" "$last" false fx "send_fxchain $preset"
 		(( i++ )) || :
 	done
 done
