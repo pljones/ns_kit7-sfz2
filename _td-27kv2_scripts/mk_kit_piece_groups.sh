@@ -286,7 +286,7 @@ function echo_kit_header () {
 // --------------------------------------
 
 <control>
- // hint_ram_based=1
+ hint_ram_based=1
  octave_offset=0
  set_hdcc7=1
  set_hdcc10=0.5
