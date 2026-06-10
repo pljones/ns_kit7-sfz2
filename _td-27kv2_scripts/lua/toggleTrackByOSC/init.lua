@@ -26,8 +26,11 @@ local enableReceiveForSend = function(track, numRx, send)
     end
 end
 
-local enableReceivesForTrack = function(lowTkNo, send)
-    local tkNo = lowTkNo
+local enableReceivesForTrack = function(send)
+    if (kitPieceGroupParentTkNo == nil) then
+	return
+    end
+    local tkNo = kitPieceGroupParentTkNo
     local track = reaper.GetTrack(0, tkNo)
     while not (track == nil) do
         local numRx = reaper.GetTrackNumSends(track, -1)
@@ -83,8 +86,8 @@ local canToggle = function(track)
 end
 
 local toggleTrackEnableN = function(tkNo, track, setting)
-    --local isTkFxEnabled = reaper.GetMediaTrackInfo_Value(track, "I_FXEN")
-    --reaper.ShowConsoleMsg("track " .. tkNo .. "; setting " .. setting .. "; isTkFxEnabled " .. isTkFxEnabled .. "\n")
+    -- local isTkFxEnabled = reaper.GetMediaTrackInfo_Value(track, "I_FXEN")
+    -- reaper.ShowConsoleMsg("track " .. tkNo .. "; setting " .. setting .. "; isTkFxEnabled " .. isTkFxEnabled .. "\n")
     local srTk = 0
     local search = reaper.GetTrack(0, srTk)
     local srVal = 0
@@ -116,8 +119,12 @@ local muteReceivesForTrack = function(track, numRx)
     end
 end
 
-local muteAllRecives = function(lowTkNo)
-    local tkNo = lowTkNo
+local muteAllRecives = function()
+    if (kitPieceGroupParentTkNo == nil) then
+	return
+    end
+
+    local tkNo = kitPieceGroupParentTkNo
     local track = reaper.GetTrack(0, tkNo)
     while not (track == nil) do
         local numRx = reaper.GetTrackNumSends(track, -1)
@@ -132,7 +139,7 @@ local muteAllRecives = function(lowTkNo)
 end
 
 local initialise = function()
-    if not (init == nil) then
+    if (kitPieceGroupParentTkNo ~= nil) then
         return
     end
 
@@ -143,7 +150,6 @@ local initialise = function()
         kitPieceGroupParentTkNo = tonumber(stored)
         kitPieceGroupParent = reaper.GetTrack(0, kitPieceGroupParentTkNo)
         if (kitPieceGroupParent ~= nil) then
-            init = true
             return
         end
     end
@@ -218,11 +224,11 @@ toggleTrackEnable = function()
 
     initialise()
 
-    muteAllRecives(kitPieceGroupParentTkNo)
+    muteAllRecives()
     toggleTrackEnableN(tkNo, track, tonumber(setting))
 
     if (tonumber(setting) == 1.0 and isNsKit7Track(track)) then
-        enableReceivesForTrack(kitPieceGroupParentTkNo, track)
+        enableReceivesForTrack(track)
     end
 end
 

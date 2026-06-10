@@ -1,2 +1,3 @@
-dofile(debug.getinfo(1,'S').source:match[[^@?(.*[\/])[^\/]-$]] .. 'toggleTrackEnable.lua')
-reaper.defer(toggleTrackEnable)
+package.path = package.path .. ";" .. debug.getinfo(1,'S').source:match[[^@?(.*[\/])[^\/]-$]] .. '?\\init.lua'
+require('toggleTrackByOSC')
+reaper.defer(toggleTrackByOSC.toggleTrackEnable)
