@@ -170,10 +170,11 @@ ${td_27_to_ns_kit7_presets[$preset]}
 }
 
 #AUXRECV 17 0 1 0 0 0 0 -1 0 -1:U 0 -1 ''
+#           ^-- post-fader (post-pan)
 function mk_auxrecv () {
 	for recv in "$@"
 	do
-		echo "    AUXRECV $recv 1 1 0 1 0 0 -1 0 -1:U 0 -1 ''"
+		echo "    AUXRECV $recv 0 1 0 1 0 0 -1 0 -1:U 0 -1 ''"
 	done
 }
 
