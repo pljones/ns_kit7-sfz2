@@ -111,6 +111,7 @@ function mk_reaper_track () {
 		echo '    BUSCOMP 0 0 0 0 0'
 	fi)
     SEL 0
+    TRACKHEIGHT 24 0 0 0 0 0 0
     LAYOUTS "" "$(case $layout in
 		name) echo ef --- Strip Just the track name ;;
 		meter) echo ed --- Strip Meter Bridge ;;
