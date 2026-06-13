@@ -76,39 +76,35 @@ function mk_kit () {
 }
 
 : <<'@EOF'
-container       -> ISBUS 1 1, BUSCOMP 2 0 0 0 0
+container       -> ISBUS 1 1, BUSCOMP <content_depth> 0 0 0 0
 not a container ->
   - is contained
     - not last -> ISBUS 0 0,  BUSCOMP 0 0 0 0 0
-    - last     -> ISBUS 2 -1, BUSCOMP 0 0 0 0 0
+    - last     -> ISBUS 2 <close_depth>, BUSCOMP 0 0 0 0 0
   - is not contained -> ISBUS 0 0, BUSCOMP 0 0 0 0 0
 
 <track-id> -- uuid
 <track-name> -- string
-<last/notlast> -- string
-<isbus> -- boolean
-           -- true: ISBUS 1 1, BUSCOMP 2 0 0 0 0
-           -- false and not last: ISBUS 0 0, BUSCOMP 0 0 0 0 0
-           -- false and last: ISBUS 2 -1, BUSCOMP 0 0 0 0
-for not a container and not contained, use "last" and isbus false.
+<close_depth> -- integer, negative to close 1 or more levels of container tracks, else 0
+<content_depth> -- integer, positive to open 1 or more levels of container tracks, else 0
 @EOF
 function mk_reaper_track () {
 	local trackid=$1; shift || { echo "mk_reaper_track: Missing trackid" >&2; exit 1; }
 	local name=$1; shift || { echo "mk_reaper_track: Missing name" >&2; exit 1; }
-	local last=$1; shift || { echo "mk_reaper_track: Missing last/notlast" >&2; exit 1; }
-	local isbus=$1; shift || { echo "mk_reaper_track: Missing isbus" >&2; exit 1; }
+	local close_depth=$1; shift || { echo "mk_reaper_track: Missing close_depth" >&2; exit 1; }
+	local content_depth=$1; shift || { echo "mk_reaper_track: Missing content_depth" >&2; exit 1; }
 	local layout=$1; shift || { echo "mk_reaper_track: Missing layout" >&2; exit 1; }
 	local callback=$1; shift || { echo "mk_reaper_track: Missing callback" >&2; exit 1; }
 
 	cat <<@EOF
   <TRACK {${trackid}}
-    NAME "${name}"$(echo ''; if $isbus
+    NAME "${name}"$(echo ''; if [[ "$content_depth" -ne 0 ]]
 	then
 		echo '    ISBUS 1 1'
-		echo '    BUSCOMP 2 0 0 0 0'
-	elif [[ "$last" == last ]]
+		echo "    BUSCOMP $content_depth 0 0 0 0"
+	elif [[ "$close_depth" -ne 0 ]]
 	then
-		echo '    ISBUS 2 -1'
+		echo "    ISBUS 2 $close_depth"
 		echo '    BUSCOMP 0 0 0 0 0'
 	else
 		echo '    ISBUS 0 0'
@@ -220,15 +216,15 @@ function mk_clap_track () {
 	local fxid=$1; shift || { echo "mk_clap_track: Missing fxid" >&2; exit 1; }
 	local name=$1; shift || { echo "mk_clap_track: Missing name" >&2; exit 1; }
 	local file=$1; shift || { echo "mk_clap_track: Missing file" >&2; exit 1; }
-	local last=$1; shift || { echo "mk_clap_track: Missing last/notlast" >&2; exit 1; }
+	local close_depth=$1; shift || { echo "mk_clap_track: Missing close_depth" >&2; exit 1; }
 	local sends=$1; shift || { echo "mk_clap_track: Missing sends" >&2; exit 1; }
 
 	declare -a _sends=($sends)
 	mk_reaper_track \
 		"$trackid" \
 		"$name" \
-		"$last" \
-		false \
+		"$close_depth" \
+		0 \
 		fx \
 		"clap_fxchain "$file" "$fxid" _sends"
 }
@@ -263,7 +259,7 @@ function mk_sfozando_ariax () {
 function do_sfzfile () {
 	local btr=$1; shift || { echo "do_sfzfile: Missing btr" >&2; exit 1; }
 	local sfzfile=$1; shift || { echo "do_sfzfile: Missing sfzfile" >&2; exit 1; }
-	local last=$1; shift || { echo "do_sfzfile: Missing last/notlast" >&2; exit 1; }
+	local close_depth=$1; shift || { echo "do_sfzfile: Missing close_depth" >&2; exit 1; }
 	local sends=$1; shift || { echo "do_sfzfile: Missing sends" >&2; exit 1; }
 
 	#echo "do_sfzfile: sends {$sends}" >&2
@@ -277,7 +273,7 @@ function do_sfzfile () {
 		"$(UUIDGEN)" \
 		"$trackname" \
 		"$(basename "$sfzfile" .sfz)" \
-		$last \
+		$close_depth \
 		"$sends"
 	mk_sfozando_ariax "$(basename "$sfzfile" .sfz)"
 }
@@ -346,7 +342,7 @@ do
 	done
 done
 
-mk_reaper_track "$(UUIDGEN)" "Sound source parent" notlast true meter nop
+mk_reaper_track "$(UUIDGEN)" "Sound source parent" 0 2 meter nop
 
 for btr in brs hnd mlt stx
 do
@@ -358,7 +354,7 @@ do
 		continue
 	fi
 
-	mk_reaper_track "$(UUIDGEN)" "ns_kit7 $btr parent SEND" notlast true name nop
+	mk_reaper_track "$(UUIDGEN)" "ns_kit7 $btr parent SEND" 0 1 name nop
 
 	i=0
 	while (( i < ${#tns[@]} ))
@@ -366,18 +362,22 @@ do
 		tn="${tns[$i]}"
 		preset=${tn//[ _]*}
 		uuid="$(UUIDGEN)"
-		last=$( [[ $i -eq $((${#tns[@]} - 1)) ]] && echo "last" || echo "notlast" )
 		#echo "btr {$btr}; tn {$tn}; preset {$preset}" >&2
-		mk_reaper_track "$uuid" "$tn" "$last" false fx "send_fxchain $preset"
+		mk_reaper_track "$uuid" "$tn" $(
+			if [[ $i -lt $((${#tns[@]} - 1)) ]]; then echo 0
+			elif [[ $btr == "stx" ]]; then echo -2
+			else echo -1
+			fi
+		) 0 fx "send_fxchain $preset"
 		(( i++ )) || :
 	done
 done
 
-mk_reaper_track "$(UUIDGEN)" "... lots of other tracks ..." last false name nop
+mk_reaper_track "$(UUIDGEN)" "... lots of other tracks ..." 0 0 name nop
 (( t++ )) || :
 
 # Copy/paste this into the project, then wire this track to the sound source parent send track
-mk_reaper_track "$(UUIDGEN)" "ns_kit7 groups" last true name nop
+mk_reaper_track "$(UUIDGEN)" "ns_kit7 groups" 0 2 name nop
 (( t++ )) || :
 
 #for x in "${!sends[@]}"
@@ -400,7 +400,7 @@ do
 	fi
 	[[ ${#groups[@]} -eq 0 ]] && { echo "No groups found for btr {$btr}" >&2; continue; }
 
-	mk_reaper_track "$(UUIDGEN)" "ns_kit7 ${btr}" notlast true name parent_send
+	mk_reaper_track "$(UUIDGEN)" "ns_kit7 ${btr}" 0 1 name parent_send
 
 	gn=1
 	while [[ $gn -le ${#groups[@]} ]]
@@ -414,7 +414,12 @@ do
 		else
 			_group="$(basename "$sfzfile" .sfz)"
 			[[ -v sends[$_group] ]] && _sends="$(echo ${sends[$_group]})" || _sends=""
-			do_sfzfile "$btr" "$sfzfile" $([[ $gn -eq ${#groups[@]} ]] && echo "last" || echo "notlast") "$_sends"
+			do_sfzfile "$btr" "$sfzfile" $(
+				if [[ $gn -lt ${#groups[@]} ]]; then echo 0
+				elif [[ $btr == "ped" ]]; then echo -2
+				else echo -1
+				fi
+			) "$_sends"
 		fi
 		(( gn++ )) || :
 	done
