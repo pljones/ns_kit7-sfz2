@@ -1,3 +1,20 @@
+--[[
+/**
+ * ReaScript Name: toggleTrackByOSC
+ * Description: Toggles a track on/off based on OSC input
+ * Instructions:
+ *  # Install this module in user reaper scripts
+ *  # Follow the instructions below to create the OSC trigger scripts
+ *
+ * Author: pljones
+ * Licence: GPL v3
+ * Version: 0.1
+ */
+]]
+-- Create a script for each track you want to toggle, e.g. toggleTrackEnable1.lua, toggleTrackEnable2.lua, etc.
+--   package.path = package.path .. ";" .. debug.getinfo(1,'S').source:match[[^@?(.*[\/])[^\/]-$]] .. '?\\init.lua'
+--   require('toggleTrackByOSC')
+--   reaper.defer(toggleTrackByOSC.toggleTrackEnable)
 P = {}
 toggleTrackByOSC = P
 
@@ -20,6 +37,7 @@ local enableReceiveForSend = function(track, numRx, send)
         if (currentSend == send) then
             reaper.SetTrackSendInfo_Value(track, -1, rx, "B_MUTE", 0.0)
             reaper.SetMediaTrackInfo_Value(track, "I_FXEN", 1)
+            reaper.SetMediaTrackInfo_Value(track, "B_MUTE", 0.0)
             rx = numRx
         end
         rx = rx + 1
@@ -92,21 +110,18 @@ local toggleTrackEnableN = function(tkNo, track, setting)
     local search = reaper.GetTrack(0, srTk)
     local srVal = 0
 
-    while not (search == nil) do
-        if (search == kitPieceGroupParent) then
-            search = nil
-        else
-            if canToggle(search) then
-                -- For the target track, apply the OSC val, otherwise, turn off
-                if ((0 + srTk) == (0 + tkNo)) then srVal = setting else srVal = 0 end
-                reaper.SetMediaTrackInfo_Value(search, "I_FXEN", srVal)
-                -- Trigger the ReaperOSC mapping for feedback
-                -- See notes above for why mess is needed...
-                reaper.SetTrackSelected(reaper.GetTrack(0, srTk - 1), srVal)
-            end
-            srTk = srTk + 1
-            search = reaper.GetTrack(0, srTk)
+    while not (search == nil or search == kitPieceGroupParent) do
+        if canToggle(search) then
+            -- For the target track, apply the OSC val, otherwise, turn off
+            if ((0 + srTk) == (0 + tkNo)) then srVal = setting else srVal = 0 end
+            reaper.SetMediaTrackInfo_Value(search, "I_FXEN", srVal)
+            reaper.SetMediaTrackInfo_Value(search, "B_MUTE", 1.0 - srVal)
+            -- Trigger the ReaperOSC mapping for feedback
+            -- See notes above for why mess is needed...
+            reaper.SetTrackSelected(reaper.GetTrack(0, srTk - 1), srVal)
         end
+        srTk = srTk + 1
+        search = reaper.GetTrack(0, srTk)
     end
 end
 
@@ -131,6 +146,7 @@ local muteAllRecives = function()
         if (numRx > 0) then
             muteReceivesForTrack(track, numRx)
             reaper.SetMediaTrackInfo_Value(track, "I_FXEN", 0)
+            reaper.SetMediaTrackInfo_Value(track, "B_MUTE", 1.0)
         end
 
         tkNo = tkNo + 1
