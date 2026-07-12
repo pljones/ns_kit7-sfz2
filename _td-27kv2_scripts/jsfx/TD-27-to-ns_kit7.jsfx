@@ -27,24 +27,37 @@ slider11:aux3head=0<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,c
 slider12:aux3rim=1<0,7,1{cowbell muted ord,cowbell muted top,cowbell open ord,cowbell open top,tambourine hit,tambourine jng,tambourine rol,tambourine thm}>Aux 3 Rim Assign
 
 slider13:brushKit=0<0,1,1{off,on}>Brush Kit Mode
+slider14:tapSweepScale=1<0,4,0.01>Brush Tap Sweep Scale
+slider15:digSweepScale=1<0,4,0.01>Brush Dig Sweep Scale
+slider16:sweepSweepScale=1<0,4,0.01>Brush Sweep-Only Scale
+slider17:brushSilenceSec=0.18<0.05,2,0.01>Brush Silence Timeout (s)
+slider18:brushUseHires=0<0,1,1{off,on}>Brush Sweep HiRes Boost
+slider19:brushHiresBoost=0.5<0,4,0.1>Brush HiRes Boost
 
-slider14:dgbSnareVal=0<0,127,1>snareCCVal
-slider15:dgbRideVal=0<0,127,1>rideCCVal
-slider16:dgbTomAuxVal=0<0,127,1>tomAuxCCVal
-slider17:dgbHihatVal=0<0,127,1>hihatCCVal
-slider18:dgbHihatLRVal=0<0,127,1>hihatLRCCVal
-slider19:dgbHiresVelVal=0<0,127,1>hiresVelCCVal
+slider20:dgbSnareVal=0<0,127,1>snareCCVal
+slider21:dgbRideVal=0<0,127,1>rideCCVal
+slider22:dgbTomAuxVal=0<0,127,1>tomAuxCCVal
+slider23:dgbHihatVal=0<0,127,1>hihatCCVal
+slider24:dgbHihatLRVal=0<0,127,1>hihatLRCCVal
+slider25:dgbHiresVelVal=0<0,127,1>hiresVelCCVal
+slider26:dgbBrushFlow=0<0,4,1{none,A1,A2,B1,B2}>brushFlow
+slider27:dgbBrushZone=0<0,127,1>brushZone (offset)
+slider28:dgbBrushRawVel=0<0,127,1>brushRawVel
+slider29:dgbBrushScaledVel=0<0,127,1>brushScaledVel
+slider30:dgbBrushAccent=0<0,2,1{none,tap,dig}>brushAccent
 
-slider20:dgbNoteOffNote=0<0,127,1>noteOff note (msg2)
-slider21:dgbNoteOffVal=0<0,127,1>noteOff val (msg3)
-slider22:dgbNoteOnNote=0<0,127,1>Note On note (msg2)
-slider23:dgbNoteOnVal=0<0,127,1>Note On val (msg3)
-slider24:dbgMappedNote=-1<-1,127,1>noteMap[msg2]
-slider25:dgbPolyAftNote=0<0,127,1>polyAft note (msg2)
-slider26:dgbPolyAftVal=0<0,127,1>polyAft val (msg3)
+slider31:dgbNoteOffNote=0<0,127,1>noteOff note (msg2)
+slider32:dgbNoteOffVal=0<0,127,1>noteOff val (msg3)
+slider33:dgbNoteOnNote=0<0,127,1>Note On note (msg2)
+slider34:dgbNoteOnVal=0<0,127,1>Note On val (msg3)
+slider35:dbgMappedNote=-1<-1,127,1>noteMap[msg2]
+slider36:dgbPolyAftNote=0<0,127,1>polyAft note (msg2)
+slider37:dgbPolyAftVal=0<0,127,1>polyAft val (msg3)
 
-slider27:dgbPassthru=0<0,1,1{off,on}>passthru
-slider28:dbgBlocksSinceLastSnareNote=0<0,1,1>blocksSinceLastSnareNote
+slider38:dgbPassthru=0<0,1,1{off,on}>passthru
+slider39:dbgBlocksSinceLastSnareNote=0<0,4096,1>blocksSinceLastSnareNote
+slider40:dgbBrushPeakRaw=0<0,127,1>brushPeakRaw
+slider41:dgbBrushHasAccent=0<0,1,1{no,yes}>brushHasAccent
 
 
 @init
@@ -284,7 +297,24 @@ newBlock = 0;
 blocksSinceLastSnareNote = -1;
 sentBrushRelease = 0;
 sentBrushReleaseOff = 0;
-snareCCSinceBrushNote = 1;
+snareCCPending = 1;
+lastBrushTrigger = -1;
+activeSweepNote = trigger_snare + zone_sn_brush_drag_legato;
+gestureHasAccent = 0;
+gestureAccentType = 0; // 0=none, 1=tap(head), 2=dig(rim)
+streamPeakRaw = 0;
+
+// Brush sweep overlap note mapping (incoming note 23 -> mapped sweep notes)
+brushSweepMap = malloc(-1, 2);
+brushSweepMapRead = 0;
+brushSweepMapWrite = 0;
+brushSweepMapCount = 0;
+
+flowNone = 0;
+flowA1 = 1;
+flowA2 = 2;
+flowB1 = 3;
+flowB2 = 4;
 
 // Count blocks since last kick to decide whether to use opn or cls kick note
 blocksSinceLastKick = -1;
@@ -293,8 +323,8 @@ blocksSinceLastKick = -1;
 // srate is samples per second and samplesblock is samples per block
 // srate / samplesblock = blocks per second
 
-// Half a second threshold for brush release
-brushRate = (srate / samplesblock) / 6;
+// Brush release timer in blocks (slider is in seconds)
+brushSilenceBlocks = (srate / samplesblock) * brushSilenceSec;
 
 // Fast kick threshold is 12 a second
 kickRate = (srate / samplesblock) / 12;
@@ -308,16 +338,31 @@ newBlock = 1;
 blocksSinceLastSnareNote >= 0 ? blocksSinceLastSnareNote = blocksSinceLastSnareNote + 1;
 dbgBlocksSinceLastSnareNote = blocksSinceLastSnareNote;
 
+// Keep brush timeout in sync with slider values.
+brushSilenceBlocks = (srate / samplesblock) * brushSilenceSec;
+
 sentBrushRelease == 1 && sentBrushReleaseOff == 0 ? (
   sentBrushReleaseOff = 1;
   brushKit && midisend(offset, (0x09 | noteOff) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
 );
-blocksSinceLastSnareNote > (4 * brushRate) ? (
+blocksSinceLastSnareNote > brushSilenceBlocks ? (
   // brushes stopped
   blocksSinceLastSnareNote = -1;
-  sentBrushRelease == 0 ? (
+  gestureHasAccent = 0;
+  gestureAccentType = 0;
+  streamPeakRaw = 0;
+  dgbBrushAccent = gestureAccentType;
+  dgbBrushPeakRaw = streamPeakRaw;
+  dgbBrushHasAccent = gestureHasAccent;
+  sentBrushRelease == 0 && (
+    (lastBrushTrigger == zone_sn_brush_down_legato) ||
+    (lastBrushTrigger == zone_sn_brush_drag_legato) ||
+    (lastBrushTrigger == zone_sn_brush_drag_rpt_legato)
+  ) ? (
     sentBrushRelease = 1;
     sentBrushReleaseOff = 0;
+    lastBrushTrigger = zone_sn_brush_down_rls_legato;
+    dgbBrushZone = lastBrushTrigger;
     brushKit && midisend(offset, (0x09 | noteOn) & 0xFF, (trigger_snare + zone_sn_brush_down_rls_legato) & 0x7F, 1);
   );
 );
@@ -338,19 +383,37 @@ while (midirecv(offset, msg1, msg2, msg3)) (
 
   // Explicit Note Off and Note On Velocity 0
   ((cmd == noteOff) || ((cmd == noteOn) && (msg3 == 0))) ? (
-    noteMap[msg2] >= 0 ? (
-      midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
-      0;
+    (brushKit && (msg2 == noteSnareBrush)) ? (
+      mappedBrushOffNote = -1;
+      brushSweepMapCount > 0 ? (
+        mappedBrushOffNote = brushSweepMap[brushSweepMapRead];
+        brushSweepMap[brushSweepMapRead] = -1;
+        brushSweepMapRead = (brushSweepMapRead + 1) % 2;
+        brushSweepMapCount = brushSweepMapCount - 1;
+      ) : (
+        mappedBrushOffNote = activeSweepNote;
+      );
+
+      midisend(offset, msg1, mappedBrushOffNote & 0x7F, msg3);
+      passthru = 0;
+      dgbNoteOffNote = mappedBrushOffNote & 0x7F;
+      dgbNoteOffVal = msg3;
+    ) : (
+      noteMap[msg2] >= 0 ? (
+        midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
+        0;
+      );
+      (noteMap[msg2] != -1) ? passthru = 0;
+      dgbNoteOffNote = (noteMap[msg2] < 0) ? msg2 : (noteMap[msg2] & 0x7F);
+      dgbNoteOffVal = msg3;
     );
-    (noteMap[msg2] != -1) ? passthru = 0;
-    dgbNoteOffNote = (noteMap[msg2] < 0) ? msg2 : (noteMap[msg2] & 0x7F);
-    dgbNoteOffVal = msg3;
 
 
   ) : (cmd == noteOn) ? (
     // Map the note to the ns_kit7 trigger note number plus zone offset
     dgbNoteOnNote = msg2;
     dgbNoteOnVal = msg3;
+    sentMappedNoteOn = 0;
 
     // Kick
     (msg2 == noteKick) ? (
@@ -370,56 +433,125 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     // zone_sn_rol = 7; - zone unmapped
     // zone_sn_brush_drag_cirular = 15; - zone unmapped
     // zone_sn_brush_drag_under = 16; - zone unmapped
-    ((msg2 == noteSnareHead) || (msg2 == noteSnareBrush)) ? (
+    (msg2 == noteSnareBrush) ? (
       brushKit ? (
-        // OK, so we've gone for a simple model:
-        // - snareCCSinceBrushNote or timeout - used to trigger "first note"
-        // - blocksSinceLastSnareNote >= 3    - used to trigger "subsequent note"
-        // - *all* later notes now map to polyAft
-        // can make it more complex later
-        //
-        // -> zone_sn_brush_down_new
-        // -> zone_sn_brush_down_legato
-        // -> zone_sn_brush_down_rls_legato -- when brush stops moving
-        // -> zone_sn_brush_drag_new
-        // -> zone_sn_brush_drag_rpt_new
-        // -> zone_sn_brush_drag_legato
-        // -> zone_sn_brush_drag_rpt_legato
+        timerExpired = (blocksSinceLastSnareNote == -1) || (blocksSinceLastSnareNote > brushSilenceBlocks);
+        flowPath = flowNone;
+        selectedZone = activeSweepNote - trigger_snare;
 
-        noteMap[msg2] = trigger_snare + zone_sn_brush_drag_legato;
-        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) && blocksSinceLastSnareNote <= (3 * brushRate) ? (
-          // First brush note since reset so drag new
-          noteMap[msg2] = trigger_snare + zone_sn_brush_down_legato;
-        );
-        (snareCCSinceBrushNote || blocksSinceLastSnareNote == -1) || (newBlock && blocksSinceLastSnareNote > (3 * brushRate)) ? (
-          // New note
-          snareCCSinceBrushNote = 0;
-          blocksSinceLastSnareNote = 0;
-          newBlock = 0;
-          sentBrushRelease = 0;
+        (timerExpired || snareCCPending) ? (
+          snareCCPending ? (
+            timerExpired ? (
+              flowPath = flowA1;
+              (lastBrushTrigger == zone_sn_brush_drag_new) || (lastBrushTrigger == zone_sn_brush_drag_rpt_new) ? (
+                selectedZone = zone_sn_brush_drag_rpt_new;
+              ) : (lastBrushTrigger == zone_sn_brush_down_legato) ? (
+                selectedZone = zone_sn_brush_down_rls_legato;
+              ) : (
+                selectedZone = zone_sn_brush_down_new;
+              );
+            ) : (
+              flowPath = flowA2;
+              selectedZone = zone_sn_brush_down_legato;
+            );
+            snareCCPending = 0;
+          ) : (
+            timerExpired ? (
+              flowPath = flowB1;
+              ((lastBrushTrigger == zone_sn_brush_drag_legato) || (lastBrushTrigger == zone_sn_brush_drag_rpt_legato)) ? (
+                selectedZone = zone_sn_brush_drag_legato;
+              ) : (
+                selectedZone = zone_sn_brush_drag_new;
+              );
+            ) : (
+              flowPath = flowB2;
+              ((lastBrushTrigger == zone_sn_brush_drag_legato) || (lastBrushTrigger == zone_sn_brush_drag_rpt_legato)) ? (
+                selectedZone = zone_sn_brush_drag_rpt_legato;
+              ) : (
+                selectedZone = zone_sn_brush_drag_legato;
+              );
+            );
+          );
+
+          activeSweepNote = trigger_snare + selectedZone;
+          lastBrushTrigger = selectedZone;
         ) : (
-          // Send remaining brush notes as polyphonic aftertouch
-          newBlock && midisend(offset, ((msg1 & 0x0F) | polyAft) & 0xFF, noteMap[msg2] & 0x7F, (128 - msg3) & 0x7F);
-          newBlock = 0;
-          // Suppress note on
-          noteMap[msg2] = -2;
-          passthru = 0;
+          selectedZone = activeSweepNote - trigger_snare;
         );
 
-      ) : (
+        scaleVel = gestureAccentType == 1 ? tapSweepScale : (gestureAccentType == 2 ? digSweepScale : sweepSweepScale);
+        scaledVelF = msg3 * scaleVel;
+        (brushUseHires && (hiresVelVal != 0)) ? (
+          scaledVelF += brushHiresBoost;
+        );
+        scaledVel = floor(scaledVelF + 0.5);
+        scaledVel < 1 ? scaledVel = 1;
+        scaledVel > 127 ? scaledVel = 127;
 
+        noteMap[msg2] = activeSweepNote;
+
+        brushSweepMapCount == 2 ? (
+          // Queue full: drop oldest to keep latest overlapping sweep voices.
+          brushSweepMapRead = (brushSweepMapRead + 1) % 2;
+          brushSweepMapCount = 1;
+        );
+        brushSweepMap[brushSweepMapWrite] = activeSweepNote;
+        brushSweepMapWrite = (brushSweepMapWrite + 1) % 2;
+        brushSweepMapCount = brushSweepMapCount + 1;
+
+        blocksSinceLastSnareNote = 0;
+        newBlock = 0;
+        sentBrushRelease = 0;
+        sentBrushReleaseOff = 0;
+        streamPeakRaw = max(streamPeakRaw, msg3);
+
+        dgbBrushFlow = flowPath;
+        dgbBrushZone = selectedZone;
+        dgbBrushRawVel = msg3;
+        dgbBrushScaledVel = scaledVel;
+        dgbBrushAccent = gestureAccentType;
+        dgbBrushPeakRaw = streamPeakRaw;
+        dgbBrushHasAccent = gestureHasAccent;
+
+        midisend(offset, msg1, noteMap[msg2] & 0x7F, scaledVel);
+        sentMappedNoteOn = 1;
+        passthru = 0;
+      ) : (
+        // Non-brush kit mode: treat note 23 like a snare head trigger.
         noteMap[msg2] = trigger_snare + (snareCCVal < 120
           ? zone_sn_head
           : snareCCVal < 126
             ? zone_sn_rmh
             : zone_sn_rms
           );
-
+      );
+    ) :
+    (msg2 == noteSnareHead) ? (
+      brushKit ? (
+        // Brush tap accent, keep strike velocity unchanged.
+        noteMap[msg2] = trigger_snare + zone_sn_head;
+        gestureHasAccent = 1;
+        gestureAccentType = 1;
+        dgbBrushAccent = gestureAccentType;
+        dgbBrushHasAccent = gestureHasAccent;
+      ) : (
+        noteMap[msg2] = trigger_snare + (snareCCVal < 120
+          ? zone_sn_head
+          : snareCCVal < 126
+            ? zone_sn_rmh
+            : zone_sn_rms
+          );
       );
     ) :
     (msg2 == noteSnareRim) ? (
       noteMap[msg2] = trigger_snare + (brushKit
-        ? zone_sn_rim
+        ? (
+            gestureHasAccent = 1;
+            gestureAccentType = 2;
+            dgbBrushAccent = gestureAccentType;
+            dgbBrushHasAccent = gestureHasAccent;
+            zone_sn_rim
+          )
         : // Position sensing may not be that reliable but try... no, too poor...
           // snareCCVal == 127
           //  ? zone_sn_rim
@@ -527,7 +659,7 @@ while (midirecv(offset, msg1, msg2, msg3)) (
 
     dbgMappedNote = noteMap[msg2];
 
-    (noteMap[msg2] >= 0) ? (
+    (noteMap[msg2] >= 0) && !sentMappedNoteOn ? (
       // If we have a mapping, send the noteOn with the mapped note number and indicate no passthru
       midisend(offset, msg1, noteMap[msg2] & 0x7F, msg3);
       0;
@@ -549,7 +681,13 @@ while (midirecv(offset, msg1, msg2, msg3)) (
     (msg2 == snareCC) ? (
       snareCCVal = msg3;
       dgbSnareVal = snareCCVal;
-      snareCCSinceBrushNote = 1;
+      snareCCPending = 1;
+      gestureHasAccent = 0;
+      gestureAccentType = 0;
+      streamPeakRaw = 0;
+      dgbBrushAccent = gestureAccentType;
+      dgbBrushPeakRaw = streamPeakRaw;
+      dgbBrushHasAccent = gestureHasAccent;
       passthru = 0;
     ) :
     (msg2 == rideCC) ? (
@@ -584,9 +722,9 @@ while (midirecv(offset, msg1, msg2, msg3)) (
       dgbHihatLRVal = hihatLRCCVal;
       passthru = 0;
     ) :
-    (msg2 == hihatLRCC) ? (
+    (msg2 == hiresVelCC) ? (
       hiresVelVal  = msg3;
-      dgbHiresVelVal = hiresVelCCVal;
+      dgbHiresVelVal = hiresVelVal;
       passthru = 0;
     )
 
