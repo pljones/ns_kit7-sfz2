@@ -46,7 +46,7 @@ end
 
 local enableReceivesForTrack = function(send)
     if (kitPieceGroupParentTkNo == nil) then
-	return
+        return
     end
     local tkNo = kitPieceGroupParentTkNo
     local track = reaper.GetTrack(0, tkNo)
@@ -136,7 +136,7 @@ end
 
 local muteAllRecives = function()
     if (kitPieceGroupParentTkNo == nil) then
-	return
+        return
     end
 
     local tkNo = kitPieceGroupParentTkNo
@@ -159,17 +159,27 @@ local initialise = function()
         return
     end
 
-    local section, key = "toggleTrackByOSC", "kitPieceGroupParentTkNo"
+    local section = "toggleTrackByOSC"
 
-    local stored = reaper.GetExtState(section, key)
-    if stored ~= "" then
-        kitPieceGroupParentTkNo = tonumber(stored)
-        kitPieceGroupParent = reaper.GetTrack(0, kitPieceGroupParentTkNo)
-        if (kitPieceGroupParent ~= nil) then
-            return
+    -- Try to read cached marker track from project state
+    local _, cachedIndexText = reaper.GetProjExtState(0, section, "MarkerIndex")
+    local cachedIndex = cachedIndexText and tonumber(cachedIndexText)
+    local _, cachedGUID = reaper.GetProjExtState(0, section, "MarkerGUID")
+
+    if cachedIndex then
+        local track = reaper.GetTrack(0, cachedIndex)
+        if track then
+            local _, guid = reaper.GetSetMediaTrackInfo_String(track, "GUID", "", false)
+            if guid == cachedGUID then
+                kitPieceGroupParent = track
+                kitPieceGroupParentTkNo = cachedIndex
+                return
+            end
         end
     end
 
+    -- Cache miss or validation failed - perform full search
+    -- reaper.ShowConsoleMsg("Searching for kit piece group parent track...\n")
     local kitPieceGroupParentName = "ns_kit7 groups"
 
     local srTk = 0
@@ -181,7 +191,12 @@ local initialise = function()
         then
             kitPieceGroupParent = search
             kitPieceGroupParentTkNo = srTk
-            reaper.SetExtState(section, key, tostring(kitPieceGroupParentTkNo), false)
+
+            -- Cache the marker track info to project state
+            local _, guid = reaper.GetSetMediaTrackInfo_String(search, "GUID", "", false)
+            reaper.SetProjExtState(0, section, "MarkerIndex", tostring(srTk), false)
+            reaper.SetProjExtState(0, section, "MarkerGUID", guid, false)
+
             search = nil
         else
             srTk = srTk + 1

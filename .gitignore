@@ -24,3 +24,5 @@ split ns_kit7.rpp
 test.rpp
 .idea
 .luarc.json
+**/*.rpp
+.cursor/plans/
