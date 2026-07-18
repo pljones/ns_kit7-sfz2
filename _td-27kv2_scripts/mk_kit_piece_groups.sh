@@ -383,6 +383,7 @@ function do_snare_group () {
 	echo " set_hdcc${_cc}=0.5   label_cc${_cc}=snare (cc${_cc})"
 	gain_cc[snare]=${_cc}
 	((_cc++))
+	[[ "${btr}" == "brs" ]] && echo " set_hdcc${_cc}=0.5   label_cc${_cc}=brush (cc${_cc})"
 	gain_cc[brush]=${_cc}
 	((_cc++))
 
