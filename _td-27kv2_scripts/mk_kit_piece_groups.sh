@@ -305,9 +305,10 @@ function echo_global_header () {
  // play samples in full, ignoring note off
  loop_mode=one_shot
 
- // when sample release is triggered by an off_by group, set a noticable release for ambience
+ // when sample release is triggered by an off_by group or voice stealing, set a noticable release for ambience
  off_mode=normal
- ampeg_release=.5
+ ampeg_release=0.5
+ off_time=0.5
 @EOF
 }
 
