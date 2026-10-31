@@ -26,7 +26,9 @@ piccolo=(  [hihats]=hh13 [kicks]=kd22_noreso [snares]=sn10_piccolo   [toms]=tm_d
 rock=(     [hihats]=hh13 [kicks]=kd20_punch  [snares]=sn14_rock      [toms]=tm_rock   [btrs_off]="stx"         [btrs_on]="brs stx")
 tight=(    [hihats]=hh14 [kicks]=kd20_full   [snares]=sn12_tight     [toms]=tm_rock                            [btrs_on]="stx")
 
-declare -A polycount=([cymbals]=8 [hihats]=4 [kicks]=4 [snares]=4 [toms]=8 [cowbell]=1 [tambourine]=3)
+# UI only supports: 1 2 8 *no 4 (UI bug)* 16 32 64 128
+# https://discord.com/channels/570240469804777472/1353422811204554805/1528026765535088741
+declare -A polycount=([cymbals]=32 [hihats]=16 [cowbell]=2 [tambourine]=8 [snares]=8 [toms]=16 [kicks]=8)
 function poly () {
 	local name=$1; shift || { echo "poly: Missing name" >&2; exit 1; }
 	local piece="${name#*_}"
