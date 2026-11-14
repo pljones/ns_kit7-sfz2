@@ -16,55 +16,65 @@ fi
 ranges=$1; shift || { echo "Missing ranges" >&2; exit 1; }
 samples=$1; shift || { echo "Missing samples" >&2; exit 1; }
 
-# SFZ uses the following as the default method of determining dB adjustment based on velocity:
-#     dB = -20 * log10(127^2 / Velocity^2)  (note: base-10 logarithm)
-# The aim here is to determine, for a given sample, what the "best" velocity to trigger it would be.
-# I start by reversing the calculation:
-#     dB / -20 = log10(127^2 / Velocity^2)             -- divide through by "-20"
-#     dB / -20 = log10(127^2) - log10(Velocity^2)      -- split the division inside the log function
-#     log10(Velocity^2) = log10(127^2) - (dB / -20)    -- add through by log10(Velocity^2), subtract through by (dB / -20)
-#     Velocity^2 = 10^(log10(127^2) - (dB / -20))      -- exponentiate (base 10)
-#     Velocity^2 = 127^2 / 10^(dB / -20)               -- simplify
-#     Velocity = 127 / 10^(dB / -40)                   -- take square root
-#
-# The idea then is to
-# - for each "dB path" matching "base_path"
-#   - dB_hi     is the group high dB level
-#   - dB_sample is the dB level for the individual sample in the group
-#
-#   - return: Velocity = 127 / 10^((dB_sample - dB_hi) / -40)
-#
-# That gives a _velocity_ range from "lovel" to 127.
-# To spread the available samples over the full range, the "spread_velocity" function:
-#     Divides 127 by size of the initial range "127 / (128 - lo_vel)" to get the scaling factor "f"
-#     Multiplies the reduction from 127 of the sample velocity by "f" and adds this to 127
-#
-# As an extra bonus, I then go through the groups of samples that make up one kit piece to find those with the same hivel
-# (well, "amp_velcurve_N=1" value) and make them round robin groups.
-#
+# Velocities are assigned by clustering sample loudness (see cluster_velocity below), not by SFZ's default
+# dB curve, so quiet detail and loud "all the same" samples both get a sensible share of 1..127.
 # The "mishits" are factored out.  Maybe they shouldn't be?
 #
-function velocity() {
+# Reads "dB_sample sample_path" lines in ascending dB order on stdin.
+# Writes "dB_sample sample_path vel hi_vel amp_veltrack lo_vel seq_position seq_length" lines.
+# 1. Samples closer than GAP dB to their neighbour form a cluster ("more or less the same loudness").
+#    If that gives too many clusters, the gap is widened until at most MAXC clusters remain.
+# 2. Clusters are ordered by mean dB and given contiguous velocity bands covering exactly 1..127.
+#    Band width is half the cluster's share of the dB range, half its share of the samples,
+#    with a minimum of MINW velocities each (reduced if there are too many clusters).
+# 3. Every sample in a cluster shares the band and is a round robin member.
+# 4. amp_veltrack (column name kept) is the gain at the band bottom (lo_vel): the cluster mean relative to the one below,
+#    so each band starts as loud as the previous band ends. The band top has gain 1.
+function cluster_velocity() {
 	local dB_hi=$1; shift || { echo "Missing dB_hi" >&2; return 1; }
-	local dB_lo=$1; shift || { echo "Missing dB_lo" >&2; return 1; }
 
-	awk '{
-		# SFZ curve: dB = -20 * log10(127^2 / Velocity^2)
-		# Solving for Velocity: Velocity = 127 / 10^(dB / -40)
-		f = 127 / (10 ^ (($2 - $1) / -40));
-		printf("%d\n", f + 0.5);
-	}' <<<"$dB_hi $dB_lo"
-}
-
-function spread_velocity() {
-	local lo_vel=$1; shift || { echo "Missing lo_vel" >&2; return 1; }
-	local vel=$1; shift || { echo "Missing vel" >&2; return 1; }
-
-	awk '{
-		f = 127 / (128 - $1);
-		vel = ($2 - 127) * f + 127;
-		printf("%d\n", vel);
-	}' <<<"$lo_vel $vel"
+	awk -v dB_hi="$dB_hi" -v GAP=1.5 -v MAXC=24 -v MINW=4 '
+	{ db[NR] = $1; path[NR] = $2 }
+	END {
+		n = NR; if (n == 0) exit;
+		gap = GAP;
+		for (;;) {
+			k = 1; start[1] = 1;
+			for (i = 2; i <= n; i++) if (db[i] - db[i-1] > gap) { k++; start[k] = i }
+			if (k <= MAXC) break;
+			gap *= 1.25;
+		}
+		for (c = 1; c <= k; c++) {
+			e = (c < k) ? start[c+1] - 1 : n;
+			cnt[c] = e - start[c] + 1; sum = 0;
+			for (i = start[c]; i <= e; i++) sum += db[i];
+			mean[c] = sum / cnt[c];
+		}
+		# dB territory of each cluster: half the distance between neighbouring means
+		total = 0;
+		for (c = 1; c <= k; c++) {
+			lo = (c > 1) ? (mean[c] + mean[c-1]) / 2 : mean[c] - (k > 1 ? (mean[2] - mean[1]) / 2 : 0);
+			hi = (c < k) ? (mean[c] + mean[c+1]) / 2 : mean[c] + (k > 1 ? (mean[k] - mean[k-1]) / 2 : 0);
+			terr[c] = hi - lo; total += terr[c];
+		}
+		minw = MINW; if (k * minw > 127) minw = int(127 / k);
+		spare = 127 - k * minw;
+		acc = 0; prev = 0;
+		for (c = 1; c <= k; c++) {
+			w = (total > 0) ? terr[c] / total : 1 / k;
+			wt = 0.5 * w + 0.5 * cnt[c] / n;
+			acc += wt;
+			cum = (c == k) ? 127 : int(c * minw + spare * acc + 0.5);
+			bhi[c] = cum; blo[c] = prev + 1; prev = cum;
+		}
+		for (c = 1; c <= k; c++) {
+			e = (c < k) ? start[c+1] - 1 : n;
+			# gain at the bottom of the band, so this cluster starts as loud as the one below tops out
+			amp = (c > 1) ? 10 ^ ((mean[c-1] - mean[c]) / 20) : 0.5;
+			for (i = start[c]; i <= e; i++)
+				printf("%s %s %d %d %.2f %d %d %d\n", db[i], path[i], bhi[c], bhi[c], amp, blo[c], i - start[c] + 1, cnt[c]);
+		}
+	}'
 }
 
 declare -a group
@@ -205,127 +215,14 @@ do
 		group+=("$dB_sample $sample_path")
 	done < <(grep "${base_path#[abcprx]_}$filter" "$samples" | sort -k1,1n)
 
-	# Append "standard velocity" for each dB
-	vel_min=0
-	group_vels=()
-	for i in ${!group[@]}
-	do
-		read dB_sample sample_path <<<"${group[$i]}"
-		vel=$(velocity $dB_hi $dB_sample) || exit 1
-		[[ $vel_min -eq 0 || $vel_min -gt $vel ]] && vel_min=$vel || true ;# catch the lowest velocity
-		if [[ $vel -gt 127 ]]
-		then
-			echo "{$dB_sample} converted to out of range velocity {$vel}" >&2
-			exit 1
-		fi
-		group_vels+=("$dB_sample $sample_path $vel")
-	done
-	[[ ${#group_vels[@]} -eq ${#group[@]} ]] || {
-		echo "Append standard velocity dropped samples" >&2
-		exit 1
-	}
-
-	# Spread velocities from 1 to 127 and compute amp_veltrack to compensate the curve
-	dB_prev=""
-	spread_vels=()
-	for i in ${!group_vels[@]}
-	do
-		read dB_sample sample_path vel <<<"${group_vels[$i]}"
-
-		hi_vel=$(spread_velocity $vel_min $vel)
-		[[ $hi_vel -le 127 ]] || {
-			echo "{$vel} spread from {$vel_min} to out of range velocity {$hi_vel}" >&2
-			exit 1
-		}
-
-		[[ "$dB_prev" != "" ]] || dB_prev="$dB_sample" ;# catch the first (lowest) amplitude
-		amp_veltrack=$(awk '{ printf("%.3f\n", $1 / $2); }' <<<"$dB_sample $dB_prev")
-
-		spread_vels+=("$dB_sample $sample_path $vel $hi_vel $amp_veltrack")
-		dB_prev="$dB_sample"
-	done
-	[[ ${#spread_vels[@]} -eq ${#group_vels[@]} ]] || {
-		echo "Spread velocities dropped samples" >&2
-		exit 1
-	}
-
-	# Now process in descending order to assign lovel
-	group_desc=()
-	i=${#spread_vels[@]}
-	while [[ $i -gt 0 ]]
-	do
-		i=$(( i - 1 ))
-		group_desc+=("${spread_vels[$i]}")
-	done
-	[[ ${#group_desc[@]} -eq ${#spread_vels[@]} ]] || {
-		echo "Group descending dropped samples" >&2
-		exit 1
-	}
-
-	with_lovel=()
-	read dB_sample sample_path vel hi_vel amp_veltrack <<<"${group_desc[0]}"
-	hi_vel=127  ;# because this is first in descending order
-	for i in ${!group_desc[@]}
-	do
-		i=$((i + 1 ))
-		[[ $i -lt ${#group_desc[@]} ]] || break
-		read n_dB_sample n_sample_path n_vel n_hi_vel n_amp_veltrack <<<"${group_desc[$i]}"
-
-		# use one above the next hivel in descending order:
-		with_lovel+=("$dB_sample $sample_path $vel $hi_vel $amp_veltrack $(( $n_hi_vel + 1 ))")
-
-		# and save that row
-		read dB_sample sample_path vel hi_vel amp_veltrack <<<"${group_desc[$i]}"
-	done
-	with_lovel+=("$dB_sample $sample_path $vel $hi_vel $amp_veltrack 1") ;# because this is last in descending order
-	[[ ${#with_lovel[@]} -eq ${#group_desc[@]} ]] || {
-		echo "Adding lovel dropped samples" >&2
-		exit 1
-	}
-
-	# Back to ascending for round robins
-	group_asc=()
-	i=${#spread_vels[@]}
-	while [[ $i -gt 0 ]]
-	do
-		i=$(( i - 1 ))
-		group_asc+=("${with_lovel[$i]}")
-	done
-	[[ ${#group_asc[@]} -eq ${#with_lovel[@]} ]] || {
-		echo "Group ascending dropped samples" >&2
-		exit 1
-	}
-
+	# Cluster by loudness, allocate velocity bands, round robin within clusters
 	group_seq=()
-	i=0
-	while [[ $i -lt ${#group_asc[@]} ]]
+	while read -r line
 	do
-		rr_g=($i)
-		read dB_sample sample_path vel hi_vel amp_veltrack lo_vel <<<"${group_asc[$i]}"
-
-		# Get a list of all samples with the same hivel
-		i=$((i + 1 ))
-		while [[ $i -lt ${#group_asc[@]} ]]
-		do
-			read n_dB_sample n_sample_path n_vel n_hi_vel n_amp_veltrack n_lo_vel <<<"${group_asc[$i]}"
-			[[ $n_hi_vel == $hi_vel ]] || break
-			rr_g+=($i)
-			i=$(( i + 1 ))
-		done
-
-		# All use the same lovel
-		read l_dB_sample l_sample_path l_vel l_hi_vel l_amp_veltrack l_lo_vel <<<"${group_asc[${rr_g[0]}]}"
-		for r_i in ${!rr_g[@]}
-		do
-			r=${rr_g[$r_i]}
-			read s_dB_sample s_sample_path s_vel s_hi_vel s_amp_veltrack s_lo_vel <<<"${group_asc[$r]}"
-			group_seq+=("$s_dB_sample $s_sample_path $s_vel $s_hi_vel $s_amp_veltrack $l_lo_vel $(( $r_i + 1 )) ${#rr_g[@]}")
-		done
-		read dB_sample sample_path vel hi_vel amp_veltrack lo_vel <<<""
-		rr_g=()
-	done
-	[[ ${#group_seq[@]} -eq ${#group_asc[@]} ]] || {
-		echo "Round robin dropped samples -- now {${#group_seq[@]}}; was {${#group_asc[@]}}" >&2
+		group_seq+=("$line")
+	done < <(printf '%s\n' "${group[@]}" | cluster_velocity "$dB_hi")
+	[[ ${#group_seq[@]} -eq ${#group[@]} ]] || {
+		echo "Clustering dropped samples -- now {${#group_seq[@]}}; was {${#group[@]}}" >&2
 		exit 1
 	}
 
@@ -333,7 +230,9 @@ do
 	for i in ${!group_seq[@]}
 	do
 		read dB_sample sample_path vel hi_vel amp_veltrack lo_vel seq_position seq_length <<<"${group_seq[$i]}"
-		echo "<region> lovel=$lo_vel hivel=$hi_vel amp_velcurve_$hi_vel=1 amp_veltrack=$amp_veltrack seq_position=$seq_position seq_length=$seq_length sample=../samples/$sample_path"; # dB_sample {$dB_sample}
+		curve="amp_velcurve_$hi_vel=1"
+		[[ $lo_vel -lt $hi_vel ]] && curve="amp_velcurve_$lo_vel=$amp_veltrack $curve"
+		echo "<region> lovel=$lo_vel hivel=$hi_vel $curve seq_position=$seq_position seq_length=$seq_length sample=../samples/$sample_path"; # dB_sample {$dB_sample}
 	done > "kit_pieces/${f}.sfzh"
 
 echo >&2 "base_path {$base_path}; f {$f}"

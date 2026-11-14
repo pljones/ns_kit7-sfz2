@@ -29,6 +29,8 @@ flowchart
   all_triggers --> |"<code>./mk_kit_piece_groups.sh</code>"| kit_piece_groups[(_kit_piece_groups/\* Shared kit piece groups used to make kits)]
 ```
 First, we need the "true peak" levels of each sample (not RMS or whatever I got from VelLeveler originally).
+(Or the RMS... I'm still not sure which I prefer...
+Try each - run the script and dump the kit piece groups in place, no need to swap anything else.)
 
 Assuming the current working directory contains this `README.md`,
 in `..`, link `_samples` to wherever the samples live.
