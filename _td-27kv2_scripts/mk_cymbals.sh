@@ -10,6 +10,9 @@ fi
 . utils.sh
 
 # off_by group 600xxx000
+# common cymbal group 600000000: mallet rolls (max polyphony 1) are in it and off_by it;
+# every other articulation (and grabs) also has a silent region in it, so any other cymbal
+# articulation (any cymbal) mutes a roll, and a new roll cuts the previous one
 # trigger group 500xxxyyy
 
 # ns_kit7 cymbals
@@ -182,6 +185,11 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 						group_no="600${group}000"
 						echo "<group> key=\$${key} group=${group_no} group_label=${cymbal}_mute"
 						echo " lopolyaft=064 hipolyaft=127"
+					elif [[ $articulation == rol ]]
+					then
+						echo "<group> key=\$${key} group=600000000 group_label=cymbal_roll_mute"
+						echo " off_by=600000000 polyphony=1"
+						echo " lopolyaft=000 hipolyaft=063"
 					else
 						group_no="500${group}$(printf "%03d\n" $i)"
 						echo "<group> key=\$${key} group=${group_no} group_label=${key}_${articulation}"
@@ -190,11 +198,22 @@ echo >&2 "triggers/$beater/cymbals/${cymbal}.sfzh"
 					fi
 					echo "#include \"kit_pieces/cymbals/${f}.sfzh\""
 
+					if [[ $articulation != rol ]]
+					then
+						echo ""
+						echo "<group> key=\$${key} group=600000000 group_label=cymbal_roll_mute"
+						$is_grab && echo " lopolyaft=064 hipolyaft=127" || echo " lopolyaft=000 hipolyaft=063"
+						echo "<region> end=-1 sample=*silence"
+					fi
+
 					if ! $is_grab
 					then
 						echo ""
 						group_no="600${group}000"
 						echo "<group> key=-1 group=${group_no} group_label=${cymbal}_mute"
+						echo " on_locc130=001 on_hicc130=127 locc133=\$${key} hicc133=\$${key}"
+						echo "<region> end=-1 sample=*silence"
+						echo "<group> key=-1 group=600000000 group_label=cymbal_roll_mute"
 						echo " on_locc130=001 on_hicc130=127 locc133=\$${key} hicc133=\$${key}"
 						echo "<region> end=-1 sample=*silence"
 					fi
