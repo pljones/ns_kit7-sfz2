@@ -89,12 +89,13 @@ function do_rr () {
 	local lo_rr=$1;      shift || { echo "do_rr: Missing lo_rr" >&2; exit 1; }
 	local hi_rr=$1;      shift || { echo "do_rr: Missing lo_rr" >&2; exit 1; }
 	local -n max_ref=$1; shift || { echo "do_rr: Missing max_duration reference" >&2; exit 1; }
+	local extra="${1:-}"
 
 	[[ -f "$f" ]] || { echo "do_rr: Invalid filename {$f}" >&2; exit 1; }
 
 	[[ $articulation == rol ]] || get_durations $f max_ref
 
-	echo "<group> key=\$$trigger group_label=$trigger"
+	echo "<group> key=\$$trigger group_label=$trigger${extra:+ $extra}"
 	[[ "$lo_rr" == '' && "$hi_rr" == '' ]] || echo " lorand=${lo_rr} hirand=${hi_rr}"
 	echo "#include \"$f\""
 }
@@ -119,12 +120,14 @@ do
 		[[ -v keys[$trigger] ]] || { keys[$trigger]=1; [[ -v keys[keys] ]] && keys[keys]="${keys[keys]} ${trigger}" || keys[keys]="${trigger}"; }
 [[ ! -f $t ]] && echo >&2 "$t"
 		f="kit_pieces/percussion/tambourine_pn9_${beater}_${articulation}"
+		# Tambourine mute: jng is choked (off_by) by any other tambourine articulation (group)
+		# off_by group 603001000 / trigger group 503001001
 		if [[ $articulation == jng ]]
 		then
-			do_rr "${trigger}" "${f}_l.sfzh" 0.0 0.5 max_duration >> $t
-			do_rr "${trigger}" "${f}_r.sfzh" 0.5 1.0 max_duration >> $t
+			do_rr "${trigger}" "${f}_l.sfzh" 0.0 0.5 max_duration "group=503001001 off_by=603001000" >> $t
+			do_rr "${trigger}" "${f}_r.sfzh" 0.5 1.0 max_duration "group=503001001 off_by=603001000" >> $t
 		else
-			do_rr "${trigger}" "${f}.sfzh"   ''  ''  max_duration >> $t
+			do_rr "${trigger}" "${f}.sfzh"   ''  ''  max_duration "group=603001000" >> $t
 		fi
 
 		# } - articulation
