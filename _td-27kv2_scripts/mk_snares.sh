@@ -413,7 +413,7 @@ function do_articulation () {
 	[[ -f "kit_pieces/snares/${sfz_file}.sfzh" ]] || { echo "do_articulation: new kit piece ${sfz_file} not found" >&2; exit 1; }
 	[[ -f "../snares/${sfz_file}.sfz" ]] || { echo "do_articulation: old kit piece ${sfz_file} not found" >&2; exit 1; }
 
-	[[ $articulation =~ ^rol|swc$ ]] || get_durations kit_pieces/snares/${sfz_file}.sfzh max_duration || { echo "do_articulation: get_durations failed" >&2; exit 1; }
+	[[ $articulation =~ ^(rol|swc)$ ]] || get_durations kit_pieces/snares/${sfz_file}.sfzh max_duration || { echo "do_articulation: get_durations failed" >&2; exit 1; }
 
 	if [[ "${beater}" == "brs" ]]
 	then
